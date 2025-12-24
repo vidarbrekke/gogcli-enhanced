@@ -87,8 +87,8 @@ func TestGmailWatchStartCmd_JSON(t *testing.T) {
 			"--include-body",
 			"--max-bytes", "5",
 		})
-		if err := cmd.Execute(); err != nil {
-			t.Fatalf("execute: %v", err)
+		if execErr := cmd.Execute(); execErr != nil {
+			t.Fatalf("execute: %v", execErr)
 		}
 	})
 
@@ -102,8 +102,8 @@ func TestGmailWatchStartCmd_JSON(t *testing.T) {
 	var parsed struct {
 		Watch gmailWatchState `json:"watch"`
 	}
-	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
-		t.Fatalf("json parse: %v", err)
+	if parseErr := json.Unmarshal([]byte(out), &parsed); parseErr != nil {
+		t.Fatalf("json parse: %v", parseErr)
 	}
 	if parsed.Watch.HistoryID != "123" {
 		t.Fatalf("unexpected history: %#v", parsed.Watch)
@@ -135,11 +135,11 @@ func TestGmailWatchServerServeHTTP_TruncateBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("store: %v", err)
 	}
-	if err := store.Update(func(s *gmailWatchState) error {
+	if updateErr := store.Update(func(s *gmailWatchState) error {
 		*s = gmailWatchState{Account: "me@example.com", HistoryID: "100"}
 		return nil
-	}); err != nil {
-		t.Fatalf("store update: %v", err)
+	}); updateErr != nil {
+		t.Fatalf("store update: %v", updateErr)
 	}
 
 	bodyEncoded := base64.RawURLEncoding.EncodeToString([]byte("hello world"))

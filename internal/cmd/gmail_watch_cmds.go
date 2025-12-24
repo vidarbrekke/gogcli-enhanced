@@ -198,8 +198,8 @@ func newGmailWatchStopCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := svc.Users.Stop("me").Do(); err != nil {
-				return err
+			if stopErr := svc.Users.Stop("me").Do(); stopErr != nil {
+				return stopErr
 			}
 			store, err := newGmailWatchStore(account)
 			if err == nil && store.path != "" {
@@ -279,12 +279,12 @@ func newGmailWatchServeCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			if saveHook && hook != nil {
-				if err := store.Update(func(s *gmailWatchState) error {
+				if updateErr := store.Update(func(s *gmailWatchState) error {
 					s.Hook = hook
 					s.UpdatedAtMs = time.Now().UnixMilli()
 					return nil
-				}); err != nil {
-					return err
+				}); updateErr != nil {
+					return updateErr
 				}
 			}
 
