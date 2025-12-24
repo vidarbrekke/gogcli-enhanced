@@ -95,3 +95,22 @@ func EnsureGmailAttachmentsDir() (string, error) {
 	}
 	return dir, nil
 }
+
+func GmailWatchDir() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "state", "gmail-watch"), nil
+}
+
+func EnsureGmailWatchDir() (string, error) {
+	dir, err := GmailWatchDir()
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
