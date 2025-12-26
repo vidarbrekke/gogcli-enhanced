@@ -63,10 +63,25 @@ func TestExecute_DriveMoreCommands_JSON(t *testing.T) {
 			return
 		case strings.Contains(path, "/files/id1") && (r.Method == http.MethodPatch || r.Method == http.MethodPut):
 			w.Header().Set("Content-Type", "application/json")
+			if addParents := r.URL.Query().Get("addParents"); addParents != "" {
+				if addParents != "np" {
+					t.Fatalf("expected addParents=np, got: %q", r.URL.RawQuery)
+				}
+				if got := r.URL.Query().Get("removeParents"); got != "p0" {
+					t.Fatalf("expected removeParents=p0, got: %q", r.URL.RawQuery)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"id":          "id1",
+					"name":        "New",
+					"parents":     []string{"np"},
+					"webViewLink": "https://example.com/id1",
+				})
+				return
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"id":          "id1",
 				"name":        "New",
-				"parents":     []string{"np"},
+				"parents":     []string{"p0"},
 				"webViewLink": "https://example.com/id1",
 			})
 			return
@@ -114,7 +129,7 @@ func TestExecute_DriveMoreCommands_JSON(t *testing.T) {
 			}
 		})
 		_ = captureStdout(t, func() {
-			if err := Execute([]string{"--json", "--account", "a@b.com", "drive", "upload", tmpFile, "--name", "upload.bin", "--folder", "np"}); err != nil {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "drive", "upload", tmpFile, "--name", "upload.bin", "--parent", "np"}); err != nil {
 				t.Fatalf("upload: %v", err)
 			}
 		})
@@ -129,7 +144,7 @@ func TestExecute_DriveMoreCommands_JSON(t *testing.T) {
 			}
 		})
 		_ = captureStdout(t, func() {
-			if err := Execute([]string{"--json", "--account", "a@b.com", "drive", "move", "id1", "np"}); err != nil {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "drive", "move", "id1", "--parent", "np"}); err != nil {
 				t.Fatalf("move: %v", err)
 			}
 		})
