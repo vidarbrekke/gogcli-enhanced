@@ -29,6 +29,11 @@ type AuthorizeOptions struct {
 	Timeout      time.Duration
 }
 
+// postSuccessDisplaySeconds is the number of seconds the success page remains
+// visible before the local OAuth server shuts down. This value must match the
+// JavaScript countdown in templates/success.html and templates/success_new.html.
+const postSuccessDisplaySeconds = 30
+
 var (
 	readClientCredentials = config.ReadClientCredentials
 	openBrowserFn         = openBrowser
@@ -193,10 +198,9 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 			_ = srv.Close()
 			return "", errors.New("no refresh token received; try again with --force-consent")
 		}
-		// Keep server running 30 seconds after success to show success screen
-		// Use select to allow cancellation via Ctrl+C
+		// Keep server running to show success screen; allow cancellation via Ctrl+C
 		select {
-		case <-time.After(30 * time.Second):
+		case <-time.After(postSuccessDisplaySeconds * time.Second):
 		case <-ctx.Done():
 		}
 		_ = srv.Close()
