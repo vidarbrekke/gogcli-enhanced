@@ -1,9 +1,11 @@
 # Changelog
 
-## 0.4.3 - Unreleased
+## 0.5.0 - Unreleased
 
 - Auth: `gog auth list --check` validates refresh tokens by exchanging for an access token.
+- Auth: OAuth browser flow now finishes immediately after callback (no 30s “stuck” delay).
 - Secrets: add `GOG_KEYRING_BACKEND={auto|keychain|file}` to force backend (use `file` to avoid Keychain prompts; pair with `GOG_KEYRING_PASSWORD`).
+- Docs: explain macOS Keychain prompts and backend options.
 
 ## 0.4.2 - 2025-12-31
 
