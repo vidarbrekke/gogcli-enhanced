@@ -298,6 +298,10 @@ gog calendar update <calendarId> <eventId> \
   --from 2025-01-15T11:00:00Z \
   --to 2025-01-15T12:00:00Z
 
+# Add attendees without replacing existing attendees/RSVP state
+gog calendar update <calendarId> <eventId> \
+  --add-attendee "alice@example.com,bob@example.com"
+
 gog calendar delete <calendarId> <eventId>
 
 # Invitations

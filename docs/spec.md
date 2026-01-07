@@ -154,7 +154,7 @@ Environment:
 - `gog calendar events <calendarId> [--from RFC3339] [--to RFC3339] [--max N] [--page TOKEN] [--query Q]`
 - `gog calendar event <calendarId> <eventId>`
 - `gog calendar create <calendarId> --summary S --from DT --to DT [--description D] [--location L] [--attendees a@b.com,c@d.com] [--all-day]`
-- `gog calendar update <calendarId> <eventId> [--summary S] [--from DT] [--to DT] [--description D] [--location L] [--attendees ...] [--all-day]`
+- `gog calendar update <calendarId> <eventId> [--summary S] [--from DT] [--to DT] [--description D] [--location L] [--attendees ...] [--add-attendee ...] [--all-day]`
 - `gog calendar delete <calendarId> <eventId>`
 - `gog calendar freebusy <calendarIds> --from RFC3339 --to RFC3339`
 - `gog calendar respond <calendarId> <eventId> --status accepted|declined|tentative [--send-updates all|none|externalOnly]`

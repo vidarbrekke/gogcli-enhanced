@@ -174,13 +174,12 @@ func helpDescription() string {
 	}
 
 	backendInfo, err := secrets.ResolveKeyringBackendInfo()
-	backendLine := "unknown"
 	if err != nil {
-		backendLine = fmt.Sprintf("error: %v", err)
-	} else {
-		backendLine = fmt.Sprintf("%s (source: %s)", backendInfo.Value, backendInfo.Source)
+		backendLine := fmt.Sprintf("error: %v", err)
+		return fmt.Sprintf("%s\n\nConfig:\n  file: %s\n  keyring backend: %s", desc, configLine, backendLine)
 	}
 
+	backendLine := fmt.Sprintf("%s (source: %s)", backendInfo.Value, backendInfo.Source)
 	return fmt.Sprintf("%s\n\nConfig:\n  file: %s\n  keyring backend: %s", desc, configLine, backendLine)
 }
 
