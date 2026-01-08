@@ -73,7 +73,14 @@ fmt-check: tools
 lint: tools
 	@$(GOLANGCI_LINT) run
 
+pnpm-gate:
+	@if [ -f package.json ] || [ -f package.json5 ] || [ -f package.yaml ]; then \
+		pnpm lint && pnpm build && pnpm test; \
+	else \
+		echo "pnpm gate skipped (no package.json)"; \
+	fi
+
 test:
 	@go test ./...
 
-ci: fmt-check lint test
+ci: pnpm-gate fmt-check lint test
