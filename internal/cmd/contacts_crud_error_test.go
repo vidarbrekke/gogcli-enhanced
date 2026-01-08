@@ -273,6 +273,49 @@ func TestContactsOtherDelete_CopyFailure(t *testing.T) {
 	}
 }
 
+func TestContactsOtherDelete_CopyMissingResource(t *testing.T) {
+	origOther := newPeopleOtherContactsService
+	origContacts := newPeopleContactsService
+	t.Cleanup(func() {
+		newPeopleOtherContactsService = origOther
+		newPeopleContactsService = origContacts
+	})
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "otherContacts/") && strings.Contains(r.URL.Path, ":copyOtherContactToMyContactsGroup") && r.Method == http.MethodPost:
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{})
+			return
+		default:
+			http.NotFound(w, r)
+			return
+		}
+	}))
+	defer srv.Close()
+
+	svc, err := people.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newPeopleOtherContactsService = func(context.Context, string) (*people.Service, error) { return svc, nil }
+	newPeopleContactsService = func(context.Context, string) (*people.Service, error) { return svc, nil }
+
+	flags := &RootFlags{Account: "a@b.com", Force: true}
+
+	err = runKong(t, &ContactsOtherDeleteCmd{}, []string{"otherContacts/abc123"}, context.Background(), flags)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "copy to my contacts: empty resource name") {
+		t.Fatalf("expected error to contain 'copy to my contacts: empty resource name', got: %v", err)
+	}
+}
+
 func TestContactsOtherDelete_DeleteFailure(t *testing.T) {
 	origOther := newPeopleOtherContactsService
 	origContacts := newPeopleContactsService

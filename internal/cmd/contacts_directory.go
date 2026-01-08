@@ -358,6 +358,9 @@ func (c *ContactsOtherDeleteCmd) Run(ctx context.Context, flags *RootFlags) erro
 	if err != nil {
 		return fmt.Errorf("copy to my contacts: %w", err)
 	}
+	if copied == nil || strings.TrimSpace(copied.ResourceName) == "" {
+		return fmt.Errorf("copy to my contacts: empty resource name")
+	}
 
 	// Step 2: Delete the copied contact from My Contacts
 	contactsSvc, err := newPeopleContactsService(ctx, account)
