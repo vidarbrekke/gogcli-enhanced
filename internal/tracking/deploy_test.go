@@ -31,6 +31,20 @@ func TestSanitizeWorkerName(t *testing.T) {
 	}
 }
 
+func TestDefaultWorkerName(t *testing.T) {
+	if got := DefaultWorkerName(""); got != "gog-email-tracker" {
+		t.Fatalf("unexpected default name: %q", got)
+	}
+
+	if got := DefaultWorkerName("  "); got != "gog-email-tracker" {
+		t.Fatalf("unexpected whitespace name: %q", got)
+	}
+
+	if got := DefaultWorkerName("Test@Example.com"); !strings.HasPrefix(got, "gog-email-tracker-") {
+		t.Fatalf("unexpected prefixed name: %q", got)
+	}
+}
+
 func TestParseDatabaseID(t *testing.T) {
 	cases := []struct {
 		input string
@@ -51,6 +65,29 @@ func TestParseDatabaseID(t *testing.T) {
 
 	if got := parseDatabaseID("nope"); got != "" {
 		t.Fatalf("expected empty id, got %q", got)
+	}
+}
+
+func TestReplaceTomlString(t *testing.T) {
+	content := strings.Join([]string{
+		`name = "old"`,
+		`database_name = "old-db"`,
+		`database_id = "old-id"`,
+	}, "\n")
+
+	content = replaceTomlString(content, "name", "new")
+	content = replaceTomlString(content, "database_id", "new-id")
+
+	if !strings.Contains(content, `name = \"new\"`) {
+		t.Fatalf("expected name replacement, got %q", content)
+	}
+
+	if !strings.Contains(content, `database_id = \"new-id\"`) {
+		t.Fatalf("expected id replacement, got %q", content)
+	}
+
+	if !strings.Contains(content, `database_name = "old-db"`) {
+		t.Fatalf("unexpected database_name replacement: %q", content)
 	}
 }
 

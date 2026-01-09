@@ -97,6 +97,26 @@ func TestHelpProfile(t *testing.T) {
 	}
 }
 
+func TestHelpProfileNoColorEnv(t *testing.T) {
+	orig := os.Getenv("NO_COLOR")
+	t.Cleanup(func() { _ = os.Setenv("NO_COLOR", orig) })
+
+	_ = os.Setenv("NO_COLOR", "1")
+	if got := helpProfile(io.Discard, "always"); got != termenv.Ascii {
+		t.Fatalf("expected ascii profile with NO_COLOR")
+	}
+}
+
+func TestHelpProfileAlways(t *testing.T) {
+	orig := os.Getenv("NO_COLOR")
+	t.Cleanup(func() { _ = os.Setenv("NO_COLOR", orig) })
+
+	_ = os.Setenv("NO_COLOR", "")
+	if got := helpProfile(io.Discard, "always"); got != termenv.TrueColor {
+		t.Fatalf("expected truecolor profile")
+	}
+}
+
 func TestHelpOptionsEnv(t *testing.T) {
 	orig := os.Getenv("GOG_HELP")
 	t.Cleanup(func() { _ = os.Setenv("GOG_HELP", orig) })

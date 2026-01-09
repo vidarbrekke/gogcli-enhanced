@@ -109,3 +109,47 @@ func TestFileKeyringPasswordFuncFrom(t *testing.T) {
 		t.Fatalf("expected no TTY error, got: %v", err)
 	}
 }
+
+func TestKeyringStoreSetTokenErrors(t *testing.T) {
+	store := &KeyringStore{ring: keyring.NewArrayKeyring(nil)}
+
+	if err := store.SetToken(" ", Token{RefreshToken: "rt"}); !errors.Is(err, errMissingEmail) {
+		t.Fatalf("expected missing email, got %v", err)
+	}
+
+	if err := store.SetToken("a@b.com", Token{}); !errors.Is(err, errMissingRefreshToken) {
+		t.Fatalf("expected missing refresh token, got %v", err)
+	}
+}
+
+func TestSetSecretMissingKey(t *testing.T) {
+	if err := SetSecret(" ", []byte("data")); !errors.Is(err, errMissingSecretKey) {
+		t.Fatalf("expected missing key, got %v", err)
+	}
+}
+
+func TestOpenDefaultError(t *testing.T) {
+	origOpen := openKeyringFunc
+
+	t.Cleanup(func() { openKeyringFunc = origOpen })
+
+	openKeyringFunc = func() (keyring.Keyring, error) {
+		return nil, errTestKeychain
+	}
+
+	if _, err := OpenDefault(); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestKeyringStoreDeleteAndDefaultErrors(t *testing.T) {
+	store := &KeyringStore{ring: keyring.NewArrayKeyring(nil)}
+
+	if err := store.DeleteToken(" "); !errors.Is(err, errMissingEmail) {
+		t.Fatalf("expected missing email, got %v", err)
+	}
+
+	if err := store.SetDefaultAccount(" "); !errors.Is(err, errMissingEmail) {
+		t.Fatalf("expected missing email, got %v", err)
+	}
+}

@@ -12,13 +12,16 @@ import (
 func TestResolveDriveDownloadDestPath(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
 
 	if _, err := resolveDriveDownloadDestPath(nil, ""); err == nil {
 		t.Fatalf("expected error for nil meta")
 	}
+
 	if _, err := resolveDriveDownloadDestPath(&drive.File{Name: "x"}, ""); err == nil {
 		t.Fatalf("expected error for missing id")
 	}
+
 	if _, err := resolveDriveDownloadDestPath(&drive.File{Id: "id"}, ""); err == nil {
 		t.Fatalf("expected error for missing name")
 	}
@@ -28,8 +31,19 @@ func TestResolveDriveDownloadDestPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	if !strings.Contains(path, "id1_file.txt") {
+
+	if filepath.Base(path) != "id1_file.txt" {
 		t.Fatalf("unexpected path: %q", path)
+	}
+
+	meta.Name = ".."
+	path, err = resolveDriveDownloadDestPath(meta, "")
+	if err != nil {
+		t.Fatalf("resolve default: %v", err)
+	}
+
+	if filepath.Base(path) != "id1_download" {
+		t.Fatalf("unexpected default path: %q", path)
 	}
 
 	dir := t.TempDir()
@@ -37,6 +51,7 @@ func TestResolveDriveDownloadDestPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve dir: %v", err)
 	}
+
 	if !strings.HasPrefix(path, dir+string(os.PathSeparator)) {
 		t.Fatalf("expected path under dir, got %q", path)
 	}
@@ -46,22 +61,38 @@ func TestResolveDriveDownloadDestPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve file: %v", err)
 	}
+
 	if path != outFile {
 		t.Fatalf("expected custom path, got %q", path)
 	}
 }
 
-func TestGuessMimeType_MoreCases(t *testing.T) {
-	cases := map[string]string{
-		"report.pdf":  "application/pdf",
-		"photo.jpg":   "image/jpeg",
-		"data.csv":    "text/csv",
-		"note.md":     "text/markdown",
-		"unknown.bin": "application/octet-stream",
+func TestGuessMimeTypeMore(t *testing.T) {
+	tests := map[string]string{
+		"file.pdf":  mimePDF,
+		"file.doc":  "application/msword",
+		"file.docx": mimeDocx,
+		"file.xls":  "application/vnd.ms-excel",
+		"file.xlsx": mimeXlsx,
+		"file.ppt":  "application/vnd.ms-powerpoint",
+		"file.pptx": mimePptx,
+		"file.png":  mimePNG,
+		"file.jpg":  "image/jpeg",
+		"file.gif":  "image/gif",
+		"file.txt":  mimeTextPlain,
+		"file.html": "text/html",
+		"file.css":  "text/css",
+		"file.js":   "application/javascript",
+		"file.json": "application/json",
+		"file.zip":  "application/zip",
+		"file.csv":  "text/csv",
+		"file.md":   "text/markdown",
+		"file.bin":  "application/octet-stream",
 	}
-	for name, want := range cases {
-		if got := guessMimeType(name); got != want {
-			t.Fatalf("guessMimeType(%q)=%q want %q", name, got, want)
+
+	for name, expected := range tests {
+		if got := guessMimeType(name); got != expected {
+			t.Fatalf("guessMimeType(%q) = %q, want %q", name, got, expected)
 		}
 	}
 }

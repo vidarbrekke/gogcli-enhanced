@@ -78,6 +78,20 @@ func TestPrinter_NoColor(t *testing.T) {
 	}
 }
 
+func TestPrinter_Print(t *testing.T) {
+	t.Parallel()
+
+	var outBuf bytes.Buffer
+	out := termenv.NewOutput(&outBuf, termenv.WithProfile(termenv.Ascii))
+	p := newPrinter(out, termenv.Ascii)
+
+	p.Print("hello")
+
+	if got := outBuf.String(); got != "hello" {
+		t.Fatalf("unexpected output: %q", got)
+	}
+}
+
 func TestChooseProfile_NoColorEnv(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 

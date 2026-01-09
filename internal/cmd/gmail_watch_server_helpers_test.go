@@ -13,6 +13,7 @@ import (
 
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/api/idtoken"
 )
 
 func TestParsePubSubPush(t *testing.T) {
@@ -124,6 +125,17 @@ func TestVerifyOIDCToken_NoValidator_Error(t *testing.T) {
 	ok, err := verifyOIDCToken(context.Background(), nil, "tok", "aud", "")
 	if err == nil || ok {
 		t.Fatalf("expected error without validator")
+	}
+}
+
+func TestVerifyOIDCToken_InvalidToken(t *testing.T) {
+	validator, err := idtoken.NewValidator(context.Background())
+	if err != nil {
+		t.Fatalf("NewValidator: %v", err)
+	}
+	ok, err := verifyOIDCToken(context.Background(), validator, "not-a-token", "aud", "")
+	if ok || err == nil {
+		t.Fatalf("expected error, got ok=%v err=%v", ok, err)
 	}
 }
 

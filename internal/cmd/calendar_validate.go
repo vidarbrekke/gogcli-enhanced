@@ -9,6 +9,7 @@ import (
 const (
 	transparencyOpaque      = "opaque"
 	transparencyTransparent = "transparent"
+	sendUpdatesNone         = "none"
 )
 
 func validateColorId(s string) (string, error) {
@@ -70,8 +71,8 @@ func validateSendUpdates(s string) (string, error) {
 		return scopeAll, nil
 	case "externalonly":
 		return "externalOnly", nil
-	case "none":
-		return "none", nil
+	case sendUpdatesNone:
+		return sendUpdatesNone, nil
 	default:
 		return "", fmt.Errorf("invalid send-updates value: %q (must be all, externalOnly, or none)", s)
 	}

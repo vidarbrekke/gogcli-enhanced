@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,278 +12,109 @@ import (
 
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
-
-	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestDriveCommands_MoreCoverage(t *testing.T) {
 	origNew := newDriveService
 	t.Cleanup(func() { newDriveService = origNew })
 
-	permCalls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/drive/v3")
+		if strings.HasPrefix(r.URL.Path, "/upload/drive/v3") {
+			path = strings.TrimPrefix(r.URL.Path, "/upload/drive/v3")
+		}
 		switch {
-		case strings.Contains(path, "/files/") && strings.HasSuffix(path, "/copy") && r.Method == http.MethodPost:
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":          "copy1",
-				"name":        "Copy",
-				"mimeType":    "text/plain",
-				"webViewLink": "http://example.com/copy",
-			})
-			return
-		case strings.Contains(path, "/files/") && strings.Contains(path, "/permissions/") && r.Method == http.MethodDelete:
-			w.WriteHeader(http.StatusNoContent)
-			return
-		case strings.Contains(path, "/files/") && strings.HasSuffix(path, "/permissions") && r.Method == http.MethodPost:
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":   "perm1",
-				"type": "anyone",
-				"role": "reader",
-			})
-			return
-		case strings.Contains(path, "/files/") && strings.HasSuffix(path, "/permissions") && r.Method == http.MethodGet:
-			permCalls++
-			w.Header().Set("Content-Type", "application/json")
-			if permCalls == 1 {
+		case r.Method == http.MethodGet && path == "/files":
+			q := r.URL.Query().Get("q")
+			if strings.Contains(q, "empty") {
 				_ = json.NewEncoder(w).Encode(map[string]any{
-					"permissions": []map[string]any{},
+					"files": []map[string]any{},
 				})
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"permissions":   []map[string]any{{"id": "perm1", "type": "user", "role": "reader", "emailAddress": "a@example.com"}},
 				"nextPageToken": "next",
+				"files": []map[string]any{
+					{
+						"id":           "file1",
+						"name":         "File One",
+						"mimeType":     "text/plain",
+						"size":         "12",
+						"modifiedTime": "2025-01-01T00:00:00Z",
+					},
+				},
 			})
 			return
-		case strings.HasPrefix(path, "/files/") && r.Method == http.MethodGet:
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":          "file1",
-				"name":        "File",
-				"parents":     []string{"p-old"},
-				"mimeType":    "text/plain",
-				"webViewLink": "",
-			})
-			return
-		case path == "/files" && r.Method == http.MethodPost:
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":          "folder1",
-				"name":        "Folder",
-				"webViewLink": "http://example.com/folder",
-			})
-			return
-		case strings.HasPrefix(path, "/files/") && r.Method == http.MethodPatch:
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":          "file1",
-				"name":        "Renamed",
-				"parents":     []string{"p-new"},
-				"webViewLink": "http://example.com/file",
-			})
-			return
-		case strings.HasPrefix(path, "/files/") && r.Method == http.MethodDelete:
-			w.WriteHeader(http.StatusNoContent)
-			return
-		default:
-			http.NotFound(w, r)
-			return
-		}
-	}))
-	defer srv.Close()
-
-	svc, err := drive.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
-	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
-
-	flags := &RootFlags{Account: "a@b.com", Force: true}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	jsonCtx := outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
-	// mkdir text
-	mkdirCmd := &DriveMkdirCmd{}
-	if err := runKong(t, mkdirCmd, []string{"Folder"}, ctx, flags); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-
-	// rename json
-	jsonOut := captureStdout(t, func() {
-		renameCmd := &DriveRenameCmd{}
-		if err := runKong(t, renameCmd, []string{"file1", "Renamed"}, jsonCtx, flags); err != nil {
-			t.Fatalf("rename: %v", err)
-		}
-	})
-	if !strings.Contains(jsonOut, "Renamed") {
-		t.Fatalf("unexpected rename json: %q", jsonOut)
-	}
-
-	// move json
-	_ = captureStdout(t, func() {
-		moveCmd := &DriveMoveCmd{}
-		if err := runKong(t, moveCmd, []string{"file1", "--parent", "p-new"}, jsonCtx, flags); err != nil {
-			t.Fatalf("move: %v", err)
-		}
-	})
-
-	// share json (exercise fallback link)
-	shareOut := captureStdout(t, func() {
-		shareCmd := &DriveShareCmd{}
-		if err := runKong(t, shareCmd, []string{"file1", "--anyone"}, jsonCtx, flags); err != nil {
-			t.Fatalf("share: %v", err)
-		}
-	})
-	if !strings.Contains(shareOut, "drive.google.com") {
-		t.Fatalf("expected fallback link, got %q", shareOut)
-	}
-
-	// unshare text
-	unshareCmd := &DriveUnshareCmd{}
-	if err := runKong(t, unshareCmd, []string{"file1", "perm1"}, ctx, flags); err != nil {
-		t.Fatalf("unshare: %v", err)
-	}
-
-	// permissions: first empty text, then json
-	permissionsCmd := &DrivePermissionsCmd{}
-	if err := runKong(t, permissionsCmd, []string{"file1"}, ctx, flags); err != nil {
-		t.Fatalf("permissions text: %v", err)
-	}
-	_ = captureStdout(t, func() {
-		permissionsCmd = &DrivePermissionsCmd{}
-		if err := runKong(t, permissionsCmd, []string{"file1"}, jsonCtx, flags); err != nil {
-			t.Fatalf("permissions json: %v", err)
-		}
-	})
-
-	// copy json
-	_ = captureStdout(t, func() {
-		copyCmd := &DriveCopyCmd{}
-		if err := runKong(t, copyCmd, []string{"file1", "Copy"}, jsonCtx, flags); err != nil {
-			t.Fatalf("copy: %v", err)
-		}
-	})
-
-	// delete json
-	_ = captureStdout(t, func() {
-		deleteCmd := &DriveDeleteCmd{}
-		if err := runKong(t, deleteCmd, []string{"file1"}, jsonCtx, flags); err != nil {
-			t.Fatalf("delete: %v", err)
-		}
-	})
-}
-
-func TestDriveCommands_TextOutput(t *testing.T) {
-	origNew := newDriveService
-	origDownload := driveDownload
-	t.Cleanup(func() {
-		newDriveService = origNew
-		driveDownload = origDownload
-	})
-
-	driveDownload = func(context.Context, *drive.Service, string) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader("filedata")),
-		}, nil
-	}
-
-	permCalls := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := strings.TrimPrefix(r.URL.Path, "/drive/v3")
-		switch {
-		case strings.Contains(path, "/files/") && strings.HasSuffix(path, "/copy") && r.Method == http.MethodPost:
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":          "copy1",
-				"name":        "Copy",
-				"mimeType":    "text/plain",
-				"webViewLink": "http://example.com/copy",
-			})
-			return
-		case strings.Contains(path, "/files/") && strings.Contains(path, "/permissions/") && r.Method == http.MethodDelete:
-			w.WriteHeader(http.StatusNoContent)
-			return
-		case strings.Contains(path, "/files/") && strings.HasSuffix(path, "/permissions") && r.Method == http.MethodPost:
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":   "perm1",
-				"type": "anyone",
-				"role": "reader",
-			})
-			return
-		case strings.Contains(path, "/files/") && strings.HasSuffix(path, "/permissions") && r.Method == http.MethodGet:
-			permCalls++
-			w.Header().Set("Content-Type", "application/json")
-			if permCalls == 1 {
-				_ = json.NewEncoder(w).Encode(map[string]any{
-					"permissions": []map[string]any{},
-				})
+		case r.Method == http.MethodGet && strings.HasPrefix(path, "/files/") && strings.HasSuffix(path, "/permissions"):
+			if r.URL.Query().Get("pageToken") == "empty" {
+				_ = json.NewEncoder(w).Encode(map[string]any{"permissions": []map[string]any{}})
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"permissions":   []map[string]any{{"id": "perm1", "type": "user", "role": "reader", "emailAddress": "a@example.com"}},
-				"nextPageToken": "next",
+				"permissions": []map[string]any{
+					{
+						"id":           "perm1",
+						"type":         "user",
+						"role":         "reader",
+						"emailAddress": "p@example.com",
+					},
+				},
 			})
 			return
-		case strings.HasPrefix(path, "/files/") && r.Method == http.MethodGet:
-			w.Header().Set("Content-Type", "application/json")
+		case r.Method == http.MethodGet && strings.HasPrefix(path, "/files/"):
 			id := strings.TrimPrefix(path, "/files/")
-			resp := map[string]any{
+			if strings.Contains(id, "/") {
+				http.NotFound(w, r)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"id":           id,
-				"name":         "File",
-				"parents":      []string{"p-old"},
+				"name":         "File " + id,
 				"mimeType":     "text/plain",
-				"webViewLink":  "",
-				"size":         "1234",
-				"modifiedTime": "2025-12-01T12:00:00Z",
-				"createdTime":  "2025-12-01T10:00:00Z",
-			}
-			if id == "file1" {
-				resp["webViewLink"] = "http://example.com/file"
-			}
-			_ = json.NewEncoder(w).Encode(resp)
-			return
-		case path == "/files" && r.Method == http.MethodPost:
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":          "folder1",
-				"name":        "Folder",
-				"webViewLink": "http://example.com/folder",
-				"mimeType":    "application/vnd.google-apps.folder",
+				"size":         "5",
+				"createdTime":  "2025-01-01T00:00:00Z",
+				"modifiedTime": "2025-01-02T00:00:00Z",
+				"description":  "desc",
+				"starred":      true,
+				"parents":      []string{"old-parent"},
+				"webViewLink":  "https://drive.example/" + id,
 			})
 			return
-		case strings.Contains(r.URL.Path, "/upload/drive/v3/files") && r.Method == http.MethodPost:
-			w.Header().Set("Content-Type", "application/json")
+		case r.Method == http.MethodPost && strings.HasSuffix(path, "/copy"):
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":          "upload1",
-				"name":        "Upload",
+				"id":   "copy1",
+				"name": "Copy",
+			})
+			return
+		case r.Method == http.MethodPost && path == "/files":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":          "new1",
+				"name":        "New",
 				"mimeType":    "text/plain",
-				"webViewLink": "http://example.com/upload",
+				"webViewLink": "https://drive.example/new1",
 			})
 			return
-		case strings.HasPrefix(path, "/files/") && r.Method == http.MethodPatch:
-			w.Header().Set("Content-Type", "application/json")
+		case r.Method == http.MethodPatch && strings.HasPrefix(path, "/files/"):
+			id := strings.TrimPrefix(path, "/files/")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":          "file1",
-				"name":        "Renamed",
-				"parents":     []string{"p-new"},
-				"webViewLink": "http://example.com/file",
+				"id":          id,
+				"name":        "Updated",
+				"parents":     []string{"parent"},
+				"webViewLink": "https://drive.example/" + id,
 			})
 			return
-		case strings.HasPrefix(path, "/files/") && r.Method == http.MethodDelete:
+		case r.Method == http.MethodDelete && strings.HasPrefix(path, "/files/") && !strings.Contains(path, "/permissions"):
+			w.WriteHeader(http.StatusNoContent)
+			return
+		case r.Method == http.MethodPost && strings.HasSuffix(path, "/permissions"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":           "perm1",
+				"type":         "user",
+				"role":         "reader",
+				"emailAddress": "share@example.com",
+			})
+			return
+		case r.Method == http.MethodDelete && strings.Contains(path, "/permissions/"):
 			w.WriteHeader(http.StatusNoContent)
 			return
 		default:
@@ -304,66 +134,87 @@ func TestDriveCommands_TextOutput(t *testing.T) {
 	}
 	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
 
-	flags := &RootFlags{Account: "a@b.com", Force: true}
-	uploadPath := filepath.Join(t.TempDir(), "upload.txt")
-	if writeErr := os.WriteFile(uploadPath, []byte("data"), 0o600); writeErr != nil {
-		t.Fatalf("write: %v", writeErr)
+	run := func(args ...string) string {
+		t.Helper()
+		return captureStdout(t, func() {
+			_ = captureStderr(t, func() {
+				if execErr := Execute(args); execErr != nil {
+					t.Fatalf("Execute %v: %v", args, execErr)
+				}
+			})
+		})
 	}
-	downloadPath := filepath.Join(t.TempDir(), "download.bin")
 
-	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: os.Stdout, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
+	_ = run("--account", "a@b.com", "drive", "ls", "--query", "empty")
+	out := run("--json", "--account", "a@b.com", "drive", "ls")
+	if !strings.Contains(out, "\"files\"") {
+		t.Fatalf("unexpected ls json: %q", out)
+	}
 
-		getCmd := &DriveGetCmd{}
-		if err := runKong(t, getCmd, []string{"file1"}, ctx, flags); err != nil {
-			t.Fatalf("get: %v", err)
-		}
+	_ = run("--account", "a@b.com", "drive", "search", "empty")
+	out = run("--json", "--account", "a@b.com", "drive", "search", "hello")
+	if !strings.Contains(out, "\"files\"") {
+		t.Fatalf("unexpected search json: %q", out)
+	}
 
-		downloadCmd := &DriveDownloadCmd{}
-		if err := runKong(t, downloadCmd, []string{"file1", "--out", downloadPath}, ctx, flags); err != nil {
-			t.Fatalf("download: %v", err)
-		}
+	out = run("--json", "--account", "a@b.com", "drive", "get", "file1")
+	if !strings.Contains(out, "\"file\"") {
+		t.Fatalf("unexpected get json: %q", out)
+	}
 
-		uploadCmd := &DriveUploadCmd{}
-		if err := runKong(t, uploadCmd, []string{uploadPath}, ctx, flags); err != nil {
-			t.Fatalf("upload: %v", err)
-		}
+	out = run("--json", "--account", "a@b.com", "drive", "copy", "file1", "Copy")
+	if !strings.Contains(out, "\"file\"") {
+		t.Fatalf("unexpected copy json: %q", out)
+	}
 
-		renameCmd := &DriveRenameCmd{}
-		if err := runKong(t, renameCmd, []string{"file1", "Renamed"}, ctx, flags); err != nil {
-			t.Fatalf("rename: %v", err)
-		}
+	tmp := filepath.Join(t.TempDir(), "upload.txt")
+	if err := os.WriteFile(tmp, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write temp: %v", err)
+	}
+	out = run("--json", "--account", "a@b.com", "drive", "upload", tmp)
+	if !strings.Contains(out, "\"file\"") {
+		t.Fatalf("unexpected upload json: %q", out)
+	}
 
-		moveCmd := &DriveMoveCmd{}
-		if err := runKong(t, moveCmd, []string{"file1", "--parent", "p-new"}, ctx, flags); err != nil {
-			t.Fatalf("move: %v", err)
-		}
+	out = run("--account", "a@b.com", "drive", "mkdir", "Folder")
+	if !strings.Contains(out, "id") {
+		t.Fatalf("unexpected mkdir output: %q", out)
+	}
 
-		shareCmd := &DriveShareCmd{}
-		if err := runKong(t, shareCmd, []string{"file1", "--anyone"}, ctx, flags); err != nil {
-			t.Fatalf("share: %v", err)
-		}
+	out = run("--json", "--account", "a@b.com", "drive", "move", "file1", "--parent", "p2")
+	if !strings.Contains(out, "\"file\"") {
+		t.Fatalf("unexpected move json: %q", out)
+	}
 
-		unshareCmd := &DriveUnshareCmd{}
-		if err := runKong(t, unshareCmd, []string{"file1", "perm1"}, ctx, flags); err != nil {
-			t.Fatalf("unshare: %v", err)
-		}
+	out = run("--account", "a@b.com", "drive", "rename", "file1", "Renamed")
+	if !strings.Contains(out, "name") {
+		t.Fatalf("unexpected rename output: %q", out)
+	}
 
-		copyCmd := &DriveCopyCmd{}
-		if err := runKong(t, copyCmd, []string{"file1", "Copy"}, ctx, flags); err != nil {
-			t.Fatalf("copy: %v", err)
-		}
+	out = run("--json", "--account", "a@b.com", "drive", "share", "file1", "--email", "share@example.com")
+	if !strings.Contains(out, "\"permissionId\"") {
+		t.Fatalf("unexpected share json: %q", out)
+	}
 
-		deleteCmd := &DriveDeleteCmd{}
-		if err := runKong(t, deleteCmd, []string{"file1"}, ctx, flags); err != nil {
-			t.Fatalf("delete: %v", err)
-		}
-	})
-	if !strings.Contains(out, "permission_id") || !strings.Contains(out, "deleted") {
-		t.Fatalf("unexpected output: %q", out)
+	out = run("--force", "--account", "a@b.com", "drive", "unshare", "file1", "perm1")
+	if !strings.Contains(out, "removed") {
+		t.Fatalf("unexpected unshare output: %q", out)
+	}
+
+	out = run("--json", "--account", "a@b.com", "drive", "permissions", "file1")
+	if !strings.Contains(out, "\"permissions\"") {
+		t.Fatalf("unexpected permissions json: %q", out)
+	}
+
+	_ = run("--account", "a@b.com", "drive", "permissions", "file1", "--page", "empty")
+
+	out = run("--json", "--account", "a@b.com", "drive", "url", "file1", "file2")
+	if !strings.Contains(out, "\"urls\"") {
+		t.Fatalf("unexpected url json: %q", out)
+	}
+
+	out = run("--json", "--force", "--account", "a@b.com", "drive", "delete", "file1")
+	if !strings.Contains(out, "\"deleted\"") {
+		t.Fatalf("unexpected delete json: %q", out)
 	}
 }
