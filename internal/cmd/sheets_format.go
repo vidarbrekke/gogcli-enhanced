@@ -44,18 +44,15 @@ func (c *SheetsFormatCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	var format sheets.CellFormat
-	if err := json.Unmarshal([]byte(c.FormatJSON), &format); err != nil {
+	if err = json.Unmarshal([]byte(c.FormatJSON), &format); err != nil {
 		return fmt.Errorf("invalid format JSON: %w", err)
 	}
 
-	normalizedFields, formatJSONPaths, err := normalizeFormatMask(formatFields)
-	if err != nil {
-		return err
-	}
+	normalizedFields, formatJSONPaths := normalizeFormatMask(formatFields)
 	if normalizedFields != "" {
 		formatFields = normalizedFields
 	}
-	if err := applyForceSendFields(&format, formatJSONPaths); err != nil {
+	if err = applyForceSendFields(&format, formatJSONPaths); err != nil {
 		return err
 	}
 

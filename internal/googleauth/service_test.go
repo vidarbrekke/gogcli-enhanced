@@ -406,7 +406,7 @@ func TestScopes_GmailIncludesSettingsSharing(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"https://mail.google.com/",
+		"https://www.googleapis.com/auth/gmail.modify",
 		"https://www.googleapis.com/auth/gmail.settings.basic",
 		"https://www.googleapis.com/auth/gmail.settings.sharing",
 	} {

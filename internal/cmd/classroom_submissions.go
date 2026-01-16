@@ -288,7 +288,7 @@ func (c *ClassroomSubmissionsGradeCmd) Run(ctx context.Context, flags *RootFlags
 			return usage(parseErr.Error())
 		}
 		sub.DraftGrade = grade
-		fields = append(fields, "draft_grade")
+		fields = append(fields, "draftGrade")
 	}
 	if strings.TrimSpace(c.Assigned) != "" {
 		grade, parseErr := parseFloat(c.Assigned)
@@ -296,7 +296,7 @@ func (c *ClassroomSubmissionsGradeCmd) Run(ctx context.Context, flags *RootFlags
 			return usage(parseErr.Error())
 		}
 		sub.AssignedGrade = grade
-		fields = append(fields, "assigned_grade")
+		fields = append(fields, "assignedGrade")
 	}
 	if len(fields) == 0 {
 		return usage("no grades specified")

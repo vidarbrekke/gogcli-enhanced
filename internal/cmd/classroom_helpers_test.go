@@ -431,6 +431,87 @@ func TestUpdateMask(t *testing.T) {
 	}
 }
 
+func TestNormalizeAssigneeMode(t *testing.T) {
+	tests := []struct {
+		name          string
+		mode          string
+		add           []string
+		remove        []string
+		wantMode      string
+		wantOpts      bool
+		wantAdd       []string
+		wantRemove    []string
+		wantErrSubstr string
+	}{
+		{
+			name:     "no mode or students returns empty",
+			wantMode: "",
+			wantOpts: false,
+		},
+		{
+			name:     "mode only uppercases",
+			mode:     "all_students",
+			wantMode: "ALL_STUDENTS",
+			wantOpts: false,
+		},
+		{
+			name:       "students default mode",
+			add:        []string{"a", "b"},
+			remove:     []string{"c"},
+			wantMode:   "INDIVIDUAL_STUDENTS",
+			wantOpts:   true,
+			wantAdd:    []string{"a", "b"},
+			wantRemove: []string{"c"},
+		},
+		{
+			name:     "students with explicit mode",
+			mode:     "INDIVIDUAL_STUDENTS",
+			add:      []string{"a"},
+			wantMode: "INDIVIDUAL_STUDENTS",
+			wantOpts: true,
+			wantAdd:  []string{"a"},
+		},
+		{
+			name:          "students with invalid mode errors",
+			mode:          "ALL_STUDENTS",
+			add:           []string{"a"},
+			wantErrSubstr: "INDIVIDUAL_STUDENTS",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotMode, gotOpts, err := normalizeAssigneeMode(tt.mode, tt.add, tt.remove)
+			if tt.wantErrSubstr != "" {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tt.wantErrSubstr) {
+					t.Fatalf("error %q does not contain %q", err.Error(), tt.wantErrSubstr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if gotMode != tt.wantMode {
+				t.Errorf("mode = %q, want %q", gotMode, tt.wantMode)
+			}
+			if (gotOpts != nil) != tt.wantOpts {
+				t.Fatalf("opts nil = %v, want %v", gotOpts == nil, !tt.wantOpts)
+			}
+			if tt.wantOpts {
+				if strings.Join(gotOpts.AddStudentIds, ",") != strings.Join(tt.wantAdd, ",") {
+					t.Errorf("add = %v, want %v", gotOpts.AddStudentIds, tt.wantAdd)
+				}
+				if strings.Join(gotOpts.RemoveStudentIds, ",") != strings.Join(tt.wantRemove, ",") {
+					t.Errorf("remove = %v, want %v", gotOpts.RemoveStudentIds, tt.wantRemove)
+				}
+			}
+		})
+	}
+}
+
 func TestParseFloat(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -317,15 +317,13 @@ func (c *ClassroomAnnouncementsAssigneesCmd) Run(ctx context.Context, flags *Roo
 		return usage("empty announcementId")
 	}
 
-	req := &classroom.ModifyAnnouncementAssigneesRequest{}
-	if mode := strings.TrimSpace(c.Mode); mode != "" {
-		req.AssigneeMode = strings.ToUpper(mode)
+	mode, opts, err := normalizeAssigneeMode(c.Mode, c.AddStudents, c.RemoveStudents)
+	if err != nil {
+		return usage(err.Error())
 	}
-	if len(c.AddStudents) > 0 || len(c.RemoveStudents) > 0 {
-		req.ModifyIndividualStudentsOptions = &classroom.ModifyIndividualStudentsOptions{
-			AddStudentIds:    c.AddStudents,
-			RemoveStudentIds: c.RemoveStudents,
-		}
+	req := &classroom.ModifyAnnouncementAssigneesRequest{
+		AssigneeMode:                    mode,
+		ModifyIndividualStudentsOptions: opts,
 	}
 	if req.AssigneeMode == "" && req.ModifyIndividualStudentsOptions == nil {
 		return usage("no assignee changes specified")

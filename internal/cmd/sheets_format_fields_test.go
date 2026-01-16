@@ -55,10 +55,7 @@ func hasString(values []string, target string) bool {
 }
 
 func TestNormalizeFormatMask(t *testing.T) {
-	normalized, paths, err := normalizeFormatMask("textFormat.bold, userEnteredFormat.textFormat.italic, userEnteredValue")
-	if err != nil {
-		t.Fatalf("normalizeFormatMask: %v", err)
-	}
+	normalized, paths := normalizeFormatMask("textFormat.bold, userEnteredFormat.textFormat.italic, userEnteredValue")
 	if normalized != "userEnteredFormat.textFormat.bold,userEnteredFormat.textFormat.italic,userEnteredValue" {
 		t.Fatalf("unexpected normalized mask: %s", normalized)
 	}
@@ -68,10 +65,7 @@ func TestNormalizeFormatMask(t *testing.T) {
 }
 
 func TestNormalizeFormatMask_UserEnteredFormatOnly(t *testing.T) {
-	normalized, paths, err := normalizeFormatMask("userEnteredFormat")
-	if err != nil {
-		t.Fatalf("normalizeFormatMask: %v", err)
-	}
+	normalized, paths := normalizeFormatMask("userEnteredFormat")
 	if normalized != "userEnteredFormat" {
 		t.Fatalf("unexpected normalized mask: %s", normalized)
 	}
@@ -81,10 +75,7 @@ func TestNormalizeFormatMask_UserEnteredFormatOnly(t *testing.T) {
 }
 
 func TestNormalizeFormatMask_LeavesUnknowns(t *testing.T) {
-	normalized, paths, err := normalizeFormatMask("note")
-	if err != nil {
-		t.Fatalf("normalizeFormatMask: %v", err)
-	}
+	normalized, paths := normalizeFormatMask("note")
 	if normalized != "note" {
 		t.Fatalf("unexpected normalized mask: %s", normalized)
 	}

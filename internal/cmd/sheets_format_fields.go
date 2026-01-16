@@ -8,10 +8,10 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
-func normalizeFormatMask(mask string) (string, []string, error) {
+func normalizeFormatMask(mask string) (string, []string) {
 	parts := splitFieldMask(mask)
 	if len(parts) == 0 {
-		return "", nil, nil
+		return "", nil
 	}
 
 	normalized := make([]string, 0, len(parts))
@@ -40,7 +40,7 @@ func normalizeFormatMask(mask string) (string, []string, error) {
 		}
 	}
 
-	return strings.Join(normalized, ","), formatJSONPaths, nil
+	return strings.Join(normalized, ","), formatJSONPaths
 }
 
 func applyForceSendFields(format *sheets.CellFormat, formatPaths []string) error {

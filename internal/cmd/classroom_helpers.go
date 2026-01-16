@@ -118,6 +118,28 @@ func updateMask(fields []string) string {
 	return strings.Join(fields, ",")
 }
 
+func normalizeAssigneeMode(mode string, addStudents, removeStudents []string) (string, *classroom.ModifyIndividualStudentsOptions, error) {
+	mode = strings.TrimSpace(mode)
+	hasChanges := len(addStudents) > 0 || len(removeStudents) > 0
+	if hasChanges {
+		if mode == "" {
+			mode = "INDIVIDUAL_STUDENTS"
+		}
+		mode = strings.ToUpper(mode)
+		if mode != "INDIVIDUAL_STUDENTS" {
+			return "", nil, fmt.Errorf("assignee mode must be INDIVIDUAL_STUDENTS when modifying individual students")
+		}
+		return mode, &classroom.ModifyIndividualStudentsOptions{
+			AddStudentIds:    addStudents,
+			RemoveStudentIds: removeStudents,
+		}, nil
+	}
+	if mode == "" {
+		return "", nil, nil
+	}
+	return strings.ToUpper(mode), nil, nil
+}
+
 func parseFloat(value string) (float64, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
