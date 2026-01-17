@@ -180,6 +180,18 @@ is_test_account() {
   return 1
 }
 
+is_consumer_account() {
+  local a domain
+  a=$(echo "$1" | tr 'A-Z' 'a-z')
+  domain="${a##*@}"
+  case "$domain" in
+    gmail.com|googlemail.com)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 ensure_test_account() {
   if [ "${ALLOW_NONTEST:-false}" = true ] || [ -n "${GOG_LIVE_ALLOW_NONTEST:-}" ]; then
     return 0

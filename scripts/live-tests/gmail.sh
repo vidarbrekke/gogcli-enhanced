@@ -15,7 +15,11 @@ run_gmail_tests() {
     run_required "gmail" "gmail settings sendas list" gog gmail settings sendas list --json >/dev/null
     run_required "gmail" "gmail settings vacation get" gog gmail settings vacation get --json >/dev/null
     run_required "gmail" "gmail settings filters list" gog gmail settings filters list --json >/dev/null
-    run_optional "gmail-delegates" "gmail settings delegates list" gog gmail settings delegates list --json >/dev/null
+    if is_consumer_account "$ACCOUNT"; then
+      echo "==> gmail delegates (skipped; Workspace/SA only)"
+    else
+      run_optional "gmail-delegates" "gmail settings delegates list" gog gmail settings delegates list --json >/dev/null
+    fi
     run_required "gmail" "gmail settings forwarding list" gog gmail settings forwarding list --json >/dev/null
     run_required "gmail" "gmail settings autoforward get" gog gmail settings autoforward get --json >/dev/null
   fi
@@ -49,7 +53,7 @@ run_gmail_tests() {
   run_required "gmail" "gmail batch modify add" gog gmail batch modify "$send_msg_id" --add STARRED --json >/dev/null
   run_required "gmail" "gmail batch modify remove" gog gmail batch modify "$send_msg_id" --remove STARRED --json >/dev/null
 
-  if skip "gmail-batch-delete"; then
+  if [ -z "${GOG_LIVE_GMAIL_BATCH_DELETE:-}" ] || skip "gmail-batch-delete"; then
     echo "==> gmail batch delete (skipped)"
   else
     echo "==> gmail batch delete"

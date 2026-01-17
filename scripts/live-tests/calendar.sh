@@ -34,7 +34,11 @@ PY
   run_required "calendar" "calendar freebusy" gog calendar freebusy primary --from "$START" --to "$END" --json >/dev/null
   run_required "calendar" "calendar conflicts" gog calendar conflicts --from "$START" --to "$END" --json >/dev/null
 
-  run_optional "calendar-respond" "calendar respond" gog calendar respond primary "$ev_id" --status accepted --json >/dev/null
+  if [ -n "${GOG_LIVE_CALENDAR_RESPOND:-}" ]; then
+    run_optional "calendar-respond" "calendar respond" gog calendar respond primary "$ev_id" --status accepted --json >/dev/null
+  else
+    echo "==> calendar respond (skipped; needs invite from another account)"
+  fi
 
   run_required "calendar" "calendar delete event" gog calendar delete primary "$ev_id" --force >/dev/null
 
@@ -44,9 +48,13 @@ PY
     run_optional "calendar-enterprise" "calendar working-location" gog calendar create primary --event-type working-location --working-location-type office --working-office-label "HQ" --from "$DAY1" --to "$DAY2" --json >/dev/null 2>&1 || true
   fi
 
-  if [ -n "${GOG_LIVE_GROUP_EMAIL:-}" ]; then
+  if [ -n "${GOG_LIVE_GROUP_EMAIL:-}" ] && ! is_consumer_account "$ACCOUNT"; then
     run_optional "calendar-team" "calendar team" gog calendar team "$GOG_LIVE_GROUP_EMAIL" --json --max 5 >/dev/null
   fi
 
-  run_optional "calendar-users" "calendar users list" gog calendar users --json --max 1 >/dev/null
+  if is_consumer_account "$ACCOUNT"; then
+    echo "==> calendar users (skipped; Workspace only)"
+  else
+    run_optional "calendar-users" "calendar users list" gog calendar users --json --max 1 >/dev/null
+  fi
 }

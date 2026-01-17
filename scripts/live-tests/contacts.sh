@@ -20,8 +20,13 @@ run_contacts_tests() {
   run_required "contacts" "contacts search" gog contacts search "gogcli-smoke-$TS@example.com" --json --max 1 >/dev/null
   run_required "contacts" "contacts delete" gog contacts delete "$contact_id" --force >/dev/null
 
-  run_optional "contacts-directory" "contacts directory list" gog contacts directory list --json --max 1 >/dev/null
-  run_optional "contacts-directory" "contacts directory search" gog contacts directory search "gogcli" --json --max 1 >/dev/null
-  run_optional "contacts-other" "contacts other list" gog contacts other list --json --max 1 >/dev/null
-  run_optional "contacts-other" "contacts other search" gog contacts other search "gogcli" --json --max 1 >/dev/null
+  if is_consumer_account "$ACCOUNT"; then
+    echo "==> contacts directory (skipped; Workspace only)"
+    echo "==> contacts other (skipped; Workspace only)"
+  else
+    run_optional "contacts-directory" "contacts directory list" gog contacts directory list --json --max 1 >/dev/null
+    run_optional "contacts-directory" "contacts directory search" gog contacts directory search "gogcli" --json --max 1 >/dev/null
+    run_optional "contacts-other" "contacts other list" gog contacts other list --json --max 1 >/dev/null
+    run_optional "contacts-other" "contacts other search" gog contacts other search "gogcli" --json --max 1 >/dev/null
+  fi
 }
