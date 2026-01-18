@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0 - Unreleased
+
+### Added
+
+- Chat: spaces, messages, threads, and DM commands (Workspace only). (#84) — thanks @salmonumbrella.
+- People: profile lookup, directory search, and relations commands. (#84) — thanks @salmonumbrella.
+
+### Fixed
+
+- Chat: normalize thread IDs and show a clearer error for consumer accounts. (#84)
+
 ## 0.7.0 - 2026-01-17
 
 ### Highlights

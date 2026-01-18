@@ -24,7 +24,7 @@ const (
 
 type RootFlags struct {
 	Color          string `help:"Color output: auto|always|never" default:"${color}"`
-	Account        string `help:"Account email for API commands (gmail/calendar/classroom/drive/docs/slides/contacts/tasks/people/sheets)"`
+	Account        string `help:"Account email for API commands (gmail/calendar/chat/classroom/drive/docs/slides/contacts/tasks/people/sheets)"`
 	EnableCommands string `help:"Comma-separated list of enabled top-level commands (restricts CLI)" default:"${enabled_commands}"`
 	JSON           bool   `help:"Output JSON to stdout (best for scripting)" default:"${json}"`
 	Plain          bool   `help:"Output stable, parseable text to stdout (TSV; no colors)" default:"${plain}"`
@@ -47,6 +47,7 @@ type CLI struct {
 	Classroom  ClassroomCmd          `cmd:"" help:"Google Classroom"`
 	Time       TimeCmd               `cmd:"" help:"Local time utilities"`
 	Gmail      GmailCmd              `cmd:"" aliases:"mail,email" help:"Gmail"`
+	Chat       ChatCmd               `cmd:"" help:"Google Chat"`
 	Contacts   ContactsCmd           `cmd:"" help:"Google Contacts"`
 	Tasks      TasksCmd              `cmd:"" help:"Google Tasks"`
 	People     PeopleCmd             `cmd:"" help:"Google People"`
@@ -193,7 +194,7 @@ func newParser(description string) (*kong.Kong, *CLI, error) {
 }
 
 func baseDescription() string {
-	return "Google CLI for Gmail/Calendar/Classroom/Drive/Contacts/Tasks/Sheets/Docs/Slides/People"
+	return "Google CLI for Gmail/Calendar/Chat/Classroom/Drive/Contacts/Tasks/Sheets/Docs/Slides/People"
 }
 
 func helpDescription() string {

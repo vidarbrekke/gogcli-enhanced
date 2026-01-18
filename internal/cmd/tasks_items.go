@@ -384,6 +384,7 @@ func (c *TasksUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *Roo
 		}
 		patch.Due = dueValue
 		changed = true
+		warnTasksDueTime(u, c.Due)
 	}
 	if flagProvided(kctx, "status") {
 		patch.Status = strings.TrimSpace(c.Status)
