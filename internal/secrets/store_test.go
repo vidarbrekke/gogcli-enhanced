@@ -17,10 +17,11 @@ import (
 var errKeyringOpenBlocked = errors.New("keyring open blocked")
 
 // keyringConfig creates a keyring.Config for testing.
+// KeychainTrustApplication is false to match production config (see store.go).
 func keyringConfig(keyringDir string) keyring.Config {
 	return keyring.Config{
 		ServiceName:              config.AppName,
-		KeychainTrustApplication: runtime.GOOS == "darwin",
+		KeychainTrustApplication: false,
 		AllowedBackends:          []keyring.BackendType{keyring.FileBackend},
 		FileDir:                  keyringDir,
 		FilePasswordFunc:         fileKeyringPasswordFunc(),

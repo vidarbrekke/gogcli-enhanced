@@ -173,8 +173,14 @@ func openKeyring() (keyring.Keyring, error) {
 	}
 
 	cfg := keyring.Config{
-		ServiceName:              config.AppName,
-		KeychainTrustApplication: runtime.GOOS == "darwin",
+		ServiceName: config.AppName,
+		// KeychainTrustApplication is intentionally false to support Homebrew upgrades.
+		// When true, macOS Keychain ties access control to the specific binary hash.
+		// Homebrew upgrades install a new binary with a different hash, causing the
+		// new binary to lose access to existing keychain items. With false, users may
+		// see a one-time keychain prompt after upgrade (click "Always Allow"), but
+		// tokens survive across upgrades. See: https://github.com/steipete/gogcli/issues/86
+		KeychainTrustApplication: false,
 		AllowedBackends:          backends,
 		FileDir:                  keyringDir,
 		FilePasswordFunc:         fileKeyringPasswordFunc(),
