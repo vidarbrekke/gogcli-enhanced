@@ -184,6 +184,7 @@ func buildReminders(reminders []string) (*calendar.EventReminders, error) {
 		})
 	}
 
+	// ForceSendFields ensures UseDefault=false is sent (not omitted as zero value)
 	return &calendar.EventReminders{
 		UseDefault:      false,
 		Overrides:       overrides,
