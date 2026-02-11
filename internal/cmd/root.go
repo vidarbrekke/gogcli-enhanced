@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -135,12 +136,43 @@ func Execute(args []string) (err error) {
 		return nil
 	}
 
+	if outfmt.IsJSON(ctx) {
+		_, _ = fmt.Fprintln(os.Stderr, formatJSONErrorEnvelope(err))
+		return err
+	}
+
 	if u := ui.FromContext(ctx); u != nil {
 		u.Err().Error(errfmt.Format(err))
 		return err
 	}
 	_, _ = fmt.Fprintln(os.Stderr, errfmt.Format(err))
 	return err
+}
+
+type jsonErrorFieldsProvider interface {
+	JSONErrorFields() map[string]any
+}
+
+func formatJSONErrorEnvelope(err error) string {
+	envelope := map[string]any{
+		"error": map[string]any{
+			"message": errfmt.Format(err),
+		},
+	}
+	errObj := envelope["error"].(map[string]any)
+
+	var provider jsonErrorFieldsProvider
+	if errors.As(err, &provider) {
+		for k, v := range provider.JSONErrorFields() {
+			errObj[k] = v
+		}
+	}
+
+	b, marshalErr := json.Marshal(envelope)
+	if marshalErr != nil {
+		return fmt.Sprintf(`{"error":{"message":%q}}`, errfmt.Format(err))
+	}
+	return string(b)
 }
 
 func wrapParseError(err error) error {

@@ -814,8 +814,12 @@ gog docs export <docId> --format pdf --out ./doc.pdf
 gog docs edit replace <docId> "Draft" "Final"
 gog docs edit append <docId> $'\nRelease notes'
 gog docs edit insert <docId> "Prefix: " --index 1
-gog docs edit delete <docId> 1 8
-gog docs edit batch <docId> --requests-file ./ops.json
+gog docs edit delete <docId> 1 8 --force
+gog docs edit batch <docId> --requests-file ./ops.json --validate-only
+gog docs edit batch <docId> --requests-file ./ops.json --validate-only --pretty
+gog docs edit batch <docId> --requests-file ./ops.json --validate-only --output-request-file ./normalized.json
+# validate-only JSON output includes requestHash for idempotency/correlation
+gog docs edit replace <docId> "Draft" "Final" --dry-run --require-revision <revisionId>
 
 # Slides
 gog slides info <presentationId>
@@ -1045,8 +1049,12 @@ gog docs export <docId> --format txt --out ./doc.txt
 gog docs edit replace <docId> "old text" "new text" --match-case
 gog docs edit append <docId> $'\nAppendix'
 gog docs edit insert <docId> "Intro: " --index 1
-gog docs edit delete <docId> 10 40
+gog docs edit delete <docId> 10 40 --force
 cat ops.json | gog docs edit batch <docId> --requests-file -
+cat ops.json | gog docs edit batch <docId> --requests-file - --validate-only
+cat ops.json | gog docs edit batch <docId> --requests-file - --validate-only --pretty
+cat ops.json | gog docs edit batch <docId> --requests-file - --validate-only --output-request-file ./normalized.json
+gog docs edit replace <docId> "old text" "new text" --dry-run --require-revision <revisionId>
 ```
 
 ### Slides

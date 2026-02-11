@@ -68,6 +68,9 @@ From file:
 
 ```bash
 gog docs edit batch <docId> --requests-file ./docs/examples/docs-edit-batch.json
+gog docs edit batch <docId> --requests-file ./docs/examples/docs-edit-batch.json --validate-only
+gog docs edit batch <docId> --requests-file ./docs/examples/docs-edit-batch.json --validate-only --pretty
+gog docs edit batch <docId> --requests-file ./docs/examples/docs-edit-batch.json --validate-only --output-request-file ./normalized.json
 ```
 
 From stdin:
@@ -75,6 +78,31 @@ From stdin:
 ```bash
 cat ops.json | gog docs edit batch <docId> --requests-file -
 ```
+
+Use `--pretty` when you want deterministic, normalized request JSON in output (useful for agent pipelines and review steps).
+
+Use `--output-request-file` to persist normalized request JSON for chained agent steps:
+
+```bash
+cat ops.json | gog docs edit batch <docId> --requests-file - --validate-only --output-request-file ./normalized.json
+```
+
+`--validate-only` output also includes `requestHash` (SHA256 over normalized request JSON), which is useful for idempotency checks and agent step correlation.
+
+### Safety flags for agents
+
+All edit commands support:
+
+- `--dry-run`: build and print request payload without executing.
+- `--require-revision <revisionId>`: optimistic concurrency guard.
+
+Example:
+
+```bash
+gog docs edit replace <docId> "Draft" "Final" --dry-run --require-revision <revisionId>
+```
+
+For `delete`, non-JSON human mode requires `--force` (or `--dry-run`) to reduce accidental destructive edits.
 
 Reference example:
 

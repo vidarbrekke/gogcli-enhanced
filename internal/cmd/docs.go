@@ -3,12 +3,15 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 
 	"google.golang.org/api/docs/v1"
@@ -39,32 +42,114 @@ type DocsEditCmd struct {
 	Replace DocsReplaceCmd `cmd:"" name:"replace" help:"Replace text throughout a Google Doc"`
 }
 
+type DocsEditSafetyFlags struct {
+	DryRun          bool   `name:"dry-run" help:"Build request and print it without executing API call"`
+	RequireRevision string `name:"require-revision" help:"Require this document revision ID for update (optimistic concurrency guard)"`
+}
+
+type docsEditError struct {
+	Operation    string
+	DocID        string
+	ErrorCode    string
+	Message      string
+	HTTPStatus   int
+	GoogleReason string
+	RequestIndex *int
+	Cause        error
+}
+
+func (e *docsEditError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if strings.TrimSpace(e.Message) != "" {
+		return e.Message
+	}
+	if e.Cause != nil {
+		return e.Cause.Error()
+	}
+	return "docs edit failed"
+}
+
+func (e *docsEditError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Cause
+}
+
+func (e *docsEditError) JSONErrorFields() map[string]any {
+	if e == nil {
+		return map[string]any{}
+	}
+	fields := map[string]any{
+		"error_code": e.ErrorCode,
+		"operation":  e.Operation,
+		"doc_id":     e.DocID,
+	}
+	if e.HTTPStatus > 0 {
+		fields["http_status"] = e.HTTPStatus
+	}
+	if strings.TrimSpace(e.GoogleReason) != "" {
+		fields["google_reason"] = e.GoogleReason
+	}
+	if e.RequestIndex != nil {
+		fields["request_index"] = *e.RequestIndex
+	}
+	return fields
+}
+
+func newDocsEditError(op, docID, code, msg string, cause error) error {
+	e := &docsEditError{
+		Operation: op,
+		DocID:     strings.TrimSpace(docID),
+		ErrorCode: strings.TrimSpace(code),
+		Message:   strings.TrimSpace(msg),
+		Cause:     cause,
+	}
+	var apiErr *gapi.Error
+	if errors.As(cause, &apiErr) {
+		e.HTTPStatus = apiErr.Code
+		if len(apiErr.Errors) > 0 && strings.TrimSpace(apiErr.Errors[0].Reason) != "" {
+			e.GoogleReason = strings.TrimSpace(apiErr.Errors[0].Reason)
+		}
+	}
+	return e
+}
+
 type DocsBatchCmd struct {
 	DocID        string `arg:"" name:"docId" help:"Doc ID"`
 	RequestsFile string `name:"requests-file" help:"Path to JSON request body, or '-' for stdin" default:"-"`
+	ExecuteFromFile string `name:"execute-from-file" help:"Execute request JSON from this file (bypasses --requests-file input)"`
+	ValidateOnly bool   `name:"validate-only" help:"Validate request payload locally without executing API call"`
+	Pretty       bool   `name:"pretty" help:"Include normalized pretty-printed request JSON in output"`
+	OutputRequestFile string `name:"output-request-file" help:"Write normalized request JSON to this file (use '-' for stdout)"`
+	Safety       DocsEditSafetyFlags `embed:""`
 }
 
 func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
-	account, err := requireAccount(flags)
-	if err != nil {
-		return err
-	}
-
 	docID := strings.TrimSpace(c.DocID)
 	if docID == "" {
-		return usage("empty docId")
+		return newDocsEditError("batch", docID, "invalid_argument", "empty docId", usage("empty docId"))
 	}
 	requestsFile := strings.TrimSpace(c.RequestsFile)
+	executeFromFile := strings.TrimSpace(c.ExecuteFromFile)
+	if executeFromFile != "" && strings.TrimSpace(c.RequestsFile) != "-" && strings.TrimSpace(c.RequestsFile) != "" {
+		return newDocsEditError("batch", docID, "invalid_argument", "cannot combine --execute-from-file with --requests-file", usage("cannot combine --execute-from-file with --requests-file"))
+	}
+	if executeFromFile != "" {
+		requestsFile = executeFromFile
+	}
 	if requestsFile == "" {
-		return usage("empty requests-file")
+		return newDocsEditError("batch", docID, "invalid_argument", "empty requests-file", usage("empty requests-file"))
 	}
 
 	var reader io.Reader = os.Stdin
 	if requestsFile != "-" {
 		f, openErr := os.Open(requestsFile) //nolint:gosec // user-provided path
 		if openErr != nil {
-			return openErr
+			return newDocsEditError("batch", docID, "input_open_failed", "open requests-file failed", openErr)
 		}
 		defer f.Close()
 		reader = f
@@ -72,22 +157,88 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	var req docs.BatchUpdateDocumentRequest
 	if err := json.NewDecoder(reader).Decode(&req); err != nil {
-		return fmt.Errorf("decode requests JSON: %w", err)
+		return newDocsEditError("batch", docID, "invalid_json", "decode requests JSON failed", err)
 	}
 	if len(req.Requests) == 0 {
-		return usage("batch request has no operations")
+		return newDocsEditError("batch", docID, "invalid_argument", "batch request has no operations", usage("batch request has no operations"))
+	}
+	for i, r := range req.Requests {
+		if docsRequestOperationCount(r) != 1 {
+			idx := i
+			err := newDocsEditError("batch", docID, "invalid_request", fmt.Sprintf("request[%d] must set exactly one operation field", i), usage(fmt.Sprintf("request[%d] must set exactly one operation field", i)))
+			if de, ok := err.(*docsEditError); ok {
+				de.RequestIndex = &idx
+			}
+			return err
+		}
+	}
+	applyDocsEditSafety(&req, c.Safety)
+	requestHash, hashErr := docsRequestHash(&req)
+	if hashErr != nil {
+		return newDocsEditError("batch", docID, "invalid_request", "failed to hash normalized request", hashErr)
+	}
+	requestKinds := make([]string, 0, len(req.Requests))
+	for _, r := range req.Requests {
+		requestKinds = append(requestKinds, docsRequestOperationName(r))
+	}
+	if err := docsMaybeWriteNormalizedRequest(c.OutputRequestFile, &req); err != nil {
+		return newDocsEditError("batch", docID, "output_write_failed", "write normalized request failed", err)
+	}
+	if c.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly": true,
+			"valid":        true,
+			"documentId":   docID,
+			"operations":   len(req.Requests),
+			"requestKinds": requestKinds,
+			"requestHash":  requestHash,
+		}
+		if c.Pretty {
+			pretty, prettyErr := json.MarshalIndent(req, "", "  ")
+			if prettyErr == nil {
+				payload["prettyRequest"] = string(pretty)
+			}
+		}
+		if req.WriteControl != nil && strings.TrimSpace(req.WriteControl.RequiredRevisionId) != "" {
+			payload["requiredRevisionId"] = req.WriteControl.RequiredRevisionId
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", docID)
+		u.Out().Printf("operations\t%d", len(req.Requests))
+		if c.Pretty {
+			pretty, prettyErr := json.MarshalIndent(req, "", "  ")
+			if prettyErr == nil {
+				u.Out().Printf("pretty-request\t%s", string(pretty))
+			}
+		}
+		return nil
+	}
+	if c.Safety.DryRun {
+		return docsDryRunOutput(ctx, u, docID, &req, map[string]any{
+			"operations":   len(req.Requests),
+			"requestKinds": requestKinds,
+			"requestHash":  requestHash,
+		})
 	}
 
-	svc, err := newDocsService(ctx, account)
+	account, err := requireAccount(flags)
 	if err != nil {
 		return err
+	}
+	svc, err := newDocsService(ctx, account)
+	if err != nil {
+		return newDocsEditError("batch", docID, "service_init_failed", "create docs service failed", err)
 	}
 	resp, err := svc.Documents.BatchUpdate(docID, &req).Context(ctx).Do()
 	if err != nil {
 		if isDocsNotFound(err) {
-			return fmt.Errorf("doc not found or not a Google Doc (id=%s)", docID)
+			return newDocsEditError("batch", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
 		}
-		return err
+		return newDocsEditError("batch", docID, "api_error", "batch update failed", err)
 	}
 
 	operations := len(req.Requests)
@@ -108,6 +259,7 @@ type DocsDeleteCmd struct {
 	DocID      string `arg:"" name:"docId" help:"Doc ID"`
 	StartIndex int64  `arg:"" name:"start" help:"Start index (inclusive, 1-based)"`
 	EndIndex   int64  `arg:"" name:"end" help:"End index (exclusive)"`
+	Safety     DocsEditSafetyFlags `embed:""`
 }
 
 func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -119,18 +271,21 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	docID := strings.TrimSpace(c.DocID)
 	if docID == "" {
-		return usage("empty docId")
+		return newDocsEditError("delete", docID, "invalid_argument", "empty docId", usage("empty docId"))
 	}
 	if c.StartIndex < 1 {
-		return usage("start must be >= 1")
+		return newDocsEditError("delete", docID, "invalid_argument", "start must be >= 1", usage("start must be >= 1"))
 	}
 	if c.EndIndex <= c.StartIndex {
-		return usage("end must be > start")
+		return newDocsEditError("delete", docID, "invalid_argument", "end must be > start", usage("end must be > start"))
+	}
+	if !c.Safety.DryRun && !outfmt.IsJSON(ctx) && (flags == nil || !flags.Force) {
+		return newDocsEditError("delete", docID, "confirmation_required", "delete is destructive; rerun with --force or use --dry-run", usage("delete is destructive; rerun with --force or use --dry-run"))
 	}
 
 	svc, err := newDocsService(ctx, account)
 	if err != nil {
-		return err
+		return newDocsEditError("delete", docID, "service_init_failed", "create docs service failed", err)
 	}
 	req := &docs.BatchUpdateDocumentRequest{
 		Requests: []*docs.Request{
@@ -144,11 +299,17 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
+	applyDocsEditSafety(req, c.Safety)
+	if c.Safety.DryRun {
+		return docsDryRunOutput(ctx, u, docID, req, map[string]any{
+			"deletedChars": c.EndIndex - c.StartIndex,
+		})
+	}
 	if _, err := svc.Documents.BatchUpdate(docID, req).Context(ctx).Do(); err != nil {
 		if isDocsNotFound(err) {
-			return fmt.Errorf("doc not found or not a Google Doc (id=%s)", docID)
+			return newDocsEditError("delete", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
 		}
-		return err
+		return newDocsEditError("delete", docID, "api_error", "delete failed", err)
 	}
 
 	deletedChars := c.EndIndex - c.StartIndex
@@ -167,6 +328,7 @@ type DocsInsertCmd struct {
 	DocID string `arg:"" name:"docId" help:"Doc ID"`
 	Text  string `arg:"" name:"text" help:"Text to insert"`
 	Index int64  `name:"index" help:"Insertion index (1-based)" default:"1"`
+	Safety DocsEditSafetyFlags `embed:""`
 }
 
 func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -178,19 +340,19 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	docID := strings.TrimSpace(c.DocID)
 	if docID == "" {
-		return usage("empty docId")
+		return newDocsEditError("insert", docID, "invalid_argument", "empty docId", usage("empty docId"))
 	}
 	text := strings.TrimSpace(c.Text)
 	if text == "" {
-		return usage("empty text")
+		return newDocsEditError("insert", docID, "invalid_argument", "empty text", usage("empty text"))
 	}
 	if c.Index < 1 {
-		return usage("index must be >= 1")
+		return newDocsEditError("insert", docID, "invalid_argument", "index must be >= 1", usage("index must be >= 1"))
 	}
 
 	svc, err := newDocsService(ctx, account)
 	if err != nil {
-		return err
+		return newDocsEditError("insert", docID, "service_init_failed", "create docs service failed", err)
 	}
 	req := &docs.BatchUpdateDocumentRequest{
 		Requests: []*docs.Request{
@@ -202,11 +364,18 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
+	applyDocsEditSafety(req, c.Safety)
+	if c.Safety.DryRun {
+		return docsDryRunOutput(ctx, u, docID, req, map[string]any{
+			"insertedChars": len(text),
+			"index":         c.Index,
+		})
+	}
 	if _, err := svc.Documents.BatchUpdate(docID, req).Context(ctx).Do(); err != nil {
 		if isDocsNotFound(err) {
-			return fmt.Errorf("doc not found or not a Google Doc (id=%s)", docID)
+			return newDocsEditError("insert", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
 		}
-		return err
+		return newDocsEditError("insert", docID, "api_error", "insert failed", err)
 	}
 
 	if outfmt.IsJSON(ctx) {
@@ -225,6 +394,7 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 type DocsAppendCmd struct {
 	DocID string `arg:"" name:"docId" help:"Doc ID"`
 	Text  string `arg:"" name:"text" help:"Text to append"`
+	Safety DocsEditSafetyFlags `embed:""`
 }
 
 func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -236,24 +406,24 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	docID := strings.TrimSpace(c.DocID)
 	if docID == "" {
-		return usage("empty docId")
+		return newDocsEditError("append", docID, "invalid_argument", "empty docId", usage("empty docId"))
 	}
 	text := strings.TrimSpace(c.Text)
 	if text == "" {
-		return usage("empty text")
+		return newDocsEditError("append", docID, "invalid_argument", "empty text", usage("empty text"))
 	}
 
 	svc, err := newDocsService(ctx, account)
 	if err != nil {
-		return err
+		return newDocsEditError("append", docID, "service_init_failed", "create docs service failed", err)
 	}
 
 	doc, err := svc.Documents.Get(docID).Context(ctx).Do()
 	if err != nil {
 		if isDocsNotFound(err) {
-			return fmt.Errorf("doc not found or not a Google Doc (id=%s)", docID)
+			return newDocsEditError("append", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
 		}
-		return err
+		return newDocsEditError("append", docID, "api_error", "fetch document failed", err)
 	}
 	index := docsAppendIndex(doc)
 
@@ -267,11 +437,18 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
+	applyDocsEditSafety(req, c.Safety)
+	if c.Safety.DryRun {
+		return docsDryRunOutput(ctx, u, docID, req, map[string]any{
+			"insertedChars": len(text),
+			"index":         index,
+		})
+	}
 	if _, err := svc.Documents.BatchUpdate(docID, req).Context(ctx).Do(); err != nil {
 		if isDocsNotFound(err) {
-			return fmt.Errorf("doc not found or not a Google Doc (id=%s)", docID)
+			return newDocsEditError("append", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
 		}
-		return err
+		return newDocsEditError("append", docID, "api_error", "append failed", err)
 	}
 
 	if outfmt.IsJSON(ctx) {
@@ -292,6 +469,7 @@ type DocsReplaceCmd struct {
 	Find      string `arg:"" name:"find" help:"Text to find"`
 	Replace   string `arg:"" name:"replace" help:"Replacement text"`
 	MatchCase bool   `name:"match-case" help:"Case-sensitive matching"`
+	Safety    DocsEditSafetyFlags `embed:""`
 }
 
 func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -303,16 +481,16 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	docID := strings.TrimSpace(c.DocID)
 	if docID == "" {
-		return usage("empty docId")
+		return newDocsEditError("replace", docID, "invalid_argument", "empty docId", usage("empty docId"))
 	}
 	find := strings.TrimSpace(c.Find)
 	if find == "" {
-		return usage("empty find")
+		return newDocsEditError("replace", docID, "invalid_argument", "empty find", usage("empty find"))
 	}
 
 	svc, err := newDocsService(ctx, account)
 	if err != nil {
-		return err
+		return newDocsEditError("replace", docID, "service_init_failed", "create docs service failed", err)
 	}
 
 	req := &docs.BatchUpdateDocumentRequest{
@@ -328,12 +506,18 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
+	applyDocsEditSafety(req, c.Safety)
+	if c.Safety.DryRun {
+		return docsDryRunOutput(ctx, u, docID, req, map[string]any{
+			"operation": "replace",
+		})
+	}
 	resp, err := svc.Documents.BatchUpdate(docID, req).Context(ctx).Do()
 	if err != nil {
 		if isDocsNotFound(err) {
-			return fmt.Errorf("doc not found or not a Google Doc (id=%s)", docID)
+			return newDocsEditError("replace", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
 		}
-		return err
+		return newDocsEditError("replace", docID, "api_error", "replace failed", err)
 	}
 
 	var occurrences int64
@@ -647,4 +831,114 @@ func docsAppendIndex(doc *docs.Document) int64 {
 		return 1
 	}
 	return last.EndIndex - 1
+}
+
+func applyDocsEditSafety(req *docs.BatchUpdateDocumentRequest, safety DocsEditSafetyFlags) {
+	if req == nil {
+		return
+	}
+	requiredRevision := strings.TrimSpace(safety.RequireRevision)
+	if requiredRevision == "" {
+		return
+	}
+	req.WriteControl = &docs.WriteControl{RequiredRevisionId: requiredRevision}
+}
+
+func docsDryRunOutput(ctx context.Context, u *ui.UI, docID string, req *docs.BatchUpdateDocumentRequest, extra map[string]any) error {
+	payload := map[string]any{
+		"dryRun":     true,
+		"documentId": docID,
+		"request":    req,
+	}
+	for k, v := range extra {
+		payload[k] = v
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, payload)
+	}
+	u.Out().Printf("dry-run\ttrue")
+	u.Out().Printf("id\t%s", docID)
+	u.Out().Printf("operations\t%d", len(req.Requests))
+	if req.WriteControl != nil && strings.TrimSpace(req.WriteControl.RequiredRevisionId) != "" {
+		u.Out().Printf("required-revision\t%s", req.WriteControl.RequiredRevisionId)
+	}
+	raw, err := json.Marshal(req)
+	if err == nil {
+		u.Out().Printf("request\t%s", string(raw))
+	}
+	return nil
+}
+
+func docsRequestOperationCount(r *docs.Request) int {
+	if r == nil {
+		return 0
+	}
+	v := reflect.ValueOf(*r)
+	t := reflect.TypeOf(*r)
+	count := 0
+	for i := range t.NumField() {
+		name := t.Field(i).Name
+		if name == "ForceSendFields" || name == "NullFields" || name == "ServerResponse" {
+			continue
+		}
+		fv := v.Field(i)
+		switch fv.Kind() {
+		case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Interface:
+			if !fv.IsNil() {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+func docsRequestOperationName(r *docs.Request) string {
+	if r == nil {
+		return ""
+	}
+	v := reflect.ValueOf(*r)
+	t := reflect.TypeOf(*r)
+	for i := range t.NumField() {
+		name := t.Field(i).Name
+		if name == "ForceSendFields" || name == "NullFields" || name == "ServerResponse" {
+			continue
+		}
+		fv := v.Field(i)
+		switch fv.Kind() {
+		case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Interface:
+			if !fv.IsNil() {
+				return name
+			}
+		}
+	}
+	return ""
+}
+
+func docsMaybeWriteNormalizedRequest(path string, req *docs.BatchUpdateDocumentRequest) error {
+	path = strings.TrimSpace(path)
+	if path == "" || req == nil {
+		return nil
+	}
+	pretty, err := json.MarshalIndent(req, "", "  ")
+	if err != nil {
+		return err
+	}
+	pretty = append(pretty, '\n')
+	if path == "-" {
+		_, err = os.Stdout.Write(pretty)
+		return err
+	}
+	return os.WriteFile(path, pretty, 0o600)
+}
+
+func docsRequestHash(req *docs.BatchUpdateDocumentRequest) (string, error) {
+	if req == nil {
+		return "", errors.New("nil request")
+	}
+	b, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:]), nil
 }

@@ -46,3 +46,15 @@
 
 - Never commit OAuth client credential JSON files or tokens.
 - Prefer OS keychain backends; use `GOG_KEYRING_BACKEND=file` + `GOG_KEYRING_PASSWORD` only for headless environments.
+
+## Agentic Workflow Rules
+
+- Prefer `--json` for machine-driven workflows; treat text output as human-only.
+- For Docs editing, default sequence:
+  1. `gog docs edit batch <docId> --validate-only --pretty --output-request-file <normalized.json>`
+  2. inspect/approve normalized payload + `requestHash`
+  3. execute with `gog docs edit batch <docId> --execute-from-file <normalized.json> --require-revision <revId>`
+- Use `--dry-run` before destructive or high-impact operations.
+- `gog docs edit delete` requires explicit intent (`--force`) in non-JSON human mode.
+- Parse JSON stderr error envelopes and branch on `error.error_code` (avoid message-string matching where possible).
+- Persist `requestHash`, `doc_id`, and request file path in agent logs for replayability and audit trails.
