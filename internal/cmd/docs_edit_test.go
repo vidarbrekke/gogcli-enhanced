@@ -534,6 +534,29 @@ func TestExecute_DocsEditBatch_OutputRequestFile(t *testing.T) {
 	}
 }
 
+func TestExecute_DocsEditBatch_OutputRequestFileDash_JSONSingleEnvelope(t *testing.T) {
+	withStdin(t, `{"requests":[{"insertText":{"location":{"index":1},"text":"a"}}]}`, func() {
+		out := captureStdout(t, func() {
+			stderr := captureStderr(t, func() {
+				if err := Execute([]string{"--json", "docs", "edit", "batch", "d1", "--requests-file", "-", "--validate-only", "--output-request-file", "-"}); err != nil {
+					t.Fatalf("Execute: %v", err)
+				}
+			})
+			if strings.TrimSpace(stderr) != "" {
+				t.Fatalf("unexpected stderr: %q", stderr)
+			}
+		})
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+			t.Fatalf("expected single JSON envelope, parse err=%v out=%q", err, out)
+		}
+		norm, ok := parsed["normalizedRequest"].(string)
+		if !ok || !strings.Contains(norm, "\"requests\"") {
+			t.Fatalf("normalizedRequest=%v", parsed["normalizedRequest"])
+		}
+	})
+}
+
 func TestExecute_DocsEditBatch_ExecuteFromFile_JSON(t *testing.T) {
 	origDocs := newDocsService
 	t.Cleanup(func() { newDocsService = origDocs })

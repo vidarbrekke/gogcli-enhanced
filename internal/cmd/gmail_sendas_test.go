@@ -213,14 +213,18 @@ func TestGmailBatchDeleteCmd_JSON(t *testing.T) {
 	}
 
 	var parsed struct {
-		Deleted []string `json:"deleted"`
-		Count   int      `json:"count"`
+		Deleted    bool     `json:"deleted"`
+		DeletedIDs []string `json:"deletedIds"`
+		Count      int      `json:"count"`
 	}
 	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
 		t.Fatalf("json parse: %v\nout=%q", err, out)
 	}
 	if parsed.Count != 3 {
 		t.Fatalf("unexpected count: %d", parsed.Count)
+	}
+	if !parsed.Deleted || len(parsed.DeletedIDs) != 3 {
+		t.Fatalf("unexpected delete payload: %#v", parsed)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/alecthomas/kong"
 
@@ -65,6 +66,8 @@ type CLI struct {
 type exitPanic struct{ code int }
 
 func Execute(args []string) (err error) {
+	jsonRequested := wantsJSONFromArgsOrEnv(args)
+
 	parser, cli, err := newParser(helpDescription())
 	if err != nil {
 		return err
@@ -87,12 +90,20 @@ func Execute(args []string) (err error) {
 	kctx, err := parser.Parse(args)
 	if err != nil {
 		parsedErr := wrapParseError(err)
-		_, _ = fmt.Fprintln(os.Stderr, errfmt.Format(parsedErr))
+		if jsonRequested {
+			_, _ = fmt.Fprintln(os.Stderr, formatJSONErrorEnvelopeWithCode(parsedErr, "parse_error"))
+		} else {
+			_, _ = fmt.Fprintln(os.Stderr, errfmt.Format(parsedErr))
+		}
 		return parsedErr
 	}
 
 	if err = enforceEnabledCommands(kctx, cli.EnableCommands); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, errfmt.Format(err))
+		if cli.JSON || jsonRequested {
+			_, _ = fmt.Fprintln(os.Stderr, formatJSONErrorEnvelopeWithCode(err, "command_not_enabled"))
+		} else {
+			_, _ = fmt.Fprintln(os.Stderr, errfmt.Format(err))
+		}
 		return err
 	}
 
@@ -154,6 +165,10 @@ type jsonErrorFieldsProvider interface {
 }
 
 func formatJSONErrorEnvelope(err error) string {
+	return formatJSONErrorEnvelopeWithCode(err, "")
+}
+
+func formatJSONErrorEnvelopeWithCode(err error, fallbackCode string) string {
 	envelope := map[string]any{
 		"error": map[string]any{
 			"message": errfmt.Format(err),
@@ -167,12 +182,26 @@ func formatJSONErrorEnvelope(err error) string {
 			errObj[k] = v
 		}
 	}
+	if _, ok := errObj["error_code"]; !ok && strings.TrimSpace(fallbackCode) != "" {
+		errObj["error_code"] = fallbackCode
+	}
 
 	b, marshalErr := json.Marshal(envelope)
 	if marshalErr != nil {
 		return fmt.Sprintf(`{"error":{"message":%q}}`, errfmt.Format(err))
 	}
 	return string(b)
+}
+
+func wantsJSONFromArgsOrEnv(args []string) bool {
+	for _, a := range args {
+		switch strings.TrimSpace(a) {
+		case "--json", "--json=true":
+			return true
+		}
+	}
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("GOG_JSON")))
+	return v == "1" || v == "true" || v == "yes"
 }
 
 func wrapParseError(err error) error {

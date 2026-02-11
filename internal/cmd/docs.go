@@ -177,12 +177,19 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	if hashErr != nil {
 		return newDocsEditError("batch", docID, "invalid_request", "failed to hash normalized request", hashErr)
 	}
+	normalizedForJSON := ""
+	if strings.TrimSpace(c.OutputRequestFile) == "-" && outfmt.IsJSON(ctx) {
+		norm, normErr := docsNormalizedRequestString(&req)
+		if normErr != nil {
+			return newDocsEditError("batch", docID, "invalid_request", "failed to normalize request", normErr)
+		}
+		normalizedForJSON = norm
+	} else if err := docsMaybeWriteNormalizedRequest(c.OutputRequestFile, &req); err != nil {
+		return newDocsEditError("batch", docID, "output_write_failed", "write normalized request failed", err)
+	}
 	requestKinds := make([]string, 0, len(req.Requests))
 	for _, r := range req.Requests {
 		requestKinds = append(requestKinds, docsRequestOperationName(r))
-	}
-	if err := docsMaybeWriteNormalizedRequest(c.OutputRequestFile, &req); err != nil {
-		return newDocsEditError("batch", docID, "output_write_failed", "write normalized request failed", err)
 	}
 	if c.ValidateOnly {
 		payload := map[string]any{
@@ -198,6 +205,9 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			if prettyErr == nil {
 				payload["prettyRequest"] = string(pretty)
 			}
+		}
+		if normalizedForJSON != "" {
+			payload["normalizedRequest"] = normalizedForJSON
 		}
 		if req.WriteControl != nil && strings.TrimSpace(req.WriteControl.RequiredRevisionId) != "" {
 			payload["requiredRevisionId"] = req.WriteControl.RequiredRevisionId
@@ -222,6 +232,7 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			"operations":   len(req.Requests),
 			"requestKinds": requestKinds,
 			"requestHash":  requestHash,
+			"normalizedRequest": normalizedForJSON,
 		})
 	}
 
@@ -243,11 +254,15 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	operations := len(req.Requests)
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, map[string]any{
+		payload := map[string]any{
 			"documentId": docID,
 			"operations": operations,
 			"replies":    len(resp.Replies),
-		})
+		}
+		if normalizedForJSON != "" {
+			payload["normalizedRequest"] = normalizedForJSON
+		}
+		return outfmt.WriteJSON(os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("operations\t%d", operations)
@@ -929,6 +944,18 @@ func docsMaybeWriteNormalizedRequest(path string, req *docs.BatchUpdateDocumentR
 		return err
 	}
 	return os.WriteFile(path, pretty, 0o600)
+}
+
+func docsNormalizedRequestString(req *docs.BatchUpdateDocumentRequest) (string, error) {
+	if req == nil {
+		return "", errors.New("nil request")
+	}
+	pretty, err := json.MarshalIndent(req, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	pretty = append(pretty, '\n')
+	return string(pretty), nil
 }
 
 func docsRequestHash(req *docs.BatchUpdateDocumentRequest) (string, error) {

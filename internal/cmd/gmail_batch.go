@@ -41,8 +41,9 @@ func (c *GmailBatchDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(os.Stdout, map[string]any{
-			"deleted": c.MessageIDs,
-			"count":   len(c.MessageIDs),
+			"deleted":    true,
+			"deletedIds": c.MessageIDs,
+			"count":      len(c.MessageIDs),
 		})
 	}
 

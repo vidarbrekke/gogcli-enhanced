@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"path/filepath"
@@ -77,5 +78,45 @@ func TestEnableCommandsBlocks(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not enabled") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestExecute_ParseError_JSONEnvelope(t *testing.T) {
+	stderr := captureStderr(t, func() {
+		err := Execute([]string{"--json", "--no-such-flag"})
+		if err == nil {
+			t.Fatal("expected parse error")
+		}
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &parsed); err != nil {
+		t.Fatalf("parse stderr json: %v; stderr=%q", err, stderr)
+	}
+	errorObj, ok := parsed["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing error object: %#v", parsed)
+	}
+	if errorObj["error_code"] != "parse_error" {
+		t.Fatalf("error_code=%v", errorObj["error_code"])
+	}
+}
+
+func TestEnableCommandsBlocks_JSONEnvelope(t *testing.T) {
+	stderr := captureStderr(t, func() {
+		err := Execute([]string{"--json", "--enable-commands", "calendar", "tasks", "list", "l1"})
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &parsed); err != nil {
+		t.Fatalf("parse stderr json: %v; stderr=%q", err, stderr)
+	}
+	errorObj, ok := parsed["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing error object: %#v", parsed)
+	}
+	if errorObj["error_code"] != "command_not_enabled" {
+		t.Fatalf("error_code=%v", errorObj["error_code"])
 	}
 }
