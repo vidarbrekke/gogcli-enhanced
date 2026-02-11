@@ -1,0 +1,19 @@
+{
+  "requests": [
+    {
+      "insertText": {
+        "location": { "index": 1 },
+        "text": "Release Notes\n\n"
+      }
+    },
+    {
+      "replaceAllText": {
+        "containsText": {
+          "text": "TODO",
+          "matchCase": true
+        },
+        "replaceText": "DONE"
+      }
+    }
+  ]
+}

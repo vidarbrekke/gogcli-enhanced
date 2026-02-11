@@ -6,6 +6,7 @@
 
 - Gmail: add `--exclude-labels` to `watch serve` (defaults: `SPAM,TRASH`). (#194) — thanks @salmonumbrella.
 - Drive: share files with an entire Workspace domain via `drive share --to domain`. (#192) — thanks @Danielkweber.
+- Docs: inline editing commands via `gog docs edit` (`replace`, `append`, `insert`, `delete`, `batch`) plus guide at `docs/editing.md`.
 
 ### Fixed
 

@@ -16,7 +16,7 @@ Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Sli
 - **Contacts** - search/create/update contacts, access Workspace directory/other contacts
 - **Tasks** - manage tasklists and tasks: get/create/add/update/done/undo/delete/clear, repeat schedules
 - **Sheets** - read/write/update spreadsheets, format cells, create new sheets (and export via Drive)
-- **Docs/Slides** - export to PDF/DOCX/PPTX via Drive (plus create/copy, docs-to-text)
+- **Docs/Slides** - export to PDF/DOCX/PPTX via Drive (plus create/copy/docs-to-text and Docs inline editing)
 - **People** - access profile information
 - **Keep (Workspace only)** - list/get/search notes and download attachments (service account + domain-wide delegation)
 - **Groups** - list groups you belong to, view group members (Google Workspace)
@@ -811,6 +811,11 @@ gog docs cat <docId> --max-bytes 10000
 gog docs create "My Doc"
 gog docs copy <docId> "My Doc Copy"
 gog docs export <docId> --format pdf --out ./doc.pdf
+gog docs edit replace <docId> "Draft" "Final"
+gog docs edit append <docId> $'\nRelease notes'
+gog docs edit insert <docId> "Prefix: " --index 1
+gog docs edit delete <docId> 1 8
+gog docs edit batch <docId> --requests-file ./ops.json
 
 # Slides
 gog slides info <presentationId>
@@ -1035,6 +1040,13 @@ Note: Classroom commands require a Google Workspace for Education account. Perso
 gog docs export <docId> --format pdf --out ./doc.pdf
 gog docs export <docId> --format docx --out ./doc.docx
 gog docs export <docId> --format txt --out ./doc.txt
+
+# Edit inline (Docs API batchUpdate)
+gog docs edit replace <docId> "old text" "new text" --match-case
+gog docs edit append <docId> $'\nAppendix'
+gog docs edit insert <docId> "Intro: " --index 1
+gog docs edit delete <docId> 10 40
+cat ops.json | gog docs edit batch <docId> --requests-file -
 ```
 
 ### Slides
