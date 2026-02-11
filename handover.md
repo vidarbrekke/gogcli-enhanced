@@ -10,14 +10,19 @@ What is already done:
   - `gog docs edit insert`
   - `gog docs edit delete`
   - `gog docs edit batch`
-- Docs edit also has agent-friendly safety and pipeline flags:
-  - `--dry-run`
+- Docs edit has agent-friendly safety and pipeline flags:
+  - `--dry-run` (works **without auth** for replace/insert/delete — agents can build plans offline)
   - `--require-revision`
   - `--validate-only`
   - `--pretty`
-  - `--output-request-file`
+  - `--output-request-file` (all subcommands: replace, append, insert, delete, batch)
   - `--execute-from-file`
-- JSON error handling was improved for agent workflows.
+- JSON error handling with structured envelopes (`error_code`, `doc_id`, `request_index`).
+- Docs code split into focused files:
+  - `docs_cmd.go` — command wiring
+  - `docs_edit_cmd.go` — edit subcommands
+  - `docs_edit_helpers.go` — hash, normalize, dry-run, error types
+  - `docs_read_cmd.go` — export, info, create, copy, cat
 
 What is not done yet:
 
@@ -44,7 +49,8 @@ Before coding:
 1. Read:
    - `AGENTS.md`
    - `docs/editing.md`
-   - `internal/cmd/docs.go`
+   - `docs/refactor/external-review-feedback.md` (prioritized improvements)
+   - `internal/cmd/docs_cmd.go`, `docs_edit_cmd.go`, `docs_edit_helpers.go`, `docs_read_cmd.go`
    - `internal/cmd/docs_edit_test.go`
 2. Run baseline checks locally:
    - `make test`
@@ -265,6 +271,18 @@ By now, Docs/Sheets/Slides should behave similarly; this phase closes inconsiste
 ### Done criteria
 
 - New developer can follow docs and successfully run each edit flow.
+
+---
+
+## Recent Changes (External Review Quick Wins)
+
+Completed 2025-02:
+
+1. **Dry-run without auth** — `docs edit replace`, `insert`, `delete` now run `--dry-run` without requiring `requireAccount()`. Agents can generate exact `BatchUpdateDocumentRequest` payloads offline.
+2. **`--output-request-file` and `--pretty` on all edit subcommands** — replace, append, insert, delete, and batch share these flags via `DocsEditSafetyFlags`.
+3. **Docs code split** — `internal/cmd/docs.go` refactored into `docs_cmd.go`, `docs_edit_cmd.go`, `docs_edit_helpers.go`, `docs_read_cmd.go` for maintainability.
+
+See `docs/refactor/external-review-feedback.md` for the full review and remaining prioritized items (marker-based insert/delete, standardized JSON envelope, `--timeout`/`--retries`, `docs positions` helper, etc.).
 
 ---
 

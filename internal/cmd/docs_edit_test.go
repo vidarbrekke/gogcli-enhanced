@@ -700,6 +700,25 @@ func TestExecute_DocsEditReplace_DryRun_JSON(t *testing.T) {
 	}
 }
 
+func TestExecute_DocsEditReplace_DryRun_NoAuth(t *testing.T) {
+	// Dry-run must not require auth or network: agents build plans without credentials.
+	if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "old", "new", "--dry-run"}); err != nil {
+		t.Fatalf("dry-run without auth should succeed: %v", err)
+	}
+}
+
+func TestExecute_DocsEditInsert_DryRun_NoAuth(t *testing.T) {
+	if err := Execute([]string{"--json", "docs", "edit", "insert", "d1", "x", "--index", "1", "--dry-run"}); err != nil {
+		t.Fatalf("dry-run without auth should succeed: %v", err)
+	}
+}
+
+func TestExecute_DocsEditDelete_DryRun_NoAuth(t *testing.T) {
+	if err := Execute([]string{"--json", "docs", "edit", "delete", "d1", "1", "5", "--dry-run"}); err != nil {
+		t.Fatalf("dry-run without auth should succeed: %v", err)
+	}
+}
+
 func TestExecute_DocsEditReplace_RequireRevision(t *testing.T) {
 	origDocs := newDocsService
 	t.Cleanup(func() { newDocsService = origDocs })
@@ -735,4 +754,3 @@ func TestExecute_DocsEditReplace_RequireRevision(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 }
-
