@@ -831,6 +831,10 @@ gog slides export <presentationId> --format pdf --out ./deck.pdf
 gog sheets copy <spreadsheetId> "My Sheet Copy"
 gog sheets export <spreadsheetId> --format pdf --out ./sheet.pdf
 gog sheets format <spreadsheetId> 'Sheet1!A1:B2' --format-json '{"textFormat":{"bold":true}}' --format-fields 'userEnteredFormat.textFormat.bold'
+gog sheets edit values <spreadsheetId> "Sheet1!A1:B2" "a|b, c|d"
+gog sheets edit append <spreadsheetId> "Sheet1!A:C" "a|b"
+gog sheets edit clear <spreadsheetId> "Sheet1!A1:B2" --force
+gog sheets edit batch <spreadsheetId> --requests-file ./ops.json --validate-only
 ```
 
 ### Contacts

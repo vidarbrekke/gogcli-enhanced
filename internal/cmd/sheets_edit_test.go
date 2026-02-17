@@ -1,0 +1,345 @@
+package cmd
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"google.golang.org/api/option"
+	"google.golang.org/api/sheets/v4"
+)
+
+func TestExecute_SheetsEditValues_JSON(t *testing.T) {
+	origSheets := newSheetsService
+	t.Cleanup(func() { newSheetsService = origSheets })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/v4/spreadsheets/d1/values/") {
+			var vr sheets.ValueRange
+			if err := json.NewDecoder(r.Body).Decode(&vr); err != nil {
+				t.Fatalf("decode request: %v", err)
+			}
+			if len(vr.Values) != 1 || len(vr.Values[0]) != 2 {
+				t.Fatalf("unexpected values: %#v", vr.Values)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"updatedRange":   "Sheet1!A1:B1",
+				"updatedRows":    1,
+				"updatedColumns": 2,
+				"updatedCells":   2,
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	svc, err := sheets.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewSheetsService: %v", err)
+	}
+	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if execErr := Execute([]string{"--json", "--account", "a@b.com", "sheets", "edit", "values", "d1", "Sheet1!A1:B1", "a|b"}); execErr != nil {
+				t.Fatalf("Execute: %v", execErr)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["updatedCells"] != float64(2) {
+		t.Fatalf("updatedCells=%v", parsed["updatedCells"])
+	}
+}
+
+func TestExecute_SheetsEditValues_DryRun_Pretty_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "sheets", "edit", "values", "d1", "Sheet1!A1:B1", "a|b", "--dry-run", "--pretty"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["dryRun"] != true {
+		t.Fatalf("dryRun=%v", parsed["dryRun"])
+	}
+	hash, ok := parsed["requestHash"].(string)
+	if !ok || len(hash) != 64 {
+		t.Fatalf("requestHash=%v", parsed["requestHash"])
+	}
+}
+
+func TestExecute_SheetsEditValues_OutputRequestFile_JSON(t *testing.T) {
+	outFile := filepath.Join(t.TempDir(), "values-request.json")
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "sheets", "edit", "values", "d1", "Sheet1!A1:B1", "a|b", "--dry-run", "--output-request-file", outFile}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	b, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if !strings.Contains(string(b), "\"values\"") {
+		t.Fatalf("expected values request in output file, got: %q", string(b))
+	}
+}
+
+func TestExecute_SheetsEditAppend_JSON(t *testing.T) {
+	origSheets := newSheetsService
+	t.Cleanup(func() { newSheetsService = origSheets })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, ":append") {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"updates": map[string]any{
+					"updatedRange":   "Sheet1!A1:B1",
+					"updatedRows":    1,
+					"updatedColumns": 2,
+					"updatedCells":   2,
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	svc, err := sheets.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewSheetsService: %v", err)
+	}
+	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if execErr := Execute([]string{"--json", "--account", "a@b.com", "sheets", "edit", "append", "d1", "Sheet1!A:C", "a|b"}); execErr != nil {
+				t.Fatalf("Execute: %v", execErr)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["updatedCells"] != float64(2) {
+		t.Fatalf("updatedCells=%v", parsed["updatedCells"])
+	}
+}
+
+func TestExecute_SheetsEditClear_JSON(t *testing.T) {
+	origSheets := newSheetsService
+	t.Cleanup(func() { newSheetsService = origSheets })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, ":clear") {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"clearedRange": "Sheet1!A1:B2",
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	svc, err := sheets.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewSheetsService: %v", err)
+	}
+	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if execErr := Execute([]string{"--json", "--account", "a@b.com", "sheets", "edit", "clear", "d1", "Sheet1!A1:B2"}); execErr != nil {
+				t.Fatalf("Execute: %v", execErr)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["clearedRange"] != "Sheet1!A1:B2" {
+		t.Fatalf("clearedRange=%v", parsed["clearedRange"])
+	}
+}
+
+func TestExecute_SheetsEditClear_RequiresForceOrDryRun(t *testing.T) {
+	err := Execute([]string{"--account", "a@b.com", "sheets", "edit", "clear", "d1", "Sheet1!A1:B2"})
+	if err == nil || !strings.Contains(err.Error(), "destructive") {
+		t.Fatalf("expected destructive guard error, got: %v", err)
+	}
+}
+
+func TestExecute_SheetsEditBatch_JSONFile(t *testing.T) {
+	origSheets := newSheetsService
+	t.Cleanup(func() { newSheetsService = origSheets })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v4/spreadsheets/d1:batchUpdate" {
+			var req sheets.BatchUpdateSpreadsheetRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode request: %v", err)
+			}
+			if len(req.Requests) != 1 {
+				t.Fatalf("expected 1 request, got %d", len(req.Requests))
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"spreadsheetId": "d1",
+				"replies":       []any{map[string]any{}},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	svc, err := sheets.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewSheetsService: %v", err)
+	}
+	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
+
+	tmp, err := os.CreateTemp(t.TempDir(), "sheets-batch-*.json")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	payload := `{"requests":[{"addSheet":{"properties":{"title":"NewSheet"}}}]}`
+	if _, err := tmp.WriteString(payload); err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
+	if err := tmp.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if execErr := Execute([]string{"--json", "--account", "a@b.com", "sheets", "edit", "batch", "d1", "--requests-file", tmp.Name()}); execErr != nil {
+				t.Fatalf("Execute: %v", execErr)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["operations"] != float64(1) {
+		t.Fatalf("operations=%v", parsed["operations"])
+	}
+}
+
+func TestExecute_SheetsEditBatch_ValidateOnly_JSON(t *testing.T) {
+	withStdin(t, `{"requests":[{"addSheet":{"properties":{"title":"NewSheet"}}}]}`, func() {
+		out := captureStdout(t, func() {
+			stderr := captureStderr(t, func() {
+				if err := Execute([]string{"--json", "sheets", "edit", "batch", "d1", "--requests-file", "-", "--validate-only"}); err != nil {
+					t.Fatalf("Execute: %v", err)
+				}
+			})
+			if strings.TrimSpace(stderr) != "" {
+				t.Fatalf("unexpected stderr: %q", stderr)
+			}
+		})
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+			t.Fatalf("parse json: %v; out=%q", err, out)
+		}
+		if parsed["validateOnly"] != true || parsed["valid"] != true {
+			t.Fatalf("unexpected validate payload: %#v", parsed)
+		}
+		hash, ok := parsed["requestHash"].(string)
+		if !ok || len(hash) != 64 {
+			t.Fatalf("requestHash=%v", parsed["requestHash"])
+		}
+	})
+}
+
+func TestExecute_SheetsEditBatch_InvalidRequest_JSONErrorEnvelope(t *testing.T) {
+	stderr := captureStderr(t, func() {
+		withStdin(t, `{"requests":[{"addSheet":{"properties":{"title":"x"}},"deleteSheet":{"sheetId":1}}]}`, func() {
+			err := Execute([]string{"--json", "sheets", "edit", "batch", "d1", "--requests-file", "-"})
+			if err == nil {
+				t.Fatal("expected error")
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &parsed); err != nil {
+		t.Fatalf("parse stderr json: %v; stderr=%q", err, stderr)
+	}
+	errorObj, ok := parsed["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing error object: %#v", parsed)
+	}
+	if errorObj["error_code"] != "invalid_request" {
+		t.Fatalf("error_code=%v", errorObj["error_code"])
+	}
+	if errorObj["request_index"] != float64(0) {
+		t.Fatalf("request_index=%v", errorObj["request_index"])
+	}
+	if errorObj["operation"] != "batch" {
+		t.Fatalf("operation=%v", errorObj["operation"])
+	}
+}
+
+func TestExecute_SheetsEditBatch_OutputRequestFileDash_JSON(t *testing.T) {
+	withStdin(t, `{"requests":[{"addSheet":{"properties":{"title":"NewSheet"}}}]}`, func() {
+		out := captureStdout(t, func() {
+			stderr := captureStderr(t, func() {
+				if err := Execute([]string{"--json", "sheets", "edit", "batch", "d1", "--requests-file", "-", "--validate-only", "--output-request-file", "-"}); err != nil {
+					t.Fatalf("Execute: %v", err)
+				}
+			})
+			if strings.TrimSpace(stderr) != "" {
+				t.Fatalf("unexpected stderr: %q", stderr)
+			}
+		})
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+			t.Fatalf("expected single JSON envelope, parse err=%v out=%q", err, out)
+		}
+		norm, ok := parsed["normalizedRequest"].(string)
+		if !ok || !strings.Contains(norm, "\"requests\"") {
+			t.Fatalf("normalizedRequest=%v", parsed["normalizedRequest"])
+		}
+	})
+}

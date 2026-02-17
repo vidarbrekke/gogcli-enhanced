@@ -719,6 +719,216 @@ func TestExecute_DocsEditDelete_DryRun_NoAuth(t *testing.T) {
 	}
 }
 
+func TestExecute_DocsEditReplace_DryRun_Pretty_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "old", "new", "--dry-run", "--pretty"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	hash, ok := parsed["requestHash"].(string)
+	if !ok || len(hash) != 64 {
+		t.Fatalf("requestHash=%v", parsed["requestHash"])
+	}
+	norm, ok := parsed["normalizedRequest"].(string)
+	if !ok || !strings.Contains(norm, "\"requests\"") {
+		t.Fatalf("normalizedRequest=%v", parsed["normalizedRequest"])
+	}
+}
+
+func TestExecute_DocsEditReplace_OutputRequestFile_JSON(t *testing.T) {
+	outFile := filepath.Join(t.TempDir(), "replace-request.json")
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "old", "new", "--dry-run", "--output-request-file", outFile}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	b, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if !strings.Contains(string(b), "\"replaceAllText\"") {
+		t.Fatalf("expected replace request in output file, got: %q", string(b))
+	}
+}
+
+func TestExecute_DocsEditReplace_OutputRequestFileDash_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "old", "new", "--dry-run", "--output-request-file", "-"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	norm, ok := parsed["normalizedRequest"].(string)
+	if !ok || !strings.Contains(norm, "\"requests\"") {
+		t.Fatalf("normalizedRequest=%v", parsed["normalizedRequest"])
+	}
+}
+
+func TestExecute_DocsEditInsert_OutputRequestFile_JSON(t *testing.T) {
+	outFile := filepath.Join(t.TempDir(), "insert-request.json")
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "docs", "edit", "insert", "d1", "x", "--index", "1", "--dry-run", "--output-request-file", outFile}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	b, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if !strings.Contains(string(b), "\"insertText\"") {
+		t.Fatalf("expected insert request in output file, got: %q", string(b))
+	}
+}
+
+func TestExecute_DocsEditDelete_OutputRequestFile_JSON(t *testing.T) {
+	outFile := filepath.Join(t.TempDir(), "delete-request.json")
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "docs", "edit", "delete", "d1", "1", "5", "--dry-run", "--output-request-file", outFile}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	b, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if !strings.Contains(string(b), "\"deleteContentRange\"") {
+		t.Fatalf("expected delete request in output file, got: %q", string(b))
+	}
+}
+
+func TestExecute_DocsEditAppend_OutputRequestFile_JSON(t *testing.T) {
+	origDocs := newDocsService
+	t.Cleanup(func() { newDocsService = origDocs })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/documents/d1":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"documentId": "d1",
+				"body": map[string]any{
+					"content": []any{
+						map[string]any{"startIndex": 0, "endIndex": 6},
+					},
+				},
+			})
+			return
+		default:
+			t.Fatalf("unexpected API call during append dry-run: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	docSvc, err := docs.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewDocsService: %v", err)
+	}
+	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
+
+	outFile := filepath.Join(t.TempDir(), "append-request.json")
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "docs", "edit", "append", "d1", "tail", "--dry-run", "--output-request-file", outFile}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	b, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if !strings.Contains(string(b), "\"insertText\"") {
+		t.Fatalf("expected insert request in output file, got: %q", string(b))
+	}
+}
+
+func TestExecute_DocsEditReplace_Pretty_JSON(t *testing.T) {
+	origDocs := newDocsService
+	t.Cleanup(func() { newDocsService = origDocs })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/documents/d1:batchUpdate" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"documentId": "d1",
+				"replies": []any{
+					map[string]any{"replaceAllText": map[string]any{"occurrencesChanged": 1}},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	docSvc, err := docs.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewDocsService: %v", err)
+	}
+	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "docs", "edit", "replace", "d1", "old", "new", "--pretty"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	hash, ok := parsed["requestHash"].(string)
+	if !ok || len(hash) != 64 {
+		t.Fatalf("requestHash=%v", parsed["requestHash"])
+	}
+	norm, ok := parsed["normalizedRequest"].(string)
+	if !ok || !strings.Contains(norm, "\"requests\"") {
+		t.Fatalf("normalizedRequest=%v", parsed["normalizedRequest"])
+	}
+}
+
 func TestExecute_DocsEditReplace_RequireRevision(t *testing.T) {
 	origDocs := newDocsService
 	t.Cleanup(func() { newDocsService = origDocs })

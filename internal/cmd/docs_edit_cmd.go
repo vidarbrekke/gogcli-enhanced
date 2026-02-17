@@ -201,12 +201,14 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 		},
 	}
 	applyDocsEditSafety(req, c.Safety)
-	if err := docsMaybeWriteNormalizedRequest(strings.TrimSpace(c.Safety.OutputRequestFile), req); err != nil {
-		return newDocsEditError("delete", docID, "output_write_failed", "write normalized request failed", err)
+	normalizedForJSON, normErr := docsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return newDocsEditError("delete", docID, "output_write_failed", "write normalized request failed", normErr)
 	}
 	if c.Safety.DryRun {
 		return docsDryRunOutputWithOpts(ctx, u, docID, req, map[string]any{
-			"deletedChars": c.EndIndex - c.StartIndex,
+			"deletedChars":      c.EndIndex - c.StartIndex,
+			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -229,6 +231,9 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 	payload := map[string]any{
 		"documentId":   docID,
 		"deletedChars": deletedChars,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if c.Safety.Pretty {
 		if hash, hashErr := docsRequestHash(req); hashErr == nil {
@@ -278,13 +283,15 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 		},
 	}
 	applyDocsEditSafety(req, c.Safety)
-	if err := docsMaybeWriteNormalizedRequest(strings.TrimSpace(c.Safety.OutputRequestFile), req); err != nil {
-		return newDocsEditError("insert", docID, "output_write_failed", "write normalized request failed", err)
+	normalizedForJSON, normErr := docsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return newDocsEditError("insert", docID, "output_write_failed", "write normalized request failed", normErr)
 	}
 	if c.Safety.DryRun {
 		return docsDryRunOutputWithOpts(ctx, u, docID, req, map[string]any{
-			"insertedChars": len(text),
-			"index":         c.Index,
+			"insertedChars":     len(text),
+			"index":             c.Index,
+			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -307,6 +314,9 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 		"documentId":    docID,
 		"insertedChars": len(text),
 		"index":         c.Index,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if c.Safety.Pretty {
 		if hash, hashErr := docsRequestHash(req); hashErr == nil {
@@ -372,13 +382,15 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		},
 	}
 	applyDocsEditSafety(req, c.Safety)
-	if err := docsMaybeWriteNormalizedRequest(strings.TrimSpace(c.Safety.OutputRequestFile), req); err != nil {
-		return newDocsEditError("append", docID, "output_write_failed", "write normalized request failed", err)
+	normalizedForJSON, normErr := docsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return newDocsEditError("append", docID, "output_write_failed", "write normalized request failed", normErr)
 	}
 	if c.Safety.DryRun {
 		return docsDryRunOutputWithOpts(ctx, u, docID, req, map[string]any{
-			"insertedChars": len(text),
-			"index":         index,
+			"insertedChars":     len(text),
+			"index":             index,
+			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 	if _, err := svc.Documents.BatchUpdate(docID, req).Context(ctx).Do(); err != nil {
@@ -392,6 +404,9 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		"documentId":    docID,
 		"insertedChars": len(text),
 		"index":         index,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if c.Safety.Pretty {
 		if hash, hashErr := docsRequestHash(req); hashErr == nil {
@@ -443,12 +458,14 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 		},
 	}
 	applyDocsEditSafety(req, c.Safety)
-	if err := docsMaybeWriteNormalizedRequest(strings.TrimSpace(c.Safety.OutputRequestFile), req); err != nil {
-		return newDocsEditError("replace", docID, "output_write_failed", "write normalized request failed", err)
+	normalizedForJSON, normErr := docsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return newDocsEditError("replace", docID, "output_write_failed", "write normalized request failed", normErr)
 	}
 	if c.Safety.DryRun {
 		return docsDryRunOutputWithOpts(ctx, u, docID, req, map[string]any{
-			"operation": "replace",
+			"operation":         "replace",
+			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -476,6 +493,9 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 	payload := map[string]any{
 		"documentId":         docID,
 		"occurrencesChanged": occurrences,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if c.Safety.Pretty {
 		if hash, hashErr := docsRequestHash(req); hashErr == nil {
