@@ -20,6 +20,7 @@ import (
 type SlidesEditCmd struct {
 	Batch       SlidesEditBatchCmd       `cmd:"" name:"batch" help:"Apply multiple Slides API batch operations from JSON"`
 	ReplaceText SlidesEditReplaceTextCmd `cmd:"" name:"replace-text" help:"Find and replace text across all slides"`
+	ReplaceImage SlidesEditReplaceImageCmd `cmd:"" name:"replace-image" help:"Replace an image in a presentation preserving position/size"`
 	MergeData   SlidesEditMergeDataCmd   `cmd:"" name:"merge-data" help:"Generate presentations from template using JSON data (mail-merge)"`
 }
 
@@ -652,6 +653,120 @@ func formatMergeFilename(format string, data map[string]any, includeTimestamp bo
 	}
 
 	return result
+}
+
+// SlidesEditReplaceImageCmd replaces an image in a presentation while preserving position and size.
+type SlidesEditReplaceImageCmd struct {
+	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
+	ObjectID       string `name:"object-id" help:"ID of the image object to replace (e.g., 'image1')"`
+	SourceURL      string `name:"source-url" help:"URL of replacement image (publicly accessible)"`
+	Safety         AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *SlidesEditReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	presentationID := strings.TrimSpace(c.PresentationID)
+	objectID := strings.TrimSpace(c.ObjectID)
+	sourceURL := strings.TrimSpace(c.SourceURL)
+
+	if presentationID == "" {
+		return NewEditError("slides", "replace-image", presentationID, "invalid_argument", "empty presentationId", nil)
+	}
+	if objectID == "" {
+		return NewEditError("slides", "replace-image", presentationID, "invalid_argument", "empty object-id", nil)
+	}
+	if sourceURL == "" {
+		return NewEditError("slides", "replace-image", presentationID, "invalid_argument", "empty source-url", nil)
+	}
+
+	req := &slides.BatchUpdatePresentationRequest{
+		Requests: []*slides.Request{
+			{
+				ReplaceImage: &slides.ReplaceImageRequest{
+					ImageObjectId:              objectID,
+					ImageReplaceMethod:         "CENTER_INSIDE",
+					Url:                        sourceURL,
+				},
+			},
+		},
+	}
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("slides", "replace-image", presentationID, "invalid_request", "failed to hash request", hashErr)
+	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("slides", "replace-image", presentationID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":   true,
+			"valid":          true,
+			"presentationId": presentationID,
+			"objectId":       objectID,
+			"sourceUrl":      sourceURL,
+			"requestHash":    requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", presentationID)
+		u.Out().Printf("object\t%s", objectID)
+		return nil
+	}
+
+	if c.Safety.DryRun {
+		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
+			"objectId":          objectID,
+			"sourceUrl":         sourceURL,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSlidesService(ctx, account)
+	if err != nil {
+		return NewEditError("slides", "replace-image", presentationID, "service_init_failed", "create slides service failed", err)
+	}
+
+	resp, err := svc.Presentations.BatchUpdate(presentationID, req).Do()
+	if err != nil {
+		if IsNotFound(err) {
+			return NewEditError("slides", "replace-image", presentationID, "presentation_not_found",
+				fmt.Sprintf("presentation not found (id=%s)", presentationID), err)
+		}
+		return NewEditError("slides", "replace-image", presentationID, "api_error", "replace image failed", err)
+	}
+
+	payload := map[string]any{
+		"presentationId": presentationID,
+		"objectId":       objectID,
+		"replies":        len(resp.Replies),
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, payload)
+	}
+	u.Out().Printf("id\t%s", presentationID)
+	u.Out().Printf("object\t%s", objectID)
+	u.Out().Printf("replies\t%d", len(resp.Replies))
+	return nil
 }
 
 // newSlidesService creates a new Slides API service.
