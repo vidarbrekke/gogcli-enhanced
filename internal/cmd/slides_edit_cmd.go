@@ -17,7 +17,8 @@ import (
 
 // SlidesEditCmd provides edit operations for Google Slides with agentic safety.
 type SlidesEditCmd struct {
-	Batch SlidesEditBatchCmd `cmd:"" name:"batch" help:"Apply multiple Slides API batch operations from JSON"`
+	Batch       SlidesEditBatchCmd       `cmd:"" name:"batch" help:"Apply multiple Slides API batch operations from JSON"`
+	ReplaceText SlidesEditReplaceTextCmd `cmd:"" name:"replace-text" help:"Find and replace text across all slides"`
 }
 
 // SlidesEditBatchCmd applies multiple batch operations to a presentation.
@@ -274,6 +275,134 @@ func slidesRequestOperationName(r *slides.Request) string {
 // SlidesDryRunOutput is a wrapper for Slides dry-run output using shared helpers.
 func SlidesDryRunOutput(ctx context.Context, u *ui.UI, presentationID string, req any, extra map[string]any, includePretty bool) error {
 	return DryRunOutput(ctx, u, "slides", presentationID, req, extra, includePretty)
+}
+
+// SlidesEditReplaceTextCmd finds and replaces text across all slides.
+type SlidesEditReplaceTextCmd struct {
+	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
+	Find           string `name:"find" help:"Text to find"`
+	Replace        string `name:"replace" help:"Replacement text"`
+	MatchCase      bool   `name:"match-case" help:"Case-sensitive matching"`
+	Safety         AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *SlidesEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	presentationID := strings.TrimSpace(c.PresentationID)
+	find := strings.TrimSpace(c.Find)
+	replace := c.Replace
+
+	if presentationID == "" {
+		return NewEditError("slides", "replace-text", presentationID, "invalid_argument", "empty presentationId", nil)
+	}
+	if find == "" {
+		return NewEditError("slides", "replace-text", presentationID, "invalid_argument", "empty find", nil)
+	}
+
+	// Build the batch request
+	req := &slides.BatchUpdatePresentationRequest{
+		Requests: []*slides.Request{
+			{
+				ReplaceAllText: &slides.ReplaceAllTextRequest{
+					ContainsText: &slides.SubstringMatchCriteria{
+						Text:      find,
+						MatchCase: c.MatchCase,
+					},
+					ReplaceText: replace,
+				},
+			},
+		},
+	}
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("slides", "replace-text", presentationID, "invalid_request", "failed to hash request", hashErr)
+	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("slides", "replace-text", presentationID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":   true,
+			"valid":          true,
+			"presentationId": presentationID,
+			"find":           find,
+			"replace":        replace,
+			"matchCase":      c.MatchCase,
+			"requestHash":    requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", presentationID)
+		u.Out().Printf("find\t%s", find)
+		u.Out().Printf("replace\t%s", replace)
+		return nil
+	}
+
+	if c.Safety.DryRun {
+		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
+			"find":              find,
+			"replace":           replace,
+			"matchCase":         c.MatchCase,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSlidesService(ctx, account)
+	if err != nil {
+		return NewEditError("slides", "replace-text", presentationID, "service_init_failed", "create slides service failed", err)
+	}
+
+	resp, err := svc.Presentations.BatchUpdate(presentationID, req).Do()
+	if err != nil {
+		if IsNotFound(err) {
+			return NewEditError("slides", "replace-text", presentationID, "presentation_not_found",
+				fmt.Sprintf("presentation not found (id=%s)", presentationID), err)
+		}
+		return NewEditError("slides", "replace-text", presentationID, "api_error", "replace text failed", err)
+	}
+
+	// Count occurrences replaced
+	occurrences := 0
+	for _, reply := range resp.Replies {
+		if reply.ReplaceAllText != nil {
+			occurrences += int(reply.ReplaceAllText.OccurrencesChanged)
+		}
+	}
+
+	payload := map[string]any{
+		"presentationId": presentationID,
+		"find":           find,
+		"replace":        replace,
+		"occurrences":    occurrences,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, payload)
+	}
+	u.Out().Printf("id\t%s", presentationID)
+	u.Out().Printf("find\t%s", find)
+	u.Out().Printf("replace\t%s", replace)
+	u.Out().Printf("occurrences\t%d", occurrences)
+	return nil
 }
 
 // newSlidesService creates a new Slides API service.
