@@ -7,6 +7,7 @@
 - Gmail: add `--exclude-labels` to `watch serve` (defaults: `SPAM,TRASH`). (#194) — thanks @salmonumbrella.
 - Drive: share files with an entire Workspace domain via `drive share --to domain`. (#192) — thanks @Danielkweber.
 - Docs: inline editing commands via `gog docs edit` (`replace`, `append`, `insert`, `delete`, `batch`) plus guide at `docs/editing.md`.
+- Sheets: agentic edit commands via `gog sheets edit` (`values`, `append`, `clear`, `batch`) with shared safety flags (`--dry-run`, `--validate-only`, `--pretty`, `--output-request-file`, `--execute-from-file`) and structured `EditError`; integration with Phase 1 helpers (VID-92, VID-93, VID-94, VID-95).
 
 ### Fixed
 

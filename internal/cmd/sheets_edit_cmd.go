@@ -61,23 +61,24 @@ func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 		CopyValidationFrom: strings.TrimSpace(c.CopyValidationFrom),
 	}
 
-	normalizedForJSON, normErr := sheetsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
 	if normErr != nil {
 		return newSheetsEditError("values", spreadsheetID, "output_write_failed", "write normalized request failed", normErr)
 	}
 
 	if c.Safety.ValidateOnly {
+		hash, _ := RequestHash(req)
 		payload := map[string]any{
 			"validateOnly":  true,
 			"valid":         true,
 			"spreadsheetId": spreadsheetID,
-			"requestHash":   mustSheetsRequestHash(req),
+			"requestHash":   hash,
 		}
 		if normalizedForJSON != "" {
 			payload["normalizedRequest"] = normalizedForJSON
 		}
 		if c.Safety.Pretty {
-			if pretty, err := sheetsNormalizedRequestString(req); err == nil {
+			if pretty, prettyErr := NormalizedRequestString(req); prettyErr == nil {
 				payload["normalizedRequest"] = pretty
 			}
 		}
@@ -91,7 +92,7 @@ func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if c.Safety.DryRun {
-		return sheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
+		return SheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
 			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
@@ -133,10 +134,10 @@ func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if c.Safety.Pretty {
-		if hash, err := sheetsRequestHash(req); err == nil {
+		if hash, err := RequestHash(req); err == nil {
 			payload["requestHash"] = hash
 		}
-		if norm, err := sheetsNormalizedRequestString(req); err == nil {
+		if norm, err := NormalizedRequestString(req); err == nil {
 			payload["normalizedRequest"] = norm
 		}
 	}
@@ -188,17 +189,18 @@ func (c *SheetsEditAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		InsertDataOption:   insertDataOption,
 		CopyValidationFrom: strings.TrimSpace(c.CopyValidationFrom),
 	}
-	normalizedForJSON, normErr := sheetsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
 	if normErr != nil {
 		return newSheetsEditError("append", spreadsheetID, "output_write_failed", "write normalized request failed", normErr)
 	}
 
 	if c.Safety.ValidateOnly {
+		hash, _ := RequestHash(req)
 		payload := map[string]any{
 			"validateOnly":  true,
 			"valid":         true,
 			"spreadsheetId": spreadsheetID,
-			"requestHash":   mustSheetsRequestHash(req),
+			"requestHash":   hash,
 		}
 		if normalizedForJSON != "" {
 			payload["normalizedRequest"] = normalizedForJSON
@@ -213,7 +215,7 @@ func (c *SheetsEditAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if c.Safety.DryRun {
-		return sheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
+		return SheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
 			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
@@ -258,10 +260,10 @@ func (c *SheetsEditAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if c.Safety.Pretty {
-		if hash, err := sheetsRequestHash(req); err == nil {
+		if hash, err := RequestHash(req); err == nil {
 			payload["requestHash"] = hash
 		}
-		if norm, err := sheetsNormalizedRequestString(req); err == nil {
+		if norm, err := NormalizedRequestString(req); err == nil {
 			payload["normalizedRequest"] = norm
 		}
 	}
@@ -296,17 +298,18 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 		SpreadsheetID: spreadsheetID,
 		Range:         rangeSpec,
 	}
-	normalizedForJSON, normErr := sheetsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
 	if normErr != nil {
 		return newSheetsEditError("clear", spreadsheetID, "output_write_failed", "write normalized request failed", normErr)
 	}
 
 	if c.Safety.ValidateOnly {
+		hash, _ := RequestHash(req)
 		payload := map[string]any{
 			"validateOnly":  true,
 			"valid":         true,
 			"spreadsheetId": spreadsheetID,
-			"requestHash":   mustSheetsRequestHash(req),
+			"requestHash":   hash,
 		}
 		if normalizedForJSON != "" {
 			payload["normalizedRequest"] = normalizedForJSON
@@ -321,7 +324,7 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if c.Safety.DryRun {
-		return sheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
+		return SheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
 			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
@@ -350,10 +353,10 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if c.Safety.Pretty {
-		if hash, err := sheetsRequestHash(req); err == nil {
+		if hash, err := RequestHash(req); err == nil {
 			payload["requestHash"] = hash
 		}
-		if norm, err := sheetsNormalizedRequestString(req); err == nil {
+		if norm, err := NormalizedRequestString(req); err == nil {
 			payload["normalizedRequest"] = norm
 		}
 	}
@@ -409,19 +412,20 @@ func (c *SheetsEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		if sheetsRequestOperationCount(r) != 1 {
 			idx := i
 			err := newSheetsEditError("batch", spreadsheetID, "invalid_request", fmt.Sprintf("request[%d] must set exactly one operation field", i), usage(fmt.Sprintf("request[%d] must set exactly one operation field", i)))
-			if se, ok := err.(*sheetsEditError); ok {
-				se.RequestIndex = &idx
+			var ee *EditError
+			if errors.As(err, &ee) {
+				ee.RequestIndex = &idx
 			}
 			return err
 		}
 	}
 
-	requestHash, hashErr := sheetsRequestHash(&req)
+	requestHash, hashErr := RequestHash(&req)
 	if hashErr != nil {
 		return newSheetsEditError("batch", spreadsheetID, "invalid_request", "failed to hash normalized request", hashErr)
 	}
 
-	normalizedForJSON, normErr := sheetsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, &req)
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, &req)
 	if normErr != nil {
 		return newSheetsEditError("batch", spreadsheetID, "output_write_failed", "write normalized request failed", normErr)
 	}
@@ -444,7 +448,7 @@ func (c *SheetsEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			payload["normalizedRequest"] = normalizedForJSON
 		}
 		if c.Safety.Pretty {
-			if pretty, err := sheetsNormalizedRequestString(&req); err == nil {
+			if pretty, err := NormalizedRequestString(&req); err == nil {
 				payload["normalizedRequest"] = pretty
 			}
 		}
@@ -459,7 +463,7 @@ func (c *SheetsEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if c.Safety.DryRun {
-		return sheetsDryRunOutput(ctx, u, spreadsheetID, &req, map[string]any{
+		return SheetsDryRunOutput(ctx, u, spreadsheetID, &req, map[string]any{
 			"operations":        len(req.Requests),
 			"requestKinds":      requestKinds,
 			"requestHash":       requestHash,
@@ -546,12 +550,4 @@ func sheetsParseValues(valuesJSON string, valuesArgs []string) ([][]interface{},
 	default:
 		return nil, errors.New("provide values as args or via --values-json")
 	}
-}
-
-func mustSheetsRequestHash(req any) string {
-	hash, err := sheetsRequestHash(req)
-	if err != nil {
-		return ""
-	}
-	return hash
 }
