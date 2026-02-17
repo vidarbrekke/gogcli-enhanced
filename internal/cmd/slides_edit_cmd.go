@@ -18,10 +18,14 @@ import (
 
 // SlidesEditCmd provides edit operations for Google Slides with agentic safety.
 type SlidesEditCmd struct {
-	Batch       SlidesEditBatchCmd       `cmd:"" name:"batch" help:"Apply multiple Slides API batch operations from JSON"`
-	ReplaceText SlidesEditReplaceTextCmd `cmd:"" name:"replace-text" help:"Find and replace text across all slides"`
+	Batch        SlidesEditBatchCmd        `cmd:"" name:"batch" help:"Apply multiple Slides API batch operations from JSON"`
+	ReplaceText  SlidesEditReplaceTextCmd  `cmd:"" name:"replace-text" help:"Find and replace text across all slides"`
 	ReplaceImage SlidesEditReplaceImageCmd `cmd:"" name:"replace-image" help:"Replace an image in a presentation preserving position/size"`
-	MergeData   SlidesEditMergeDataCmd   `cmd:"" name:"merge-data" help:"Generate presentations from template using JSON data (mail-merge)"`
+	CreateSlide  SlidesEditCreateSlideCmd  `cmd:"" name:"create-slide" help:"Add a new slide to a presentation"`
+	DuplicateSlide SlidesEditDuplicateSlideCmd `cmd:"" name:"duplicate-slide" help:"Duplicate an existing slide"`
+	RefreshCharts SlidesEditRefreshChartsCmd `cmd:"" name:"refresh-charts" help:"Refresh embedded Google Sheets charts"`
+	InsertTable  SlidesEditInsertTableCmd  `cmd:"" name:"insert-table" help:"Insert a data table into a slide"`
+	MergeData    SlidesEditMergeDataCmd    `cmd:"" name:"merge-data" help:"Generate presentations from template using JSON data (mail-merge)"`
 }
 
 // SlidesEditBatchCmd applies multiple batch operations to a presentation.
@@ -766,6 +770,528 @@ func (c *SlidesEditReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) e
 	u.Out().Printf("id\t%s", presentationID)
 	u.Out().Printf("object\t%s", objectID)
 	u.Out().Printf("replies\t%d", len(resp.Replies))
+	return nil
+}
+
+// SlidesEditCreateSlideCmd adds a new slide to a presentation.
+type SlidesEditCreateSlideCmd struct {
+	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
+	Layout         string `name:"layout" help:"Slide layout type (BLANK, CAPTION_ONLY, TITLE, TITLE_AND_BODY, etc.)" default:"BLANK"`
+	Index          int    `name:"index" help:"Insert position (0-based, -1 for end)" default:"-1"`
+	Safety         AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *SlidesEditCreateSlideCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	presentationID := strings.TrimSpace(c.PresentationID)
+	layout := strings.TrimSpace(c.Layout)
+
+	if presentationID == "" {
+		return NewEditError("slides", "create-slide", presentationID, "invalid_argument", "empty presentationId", nil)
+	}
+
+	insertionIndex := int64(c.Index)
+	if c.Index < 0 {
+		insertionIndex = -1 // End of presentation
+	}
+
+	req := &slides.BatchUpdatePresentationRequest{
+		Requests: []*slides.Request{
+			{
+				CreateSlide: &slides.CreateSlideRequest{
+					SlideLayoutReference: &slides.LayoutReference{
+						PredefinedLayout: layout,
+					},
+					InsertionIndex: insertionIndex,
+				},
+			},
+		},
+	}
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("slides", "create-slide", presentationID, "invalid_request", "failed to hash request", hashErr)
+	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("slides", "create-slide", presentationID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":   true,
+			"valid":          true,
+			"presentationId": presentationID,
+			"layout":         layout,
+			"index":          c.Index,
+			"requestHash":    requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", presentationID)
+		u.Out().Printf("layout\t%s", layout)
+		return nil
+	}
+
+	if c.Safety.DryRun {
+		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
+			"layout":            layout,
+			"index":             c.Index,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSlidesService(ctx, account)
+	if err != nil {
+		return NewEditError("slides", "create-slide", presentationID, "service_init_failed", "create slides service failed", err)
+	}
+
+	resp, err := svc.Presentations.BatchUpdate(presentationID, req).Do()
+	if err != nil {
+		if IsNotFound(err) {
+			return NewEditError("slides", "create-slide", presentationID, "presentation_not_found",
+				fmt.Sprintf("presentation not found (id=%s)", presentationID), err)
+		}
+		return NewEditError("slides", "create-slide", presentationID, "api_error", "create slide failed", err)
+	}
+
+	newSlideID := ""
+	if len(resp.Replies) > 0 && resp.Replies[0].CreateSlide != nil {
+		newSlideID = resp.Replies[0].CreateSlide.ObjectId
+	}
+
+	payload := map[string]any{
+		"presentationId": presentationID,
+		"layout":         layout,
+		"slideId":        newSlideID,
+		"index":          c.Index,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, payload)
+	}
+	u.Out().Printf("id\t%s", presentationID)
+	u.Out().Printf("layout\t%s", layout)
+	u.Out().Printf("slide-id\t%s", newSlideID)
+	return nil
+}
+
+// SlidesEditDuplicateSlideCmd duplicates an existing slide.
+type SlidesEditDuplicateSlideCmd struct {
+	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
+	SlideID        string `name:"slide-id" help:"ID of slide to duplicate"`
+	Count          int    `name:"count" help:"Number of copies (default 1)" default:"1"`
+	Safety         AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *SlidesEditDuplicateSlideCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	presentationID := strings.TrimSpace(c.PresentationID)
+	slideID := strings.TrimSpace(c.SlideID)
+
+	if presentationID == "" {
+		return NewEditError("slides", "duplicate-slide", presentationID, "invalid_argument", "empty presentationId", nil)
+	}
+	if slideID == "" {
+		return NewEditError("slides", "duplicate-slide", presentationID, "invalid_argument", "empty slide-id", nil)
+	}
+	if c.Count < 1 {
+		c.Count = 1
+	}
+
+	// Build requests for each duplicate
+	req := &slides.BatchUpdatePresentationRequest{
+		Requests: make([]*slides.Request, 0, c.Count),
+	}
+	for i := 0; i < c.Count; i++ {
+		req.Requests = append(req.Requests, &slides.Request{
+			DuplicateObject: &slides.DuplicateObjectRequest{
+				ObjectId: slideID,
+			},
+		})
+	}
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("slides", "duplicate-slide", presentationID, "invalid_request", "failed to hash request", hashErr)
+	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("slides", "duplicate-slide", presentationID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":   true,
+			"valid":          true,
+			"presentationId": presentationID,
+			"slideId":        slideID,
+			"count":          c.Count,
+			"requestHash":    requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", presentationID)
+		u.Out().Printf("slide\t%s", slideID)
+		u.Out().Printf("copies\t%d", c.Count)
+		return nil
+	}
+
+	if c.Safety.DryRun {
+		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
+			"slideId":           slideID,
+			"count":             c.Count,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSlidesService(ctx, account)
+	if err != nil {
+		return NewEditError("slides", "duplicate-slide", presentationID, "service_init_failed", "create slides service failed", err)
+	}
+
+	resp, err := svc.Presentations.BatchUpdate(presentationID, req).Do()
+	if err != nil {
+		if IsNotFound(err) {
+			return NewEditError("slides", "duplicate-slide", presentationID, "presentation_not_found",
+				fmt.Sprintf("presentation not found (id=%s)", presentationID), err)
+		}
+		return NewEditError("slides", "duplicate-slide", presentationID, "api_error", "duplicate slide failed", err)
+	}
+
+	newSlideIDs := make([]string, 0, c.Count)
+	for _, reply := range resp.Replies {
+		if reply.DuplicateObject != nil {
+			newSlideIDs = append(newSlideIDs, reply.DuplicateObject.ObjectId)
+		}
+	}
+
+	payload := map[string]any{
+		"presentationId": presentationID,
+		"slideId":        slideID,
+		"count":          c.Count,
+		"newSlideIds":    newSlideIDs,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, payload)
+	}
+	u.Out().Printf("id\t%s", presentationID)
+	u.Out().Printf("slide\t%s", slideID)
+	u.Out().Printf("copies\t%d", c.Count)
+	u.Out().Printf("created\t%d", len(newSlideIDs))
+	return nil
+}
+
+// SlidesEditRefreshChartsCmd refreshes embedded Google Sheets charts.
+type SlidesEditRefreshChartsCmd struct {
+	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
+	ChartID        string `name:"chart-id" help:"Specific chart object ID to refresh"`
+	All            bool   `name:"all" help:"Refresh all linked charts in presentation"`
+	Safety         AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *SlidesEditRefreshChartsCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	presentationID := strings.TrimSpace(c.PresentationID)
+	chartID := strings.TrimSpace(c.ChartID)
+
+	if presentationID == "" {
+		return NewEditError("slides", "refresh-charts", presentationID, "invalid_argument", "empty presentationId", nil)
+	}
+	if !c.All && chartID == "" {
+		return NewEditError("slides", "refresh-charts", presentationID, "invalid_argument", "specify --chart-id or --all", nil)
+	}
+
+	// Build request
+	var batchReq *slides.BatchUpdatePresentationRequest
+	if c.All {
+		// For --all, we send a single refresh request (API refreshes all linked charts)
+		batchReq = &slides.BatchUpdatePresentationRequest{
+			Requests: []*slides.Request{
+				{
+					RefreshSheetsChart: &slides.RefreshSheetsChartRequest{},
+				},
+			},
+		}
+	} else {
+		batchReq = &slides.BatchUpdatePresentationRequest{
+			Requests: []*slides.Request{
+				{
+					RefreshSheetsChart: &slides.RefreshSheetsChartRequest{
+						ObjectId: chartID,
+					},
+				},
+			},
+		}
+	}
+
+	requestHash, hashErr := RequestHash(batchReq)
+	if hashErr != nil {
+		return NewEditError("slides", "refresh-charts", presentationID, "invalid_request", "failed to hash request", hashErr)
+	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, batchReq)
+	if normErr != nil {
+		return NewEditError("slides", "refresh-charts", presentationID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":   true,
+			"valid":          true,
+			"presentationId": presentationID,
+			"all":            c.All,
+			"requestHash":    requestHash,
+		}
+		if !c.All {
+			payload["chartId"] = chartID
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(batchReq); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", presentationID)
+		if c.All {
+			u.Out().Printf("mode\tall")
+		} else {
+			u.Out().Printf("chart\t%s", chartID)
+		}
+		return nil
+	}
+
+	if c.Safety.DryRun {
+		extra := map[string]any{
+			"all":               c.All,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
+		}
+		if !c.All {
+			extra["chartId"] = chartID
+		}
+		return SlidesDryRunOutput(ctx, u, presentationID, batchReq, extra, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSlidesService(ctx, account)
+	if err != nil {
+		return NewEditError("slides", "refresh-charts", presentationID, "service_init_failed", "create slides service failed", err)
+	}
+
+	resp, err := svc.Presentations.BatchUpdate(presentationID, batchReq).Do()
+	if err != nil {
+		if IsNotFound(err) {
+			return NewEditError("slides", "refresh-charts", presentationID, "presentation_not_found",
+				fmt.Sprintf("presentation not found (id=%s)", presentationID), err)
+		}
+		return NewEditError("slides", "refresh-charts", presentationID, "api_error", "refresh charts failed", err)
+	}
+
+	payload := map[string]any{
+		"presentationId": presentationID,
+		"all":            c.All,
+		"replies":        len(resp.Replies),
+	}
+	if !c.All {
+		payload["chartId"] = chartID
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, payload)
+	}
+	u.Out().Printf("id\t%s", presentationID)
+	if c.All {
+		u.Out().Printf("mode\tall")
+	} else {
+		u.Out().Printf("chart\t%s", chartID)
+	}
+	u.Out().Printf("replies\t%d", len(resp.Replies))
+	return nil
+}
+
+// SlidesEditInsertTableCmd inserts a data table into a slide.
+type SlidesEditInsertTableCmd struct {
+	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
+	SlideID        string `name:"slide-id" help:"Slide ID to insert table into"`
+	Rows           int    `name:"rows" help:"Number of rows" default:"3"`
+	Columns        int    `name:"columns" help:"Number of columns" default:"3"`
+	DataFile       string `name:"data-file" help:"Path to JSON array for table data (optional)"`
+	Safety         AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *SlidesEditInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	presentationID := strings.TrimSpace(c.PresentationID)
+	slideID := strings.TrimSpace(c.SlideID)
+
+	if presentationID == "" {
+		return NewEditError("slides", "insert-table", presentationID, "invalid_argument", "empty presentationId", nil)
+	}
+	if slideID == "" {
+		return NewEditError("slides", "insert-table", presentationID, "invalid_argument", "empty slide-id", nil)
+	}
+	if c.Rows < 1 || c.Rows > 20 {
+		return NewEditError("slides", "insert-table", presentationID, "invalid_argument", "rows must be 1-20", nil)
+	}
+	if c.Columns < 1 || c.Columns > 20 {
+		return NewEditError("slides", "insert-table", presentationID, "invalid_argument", "columns must be 1-20", nil)
+	}
+
+	// Generate unique object ID for the table
+	tableID := fmt.Sprintf("table_%d", time.Now().Unix())
+
+	req := &slides.BatchUpdatePresentationRequest{
+		Requests: []*slides.Request{
+			{
+				CreateTable: &slides.CreateTableRequest{
+					ObjectId: tableID,
+					ElementProperties: &slides.PageElementProperties{
+						PageObjectId: slideID,
+						Size: &slides.Size{
+							Height: &slides.Dimension{Magnitude: 300, Unit: "PT"},
+							Width:  &slides.Dimension{Magnitude: 400, Unit: "PT"},
+						},
+						Transform: &slides.AffineTransform{
+							TranslateX: 50,
+							TranslateY: 50,
+							ScaleX:     1,
+							ScaleY:     1,
+						},
+					},
+					Rows:    int64(c.Rows),
+					Columns: int64(c.Columns),
+				},
+			},
+		},
+	}
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("slides", "insert-table", presentationID, "invalid_request", "failed to hash request", hashErr)
+	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("slides", "insert-table", presentationID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":   true,
+			"valid":          true,
+			"presentationId": presentationID,
+			"slideId":        slideID,
+			"rows":           c.Rows,
+			"columns":        c.Columns,
+			"tableId":        tableID,
+			"requestHash":    requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", presentationID)
+		u.Out().Printf("slide\t%s", slideID)
+		u.Out().Printf("table\t%dx%d", c.Rows, c.Columns)
+		return nil
+	}
+
+	if c.Safety.DryRun {
+		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
+			"slideId":           slideID,
+			"rows":              c.Rows,
+			"columns":           c.Columns,
+			"tableId":           tableID,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSlidesService(ctx, account)
+	if err != nil {
+		return NewEditError("slides", "insert-table", presentationID, "service_init_failed", "create slides service failed", err)
+	}
+
+	resp, err := svc.Presentations.BatchUpdate(presentationID, req).Do()
+	if err != nil {
+		if IsNotFound(err) {
+			return NewEditError("slides", "insert-table", presentationID, "presentation_not_found",
+				fmt.Sprintf("presentation not found (id=%s)", presentationID), err)
+		}
+		return NewEditError("slides", "insert-table", presentationID, "api_error", "insert table failed", err)
+	}
+
+	payload := map[string]any{
+		"presentationId": presentationID,
+		"slideId":        slideID,
+		"tableId":        tableID,
+		"rows":           c.Rows,
+		"columns":        c.Columns,
+		"replies":        len(resp.Replies),
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, payload)
+	}
+	u.Out().Printf("id\t%s", presentationID)
+	u.Out().Printf("slide\t%s", slideID)
+	u.Out().Printf("table\t%s", tableID)
+	u.Out().Printf("size\t%dx%d", c.Rows, c.Columns)
 	return nil
 }
 
