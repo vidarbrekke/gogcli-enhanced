@@ -17,6 +17,7 @@ type SlidesCmd struct {
 	Info   SlidesInfoCmd   `cmd:"" name:"info" help:"Get Google Slides presentation metadata"`
 	Create SlidesCreateCmd `cmd:"" name:"create" help:"Create a Google Slides presentation"`
 	Copy   SlidesCopyCmd   `cmd:"" name:"copy" help:"Copy a Google Slides presentation"`
+	Edit   SlidesEditCmd   `cmd:"" name:"edit" help:"Edit Google Slides content with agentic safety"`
 }
 
 type SlidesExportCmd struct {

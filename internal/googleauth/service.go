@@ -20,6 +20,7 @@ const (
 	ServiceTasks     Service = "tasks"
 	ServicePeople    Service = "people"
 	ServiceSheets    Service = "sheets"
+	ServiceSlides    Service = "slides"
 	ServiceGroups    Service = "groups"
 	ServiceKeep      Service = "keep"
 )
@@ -65,6 +66,7 @@ var serviceOrder = []Service{
 	ServiceContacts,
 	ServiceTasks,
 	ServiceSheets,
+	ServiceSlides,
 	ServicePeople,
 	ServiceGroups,
 	ServiceKeep,
@@ -156,6 +158,15 @@ var serviceInfoByService = map[Service]serviceInfo{
 		},
 		user: true,
 		apis: []string{"Sheets API", "Drive API"},
+		note: "Export via Drive",
+	},
+	ServiceSlides: {
+		scopes: []string{
+			"https://www.googleapis.com/auth/drive",
+			"https://www.googleapis.com/auth/presentations",
+		},
+		user: true,
+		apis: []string{"Slides API", "Drive API"},
 		note: "Export via Drive",
 	},
 	ServiceGroups: {
@@ -459,6 +470,13 @@ func scopesForServiceWithOptions(service Service, opts ScopeOptions) ([]string, 
 		}
 
 		return []string{driveScopeValue(), sheetsScope}, nil
+	case ServiceSlides:
+		slidesScope := "https://www.googleapis.com/auth/presentations"
+		if opts.Readonly {
+			slidesScope = "https://www.googleapis.com/auth/presentations.readonly"
+		}
+
+		return []string{driveScopeValue(), slidesScope}, nil
 	case ServiceGroups:
 		return Scopes(service)
 	case ServiceKeep:
