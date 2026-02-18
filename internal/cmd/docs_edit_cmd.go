@@ -739,3 +739,126 @@ func (c *DocsInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u.Out().Printf("cols\t%d", c.Cols)
 	return nil
 }
+
+type DocsReplaceImageCmd struct {
+	DocID          string                 `arg:"" name:"docId" help:"Doc ID"`
+	ImageID        string                 `name:"image-id" help:"ID of existing image to replace"`
+	URI            string                 `name:"uri" help:"URI of new image"`
+	ReplaceMethod  string                 `name:"replace-method" help:"Replace method: CENTER_CROP or UNSPECIFIED" default:"UNSPECIFIED"`
+	TabID          string                 `name:"tab-id" help:"Tab ID containing the image (omit for first tab)"`
+	Safety         AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	docID := strings.TrimSpace(c.DocID)
+	if docID == "" {
+		return NewEditError("docs", "replace-image", docID, "invalid_argument", "empty docId", nil)
+	}
+	imageID := strings.TrimSpace(c.ImageID)
+	if imageID == "" {
+		return NewEditError("docs", "replace-image", docID, "invalid_argument", "empty image-id", nil)
+	}
+	uri := strings.TrimSpace(c.URI)
+	if uri == "" {
+		return NewEditError("docs", "replace-image", docID, "invalid_argument", "empty uri", nil)
+	}
+
+	// Build the batch request
+	req := &docs.BatchUpdateDocumentRequest{
+		Requests: []*docs.Request{
+			{
+				ReplaceImage: &docs.ReplaceImageRequest{
+					ImageObjectId:  imageID,
+					Uri:            uri,
+					ImageReplaceMethod: strings.TrimSpace(c.ReplaceMethod),
+					TabId:          strings.TrimSpace(c.TabID),
+				},
+			},
+		},
+	}
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("docs", "replace-image", docID, "invalid_request", "failed to hash request", hashErr)
+	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("docs", "replace-image", docID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":    true,
+			"valid":           true,
+			"documentId":      docID,
+			"imageId":         imageID,
+			"uri":             uri,
+			"replaceMethod":   c.ReplaceMethod,
+			"requestHash":     requestHash,
+		}
+		if strings.TrimSpace(c.TabID) != "" {
+			payload["tabId"] = c.TabID
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", docID)
+		u.Out().Printf("image-id\t%s", imageID)
+		return nil
+	}
+
+	if c.Safety.DryRun {
+		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
+			"imageId":            imageID,
+			"uri":                uri,
+			"replaceMethod":      c.ReplaceMethod,
+			"requestHash":        requestHash,
+			"normalizedRequest":  normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newDocsService(ctx, account)
+	if err != nil {
+		return NewEditError("docs", "replace-image", docID, "service_init_failed", "create docs service failed", err)
+	}
+
+	_, err = svc.Documents.BatchUpdate(docID, req).Context(ctx).Do()
+	if err != nil {
+		if isDocsNotFound(err) {
+			return NewEditError("docs", "replace-image", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
+		}
+		return NewEditError("docs", "replace-image", docID, "api_error", "replace image failed", err)
+	}
+
+	payload := map[string]any{
+		"documentId": docID,
+		"imageId":    imageID,
+		"uri":        uri,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if c.Safety.Pretty {
+		payload["requestHash"] = requestHash
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, payload)
+	}
+	u.Out().Printf("id\t%s", docID)
+	u.Out().Printf("image-replaced\ttrue")
+	u.Out().Printf("image-id\t%s", imageID)
+	return nil
+}

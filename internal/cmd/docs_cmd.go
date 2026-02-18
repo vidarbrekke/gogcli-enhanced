@@ -18,12 +18,13 @@ type DocsCmd struct {
 
 // DocsEditCmd defines the docs edit subcommands.
 type DocsEditCmd struct {
-	Append      DocsAppendCmd      `cmd:"" name:"append" help:"Append text to the end of a Google Doc"`
-	Batch       DocsBatchCmd       `cmd:"" name:"batch" help:"Apply multiple Docs API edit operations from JSON"`
-	Delete      DocsDeleteCmd      `cmd:"" name:"delete" help:"Delete a text range in a Google Doc"`
-	Insert      DocsInsertCmd      `cmd:"" name:"insert" help:"Insert text at a specific index in a Google Doc"`
-	InsertTable DocsInsertTableCmd `cmd:"" name:"insert-table" help:"Insert a table at a specific location in a Google Doc"`
-	Replace     DocsReplaceCmd     `cmd:"" name:"replace" help:"Replace text throughout a Google Doc"`
+	Append       DocsAppendCmd       `cmd:"" name:"append" help:"Append text to the end of a Google Doc"`
+	Batch        DocsBatchCmd        `cmd:"" name:"batch" help:"Apply multiple Docs API edit operations from JSON"`
+	Delete       DocsDeleteCmd       `cmd:"" name:"delete" help:"Delete a text range in a Google Doc"`
+	Insert       DocsInsertCmd       `cmd:"" name:"insert" help:"Insert text at a specific index in a Google Doc"`
+	InsertTable  DocsInsertTableCmd  `cmd:"" name:"insert-table" help:"Insert a table at a specific location in a Google Doc"`
+	Replace      DocsReplaceCmd      `cmd:"" name:"replace" help:"Replace text throughout a Google Doc"`
+	ReplaceImage DocsReplaceImageCmd `cmd:"" name:"replace-image" help:"Replace an image in a Google Doc with a new image"`
 }
 
 // DocsEditSafetyFlags is the shared agentic safety flags for Docs edit commands.
