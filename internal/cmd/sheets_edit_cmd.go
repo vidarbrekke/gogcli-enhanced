@@ -16,10 +16,11 @@ import (
 )
 
 type SheetsEditCmd struct {
-	Values SheetsEditValuesCmd `cmd:"" name:"values" help:"Update cell values in a range"`
-	Append SheetsEditAppendCmd `cmd:"" name:"append" help:"Append rows to a sheet"`
-	Clear  SheetsEditClearCmd  `cmd:"" name:"clear" help:"Clear values in a range"`
-	Batch  SheetsEditBatchCmd  `cmd:"" name:"batch" help:"Apply multiple Sheets API batch operations from JSON"`
+	Values       SheetsEditValuesCmd       `cmd:"" name:"values" help:"Update cell values in a range"`
+	Append       SheetsEditAppendCmd       `cmd:"" name:"append" help:"Append rows to a sheet"`
+	Clear        SheetsEditClearCmd        `cmd:"" name:"clear" help:"Clear values in a range"`
+	ReplaceText  SheetsEditReplaceTextCmd  `cmd:"" name:"replace-text" help:"Find and replace text across sheet cells"`
+	Batch        SheetsEditBatchCmd        `cmd:"" name:"batch" help:"Apply multiple Sheets API batch operations from JSON"`
 }
 
 type SheetsEditValuesCmd struct {
@@ -550,4 +551,147 @@ func sheetsParseValues(valuesJSON string, valuesArgs []string) ([][]interface{},
 	default:
 		return nil, errors.New("provide values as args or via --values-json")
 	}
+}
+
+// SheetsEditReplaceTextCmd finds and replaces text across sheet cells.
+type SheetsEditReplaceTextCmd struct {
+	SpreadsheetID   string                 `arg:"" name:"spreadsheetId" help:"Spreadsheet ID"`
+	Find            string                 `name:"find" help:"Text to find"`
+	Replace         string                 `name:"replace" help:"Replacement text"`
+	SheetID         int64                  `name:"sheet-id" help:"Sheet ID to search in; omit to search all sheets"`
+	AllSheets       bool                   `name:"all-sheets" help:"Search all sheets in the spreadsheet"`
+	MatchCase       bool                   `name:"match-case" help:"Case-sensitive matching"`
+	MatchEntireCell bool                   `name:"match-entire-cell" help:"Match only if find value is entire cell content"`
+	UseRegex        bool                   `name:"regex" help:"Find value is a regular expression (Java pattern syntax)"`
+	IncludeFormulas bool                   `name:"formulas" help:"Search formula cells in addition to values"`
+	Safety          AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	spreadsheetID := strings.TrimSpace(c.SpreadsheetID)
+	find := strings.TrimSpace(c.Find)
+	replace := c.Replace
+
+	if spreadsheetID == "" {
+		return newSheetsEditError("replace-text", spreadsheetID, "invalid_argument", "empty spreadsheetId", nil)
+	}
+	if find == "" {
+		return newSheetsEditError("replace-text", spreadsheetID, "invalid_argument", "empty find", nil)
+	}
+
+	// Build the batch request with FindReplace operation
+	req := &sheets.BatchUpdateSpreadsheetRequest{
+		Requests: []*sheets.Request{
+			{
+				FindReplace: &sheets.FindReplaceRequest{
+					Find:             find,
+					Replacement:      replace,
+					MatchCase:        c.MatchCase,
+					MatchEntireCell:  c.MatchEntireCell,
+					SearchByRegex:    c.UseRegex,
+					IncludeFormulas:  c.IncludeFormulas,
+					AllSheets:        c.AllSheets,
+					SheetId:          c.SheetID, // 0 if not specified, which includes all sheets when AllSheets is true
+				},
+			},
+		},
+	}
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return newSheetsEditError("replace-text", spreadsheetID, "invalid_request", "failed to hash request", hashErr)
+	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return newSheetsEditError("replace-text", spreadsheetID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":      true,
+			"valid":             true,
+			"spreadsheetId":     spreadsheetID,
+			"find":              find,
+			"replace":           replace,
+			"matchCase":         c.MatchCase,
+			"matchEntireCell":   c.MatchEntireCell,
+			"useRegex":          c.UseRegex,
+			"includeFormulas":   c.IncludeFormulas,
+			"allSheets":         c.AllSheets,
+			"requestHash":       requestHash,
+		}
+		if c.SheetID != 0 {
+			payload["sheetId"] = c.SheetID
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", spreadsheetID)
+		u.Out().Printf("find\t%s", find)
+		u.Out().Printf("replace\t%s", replace)
+		return nil
+	}
+
+	if c.Safety.DryRun {
+		scope := "all sheets"
+		if !c.AllSheets && c.SheetID != 0 {
+			scope = fmt.Sprintf("sheet %d", c.SheetID)
+		}
+		return DryRunOutput(ctx, u, "sheets", spreadsheetID, req, map[string]any{
+			"find":               find,
+			"replace":            replace,
+			"scope":              scope,
+			"matchCase":          c.MatchCase,
+			"matchEntireCell":    c.MatchEntireCell,
+			"useRegex":           c.UseRegex,
+			"includeFormulas":    c.IncludeFormulas,
+			"requestHash":        requestHash,
+			"normalizedRequest":  normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSheetsService(ctx, account)
+	if err != nil {
+		return newSheetsEditError("replace-text", spreadsheetID, "service_init_failed", "create sheets service failed", err)
+	}
+
+	resp, err := svc.Spreadsheets.BatchUpdate(spreadsheetID, req).Context(ctx).Do()
+	if err != nil {
+		return newSheetsEditError("replace-text", spreadsheetID, "api_error", "find/replace failed", err)
+	}
+
+	var replacements int64
+	if resp.Replies != nil && len(resp.Replies) > 0 && resp.Replies[0] != nil && resp.Replies[0].FindReplace != nil {
+		replacements = resp.Replies[0].FindReplace.OccurrencesChanged
+	}
+
+	payload := map[string]any{
+		"spreadsheetId":      spreadsheetID,
+		"occurrencesChanged": replacements,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if c.Safety.Pretty {
+		payload["requestHash"] = requestHash
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, payload)
+	}
+	u.Out().Printf("id\t%s", spreadsheetID)
+	u.Out().Printf("replaced\t%d", replacements)
+	return nil
 }
