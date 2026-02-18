@@ -542,3 +542,140 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u.Out().Printf("replaced\t%d", occurrences)
 	return nil
 }
+
+type DocsInsertTableCmd struct {
+	DocID  string                 `arg:"" name:"docId" help:"Doc ID"`
+	Rows   int64                  `name:"rows" help:"Number of rows in the table" default:"2"`
+	Cols   int64                  `name:"cols" help:"Number of columns in the table" default:"2"`
+	Index  int64                  `name:"index" help:"Index where table should be inserted (1-based); omit to insert at end"`
+	Safety AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *DocsInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	docID := strings.TrimSpace(c.DocID)
+	if docID == "" {
+		return NewEditError("docs", "insert-table", docID, "invalid_argument", "empty docId", nil)
+	}
+	if c.Rows < 1 {
+		return NewEditError("docs", "insert-table", docID, "invalid_argument", "rows must be >= 1", nil)
+	}
+	if c.Cols < 1 {
+		return NewEditError("docs", "insert-table", docID, "invalid_argument", "cols must be >= 1", nil)
+	}
+
+	// Build the batch request with InsertTable operation
+	req := &docs.BatchUpdateDocumentRequest{
+		Requests: []*docs.Request{
+			{
+				InsertTable: &docs.InsertTableRequest{
+					Rows:    c.Rows,
+					Columns: c.Cols,
+				},
+			},
+		},
+	}
+
+	// Set location: either at index or at end of document
+	if c.Index > 0 {
+		req.Requests[0].InsertTable.Location = &docs.Location{Index: c.Index}
+	} else {
+		req.Requests[0].InsertTable.EndOfSegmentLocation = &docs.EndOfSegmentLocation{}
+	}
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("docs", "insert-table", docID, "invalid_request", "failed to hash request", hashErr)
+	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("docs", "insert-table", docID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly": true,
+			"valid":        true,
+			"documentId":   docID,
+			"rows":         c.Rows,
+			"cols":         c.Cols,
+			"requestHash":  requestHash,
+		}
+		if c.Index > 0 {
+			payload["index"] = c.Index
+		} else {
+			payload["position"] = "end"
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", docID)
+		u.Out().Printf("rows\t%d", c.Rows)
+		u.Out().Printf("cols\t%d", c.Cols)
+		return nil
+	}
+
+	if c.Safety.DryRun {
+		position := "end"
+		if c.Index > 0 {
+			position = fmt.Sprintf("index %d", c.Index)
+		}
+		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
+			"rows":               c.Rows,
+			"cols":               c.Cols,
+			"position":           position,
+			"requestHash":        requestHash,
+			"normalizedRequest":  normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newDocsService(ctx, account)
+	if err != nil {
+		return NewEditError("docs", "insert-table", docID, "service_init_failed", "create docs service failed", err)
+	}
+
+	_, err = svc.Documents.BatchUpdate(docID, req).Context(ctx).Do()
+	if err != nil {
+		if isDocsNotFound(err) {
+			return NewEditError("docs", "insert-table", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
+		}
+		return NewEditError("docs", "insert-table", docID, "api_error", "insert table failed", err)
+	}
+
+	payload := map[string]any{
+		"documentId": docID,
+		"rows":       c.Rows,
+		"cols":       c.Cols,
+	}
+	if c.Index > 0 {
+		payload["index"] = c.Index
+	} else {
+		payload["position"] = "end"
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if c.Safety.Pretty {
+		payload["requestHash"] = requestHash
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, payload)
+	}
+	u.Out().Printf("id\t%s", docID)
+	u.Out().Printf("table-inserted\ttrue")
+	u.Out().Printf("rows\t%d", c.Rows)
+	u.Out().Printf("cols\t%d", c.Cols)
+	return nil
+}
