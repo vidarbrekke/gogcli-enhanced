@@ -164,28 +164,29 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 }
 
 type DocsDeleteCmd struct {
-	DocID      string              `arg:"" name:"docId" help:"Doc ID"`
-	StartIndex int64               `arg:"" name:"start" help:"Start index (inclusive, 1-based)"`
-	EndIndex   int64               `arg:"" name:"end" help:"End index (exclusive)"`
-	Safety     DocsEditSafetyFlags `embed:""`
+	DocID      string                 `arg:"" name:"docId" help:"Doc ID"`
+	StartIndex int64                  `arg:"" name:"start" help:"Start index (inclusive, 1-based)"`
+	EndIndex   int64                  `arg:"" name:"end" help:"End index (exclusive)"`
+	Safety     AgenticEditSafetyFlags `embed:""`
 }
 
 func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
 	docID := strings.TrimSpace(c.DocID)
 	if docID == "" {
-		return newDocsEditError("delete", docID, "invalid_argument", "empty docId", usage("empty docId"))
+		return NewEditError("docs", "delete", docID, "invalid_argument", "empty docId", nil)
 	}
 	if c.StartIndex < 1 {
-		return newDocsEditError("delete", docID, "invalid_argument", "start must be >= 1", usage("start must be >= 1"))
+		return NewEditError("docs", "delete", docID, "invalid_argument", "start must be >= 1", nil)
 	}
 	if c.EndIndex <= c.StartIndex {
-		return newDocsEditError("delete", docID, "invalid_argument", "end must be > start", usage("end must be > start"))
+		return NewEditError("docs", "delete", docID, "invalid_argument", "end must be > start", nil)
 	}
 	if !c.Safety.DryRun && !outfmt.IsJSON(ctx) && (flags == nil || !flags.Force) {
-		return newDocsEditError("delete", docID, "confirmation_required", "delete is destructive; rerun with --force or use --dry-run", usage("delete is destructive; rerun with --force or use --dry-run"))
+		return NewEditError("docs", "delete", docID, "confirmation_required", "delete is destructive; rerun with --force or use --dry-run", nil)
 	}
 
+	// Build the batch request
 	req := &docs.BatchUpdateDocumentRequest{
 		Requests: []*docs.Request{
 			{
@@ -198,15 +199,48 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
-	applyDocsEditSafety(req, c.Safety)
-	normalizedForJSON, normErr := docsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
-	if normErr != nil {
-		return newDocsEditError("delete", docID, "output_write_failed", "write normalized request failed", normErr)
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("docs", "delete", docID, "invalid_request", "failed to hash request", hashErr)
 	}
+
+	deletedChars := c.EndIndex - c.StartIndex
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("docs", "delete", docID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":  true,
+			"valid":         true,
+			"documentId":    docID,
+			"deletedChars":  deletedChars,
+			"requestHash":   requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", docID)
+		u.Out().Printf("deleted\t%d", deletedChars)
+		return nil
+	}
+
 	if c.Safety.DryRun {
-		return docsDryRunOutputWithOpts(ctx, u, docID, req, map[string]any{
-			"deletedChars":      c.EndIndex - c.StartIndex,
-			"normalizedRequest": normalizedForJSON,
+		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
+			"deletedChars":       deletedChars,
+			"startIndex":         c.StartIndex,
+			"endIndex":           c.EndIndex,
+			"requestHash":        requestHash,
+			"normalizedRequest":  normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -216,16 +250,17 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 	svc, err := newDocsService(ctx, account)
 	if err != nil {
-		return newDocsEditError("delete", docID, "service_init_failed", "create docs service failed", err)
-	}
-	if _, err := svc.Documents.BatchUpdate(docID, req).Context(ctx).Do(); err != nil {
-		if isDocsNotFound(err) {
-			return newDocsEditError("delete", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
-		}
-		return newDocsEditError("delete", docID, "api_error", "delete failed", err)
+		return NewEditError("docs", "delete", docID, "service_init_failed", "create docs service failed", err)
 	}
 
-	deletedChars := c.EndIndex - c.StartIndex
+	_, err = svc.Documents.BatchUpdate(docID, req).Context(ctx).Do()
+	if err != nil {
+		if isDocsNotFound(err) {
+			return NewEditError("docs", "delete", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
+		}
+		return NewEditError("docs", "delete", docID, "api_error", "delete failed", err)
+	}
+
 	payload := map[string]any{
 		"documentId":   docID,
 		"deletedChars": deletedChars,
@@ -234,12 +269,7 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if c.Safety.Pretty {
-		if hash, hashErr := docsRequestHash(req); hashErr == nil {
-			payload["requestHash"] = hash
-		}
-		if norm, normErr := docsNormalizedRequestString(req); normErr == nil {
-			payload["normalizedRequest"] = norm
-		}
+		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(os.Stdout, payload)
