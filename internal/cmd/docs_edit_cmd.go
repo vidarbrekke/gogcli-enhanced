@@ -15,11 +15,9 @@ import (
 )
 
 type DocsBatchCmd struct {
-	DocID           string              `arg:"" name:"docId" help:"Doc ID"`
-	RequestsFile    string              `name:"requests-file" help:"Path to JSON request body, or '-' for stdin" default:"-"`
-	ExecuteFromFile string              `name:"execute-from-file" help:"Execute request JSON from this file (bypasses --requests-file input)"`
-	ValidateOnly    bool                `name:"validate-only" help:"Validate request payload locally without executing API call"`
-	Safety          DocsEditSafetyFlags `embed:""`
+	DocID        string              `arg:"" name:"docId" help:"Doc ID"`
+	RequestsFile string              `name:"requests-file" help:"Path to JSON request body, or '-' for stdin" default:"-"`
+	Safety       DocsEditSafetyFlags `embed:""`
 }
 
 func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -29,8 +27,8 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return newDocsEditError("batch", docID, "invalid_argument", "empty docId", usage("empty docId"))
 	}
 	requestsFile := strings.TrimSpace(c.RequestsFile)
-	executeFromFile := strings.TrimSpace(c.ExecuteFromFile)
-	if executeFromFile != "" && strings.TrimSpace(c.RequestsFile) != "-" && strings.TrimSpace(c.RequestsFile) != "" {
+	executeFromFile := strings.TrimSpace(c.Safety.ExecuteFromFile)
+	if executeFromFile != "" && requestsFile != "-" && requestsFile != "" {
 		return newDocsEditError("batch", docID, "invalid_argument", "cannot combine --execute-from-file with --requests-file", usage("cannot combine --execute-from-file with --requests-file"))
 	}
 	if executeFromFile != "" {
@@ -61,7 +59,7 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		if docsRequestOperationCount(r) != 1 {
 			idx := i
 			err := newDocsEditError("batch", docID, "invalid_request", fmt.Sprintf("request[%d] must set exactly one operation field", i), usage(fmt.Sprintf("request[%d] must set exactly one operation field", i)))
-			if de, ok := err.(*docsEditError); ok {
+			if de, ok := err.(*EditError); ok {
 				de.RequestIndex = &idx
 			}
 			return err
@@ -86,7 +84,7 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	for _, r := range req.Requests {
 		requestKinds = append(requestKinds, docsRequestOperationName(r))
 	}
-	if c.ValidateOnly {
+	if c.Safety.ValidateOnly {
 		payload := map[string]any{
 			"validateOnly": true,
 			"valid":        true,
@@ -426,24 +424,25 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 }
 
 type DocsReplaceCmd struct {
-	DocID     string              `arg:"" name:"docId" help:"Doc ID"`
-	Find      string              `arg:"" name:"find" help:"Text to find"`
-	Replace   string              `arg:"" name:"replace" help:"Replacement text"`
+	DocID  string                 `arg:"" name:"docId" help:"Doc ID"`
+	Find   string                 `name:"find" help:"Text to find"`
+	Replace string                `name:"replace" help:"Replacement text"`
 	MatchCase bool                `name:"match-case" help:"Case-sensitive matching"`
-	Safety    DocsEditSafetyFlags `embed:""`
+	Safety AgenticEditSafetyFlags `embed:""`
 }
 
 func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
 	docID := strings.TrimSpace(c.DocID)
 	if docID == "" {
-		return newDocsEditError("replace", docID, "invalid_argument", "empty docId", usage("empty docId"))
+		return NewEditError("docs", "replace-text", docID, "invalid_argument", "empty docId", nil)
 	}
 	find := strings.TrimSpace(c.Find)
 	if find == "" {
-		return newDocsEditError("replace", docID, "invalid_argument", "empty find", usage("empty find"))
+		return NewEditError("docs", "replace-text", docID, "invalid_argument", "empty find", nil)
 	}
 
+	// Build the batch request
 	req := &docs.BatchUpdateDocumentRequest{
 		Requests: []*docs.Request{
 			{
@@ -457,15 +456,50 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
-	applyDocsEditSafety(req, c.Safety)
-	normalizedForJSON, normErr := docsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
-	if normErr != nil {
-		return newDocsEditError("replace", docID, "output_write_failed", "write normalized request failed", normErr)
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("docs", "replace-text", docID, "invalid_request", "failed to hash request", hashErr)
 	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("docs", "replace-text", docID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly": true,
+			"valid":        true,
+			"documentId":   docID,
+			"find":         find,
+			"replace":      c.Replace,
+			"matchCase":    c.MatchCase,
+			"requestHash":  requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", docID)
+		u.Out().Printf("find\t%s", find)
+		u.Out().Printf("replace\t%s", c.Replace)
+		return nil
+	}
+
 	if c.Safety.DryRun {
-		return docsDryRunOutputWithOpts(ctx, u, docID, req, map[string]any{
-			"operation":         "replace",
-			"normalizedRequest": normalizedForJSON,
+		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
+			"find":               find,
+			"replace":            c.Replace,
+			"matchCase":          c.MatchCase,
+			"requestHash":        requestHash,
+			"normalizedRequest":  normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -475,14 +509,15 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 	svc, err := newDocsService(ctx, account)
 	if err != nil {
-		return newDocsEditError("replace", docID, "service_init_failed", "create docs service failed", err)
+		return NewEditError("docs", "replace-text", docID, "service_init_failed", "create docs service failed", err)
 	}
+
 	resp, err := svc.Documents.BatchUpdate(docID, req).Context(ctx).Do()
 	if err != nil {
 		if isDocsNotFound(err) {
-			return newDocsEditError("replace", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
+			return NewEditError("docs", "replace-text", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
 		}
-		return newDocsEditError("replace", docID, "api_error", "replace failed", err)
+		return NewEditError("docs", "replace-text", docID, "api_error", "replace failed", err)
 	}
 
 	var occurrences int64
@@ -498,12 +533,7 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if c.Safety.Pretty {
-		if hash, hashErr := docsRequestHash(req); hashErr == nil {
-			payload["requestHash"] = hash
-		}
-		if norm, normErr := docsNormalizedRequestString(req); normErr == nil {
-			payload["normalizedRequest"] = norm
-		}
+		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(os.Stdout, payload)

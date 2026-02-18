@@ -1,100 +1,19 @@
 package cmd
 
 import (
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"errors"
-	"net/http"
-	"os"
 	"reflect"
-	"strings"
 
 	"google.golang.org/api/docs/v1"
-	gapi "google.golang.org/api/googleapi"
-
-	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
-// docsEditError provides structured error metadata for JSON error envelopes.
-type docsEditError struct {
-	Operation    string
-	DocID        string
-	ErrorCode    string
-	Message      string
-	HTTPStatus   int
-	GoogleReason string
-	RequestIndex *int
-	Cause        error
-}
-
-func (e *docsEditError) Error() string {
-	if e == nil {
-		return ""
-	}
-	if strings.TrimSpace(e.Message) != "" {
-		return e.Message
-	}
-	if e.Cause != nil {
-		return e.Cause.Error()
-	}
-	return "docs edit failed"
-}
-
-func (e *docsEditError) Unwrap() error {
-	if e == nil {
-		return nil
-	}
-	return e.Cause
-}
-
-func (e *docsEditError) JSONErrorFields() map[string]any {
-	if e == nil {
-		return map[string]any{}
-	}
-	fields := map[string]any{
-		"error_code": e.ErrorCode,
-		"operation":  e.Operation,
-		"doc_id":     e.DocID,
-	}
-	if e.HTTPStatus > 0 {
-		fields["http_status"] = e.HTTPStatus
-	}
-	if strings.TrimSpace(e.GoogleReason) != "" {
-		fields["google_reason"] = e.GoogleReason
-	}
-	if e.RequestIndex != nil {
-		fields["request_index"] = *e.RequestIndex
-	}
-	return fields
-}
-
+// newDocsEditError creates a structured edit error scoped to the Docs service.
 func newDocsEditError(op, docID, code, msg string, cause error) error {
-	e := &docsEditError{
-		Operation: op,
-		DocID:     strings.TrimSpace(docID),
-		ErrorCode: strings.TrimSpace(code),
-		Message:   strings.TrimSpace(msg),
-		Cause:     cause,
-	}
-	var apiErr *gapi.Error
-	if errors.As(cause, &apiErr) {
-		e.HTTPStatus = apiErr.Code
-		if len(apiErr.Errors) > 0 && strings.TrimSpace(apiErr.Errors[0].Reason) != "" {
-			e.GoogleReason = strings.TrimSpace(apiErr.Errors[0].Reason)
-		}
-	}
-	return e
+	return NewEditError("docs", op, docID, code, msg, cause)
 }
 
+// isDocsNotFound checks if an error is a 404 from the Docs API.
 func isDocsNotFound(err error) bool {
-	var apiErr *gapi.Error
-	if !errors.As(err, &apiErr) {
-		return false
-	}
-	return apiErr.Code == http.StatusNotFound
+	return IsNotFound(err)
 }
 
 func docsAppendIndex(doc *docs.Document) int64 {
@@ -108,57 +27,7 @@ func docsAppendIndex(doc *docs.Document) int64 {
 	return last.EndIndex - 1
 }
 
-func applyDocsEditSafety(req *docs.BatchUpdateDocumentRequest, safety DocsEditSafetyFlags) {
-	if req == nil {
-		return
-	}
-	requiredRevision := strings.TrimSpace(safety.RequireRevision)
-	if requiredRevision == "" {
-		return
-	}
-	req.WriteControl = &docs.WriteControl{RequiredRevisionId: requiredRevision}
-}
-
-func docsDryRunOutput(ctx context.Context, u *ui.UI, docID string, req *docs.BatchUpdateDocumentRequest, extra map[string]any) error {
-	return docsDryRunOutputWithOpts(ctx, u, docID, req, extra, false)
-}
-
-func docsDryRunOutputWithOpts(ctx context.Context, u *ui.UI, docID string, req *docs.BatchUpdateDocumentRequest, extra map[string]any, includePretty bool) error {
-	payload := map[string]any{
-		"dryRun":     true,
-		"documentId": docID,
-		"request":    req,
-	}
-	for k, v := range extra {
-		payload[k] = v
-	}
-	if includePretty {
-		if hash, err := docsRequestHash(req); err == nil {
-			payload["requestHash"] = hash
-		}
-		if norm, err := docsNormalizedRequestString(req); err == nil {
-			payload["normalizedRequest"] = norm
-		}
-	}
-	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
-	}
-	u.Out().Printf("dry-run\ttrue")
-	u.Out().Printf("id\t%s", docID)
-	u.Out().Printf("operations\t%d", len(req.Requests))
-	if req.WriteControl != nil && strings.TrimSpace(req.WriteControl.RequiredRevisionId) != "" {
-		u.Out().Printf("required-revision\t%s", req.WriteControl.RequiredRevisionId)
-	}
-	raw, err := json.Marshal(req)
-	if err == nil {
-		u.Out().Printf("request\t%s", string(raw))
-	}
-	return nil
-}
-
 // docsRequestOperationCount returns the number of operation fields set in a docs.Request.
-// Used for validation (exactly one operation per request). Reflection is safe here: input
-// is our own BatchUpdateDocumentRequest, not user-controlled.
 func docsRequestOperationCount(r *docs.Request) int {
 	if r == nil {
 		return 0
@@ -182,6 +51,7 @@ func docsRequestOperationCount(r *docs.Request) int {
 	return count
 }
 
+// docsRequestOperationName returns the name of the first set operation field in a docs.Request.
 func docsRequestOperationName(r *docs.Request) string {
 	if r == nil {
 		return ""
@@ -202,59 +72,4 @@ func docsRequestOperationName(r *docs.Request) string {
 		}
 	}
 	return ""
-}
-
-func docsMaybeWriteNormalizedRequest(path string, req *docs.BatchUpdateDocumentRequest) error {
-	path = strings.TrimSpace(path)
-	if path == "" || req == nil {
-		return nil
-	}
-	pretty, err := json.MarshalIndent(req, "", "  ")
-	if err != nil {
-		return err
-	}
-	pretty = append(pretty, '\n')
-	if path == "-" {
-		_, err = os.Stdout.Write(pretty)
-		return err
-	}
-	return os.WriteFile(path, pretty, 0o600)
-}
-
-func docsNormalizedRequestForOutput(ctx context.Context, path string, req *docs.BatchUpdateDocumentRequest) (string, error) {
-	path = strings.TrimSpace(path)
-	if path == "" || req == nil {
-		return "", nil
-	}
-	if path == "-" && outfmt.IsJSON(ctx) {
-		return docsNormalizedRequestString(req)
-	}
-	if err := docsMaybeWriteNormalizedRequest(path, req); err != nil {
-		return "", err
-	}
-	return "", nil
-}
-
-func docsNormalizedRequestString(req *docs.BatchUpdateDocumentRequest) (string, error) {
-	if req == nil {
-		return "", errors.New("nil request")
-	}
-	pretty, err := json.MarshalIndent(req, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	pretty = append(pretty, '\n')
-	return string(pretty), nil
-}
-
-func docsRequestHash(req *docs.BatchUpdateDocumentRequest) (string, error) {
-	if req == nil {
-		return "", errors.New("nil request")
-	}
-	b, err := json.Marshal(req)
-	if err != nil {
-		return "", err
-	}
-	sum := sha256.Sum256(b)
-	return hex.EncodeToString(sum[:]), nil
 }

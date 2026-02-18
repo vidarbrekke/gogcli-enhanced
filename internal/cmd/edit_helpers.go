@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 
+	"google.golang.org/api/docs/v1"
 	gapi "google.golang.org/api/googleapi"
 
 	"github.com/steipete/gogcli/internal/outfmt"
@@ -302,4 +303,81 @@ func DocsDryRunOutputWithOpts(ctx context.Context, u *ui.UI, docID string, req a
 // SheetsDryRunOutput is a wrapper for Sheets dry-run output.
 func SheetsDryRunOutput(ctx context.Context, u *ui.UI, spreadsheetID string, req any, extra map[string]any, includePretty bool) error {
 	return DryRunOutput(ctx, u, "sheets", spreadsheetID, req, extra, includePretty)
+}
+
+// ==== BACKWARD-COMPATIBILITY HELPERS FOR LEGACY DOCS COMMANDS ====
+
+// docsRequestHash hashes a normalized BatchUpdateDocumentRequest for change detection.
+// Used by legacy docs edit commands; new commands use RequestHash directly.
+func docsRequestHash(req any) (string, error) {
+	return RequestHash(req)
+}
+
+// docsNormalizedRequestString returns a normalized, pretty-printed JSON string of the request.
+// Used by legacy docs edit commands; new commands use NormalizedRequestString directly.
+func docsNormalizedRequestString(req any) (string, error) {
+	return NormalizedRequestString(req)
+}
+
+// docsMaybeWriteNormalizedRequest writes normalized request JSON to file or stdout.
+// Used by legacy docs edit commands; new commands use NormalizedRequestForOutput directly.
+func docsMaybeWriteNormalizedRequest(path string, req any) error {
+	path = strings.TrimSpace(path)
+	if path == "" || req == nil {
+		return nil
+	}
+	pretty, err := json.MarshalIndent(req, "", "  ")
+	if err != nil {
+		return err
+	}
+	pretty = append(pretty, '\n')
+	if path == "-" {
+		_, err = os.Stdout.Write(pretty)
+		return err
+	}
+	return os.WriteFile(path, pretty, 0o600)
+}
+
+// docsNormalizedRequestForOutput handles conditional output of normalized requests.
+// Used by legacy docs edit commands; new commands use NormalizedRequestForOutput directly.
+func docsNormalizedRequestForOutput(ctx context.Context, path string, req any) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" || req == nil {
+		return "", nil
+	}
+	if path == "-" && outfmt.IsJSON(ctx) {
+		return NormalizedRequestString(req)
+	}
+	if err := docsMaybeWriteNormalizedRequest(path, req); err != nil {
+		return "", err
+	}
+	return "", nil
+}
+
+// applyDocsEditSafety applies safety flags (like required revision ID) to a BatchUpdateDocumentRequest.
+// Used by legacy docs edit commands; new commands should use the shared pattern directly.
+func applyDocsEditSafety(req any, safety AgenticEditSafetyFlags) {
+	if req == nil {
+		return
+	}
+	// Handle Docs BatchUpdateDocumentRequest
+	if docReq, ok := req.(*docs.BatchUpdateDocumentRequest); ok {
+		requiredRevision := strings.TrimSpace(safety.RequireRevision)
+		if requiredRevision == "" {
+			return
+		}
+		docReq.WriteControl = &docs.WriteControl{RequiredRevisionId: requiredRevision}
+	}
+}
+
+// docsDryRunOutput outputs dry-run results with minimal details.
+// Used by legacy docs edit commands; new commands use DryRunOutput directly.
+func docsDryRunOutput(ctx context.Context, u *ui.UI, docID string, req any, extra map[string]any) error {
+	return DryRunOutput(ctx, u, "docs", docID, req, extra, false)
+}
+
+// docsDryRunOutputWithOpts outputs dry-run results with optional pretty-printing.
+// Used by legacy docs edit commands; new commands use DryRunOutput with includePretty directly.
+func docsDryRunOutputWithOpts(ctx context.Context, u *ui.UI, docID string, req any, extra map[string]any, includePretty bool) error {
+	return DryRunOutput(ctx, u, "docs", docID, req, extra, includePretty)
 }

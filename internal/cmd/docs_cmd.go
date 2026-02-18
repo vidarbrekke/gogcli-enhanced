@@ -25,10 +25,5 @@ type DocsEditCmd struct {
 	Replace DocsReplaceCmd `cmd:"" name:"replace" help:"Replace text throughout a Google Doc"`
 }
 
-// DocsEditSafetyFlags are shared flags for agentic edit workflows.
-type DocsEditSafetyFlags struct {
-	DryRun            bool   `name:"dry-run" help:"Build request and print it without executing API call"`
-	RequireRevision   string `name:"require-revision" help:"Require this document revision ID for update (optimistic concurrency guard)"`
-	OutputRequestFile string `name:"output-request-file" help:"Write normalized request JSON to this file (use '-' for stdout)"`
-	Pretty            bool   `name:"pretty" help:"Include normalized pretty-printed request JSON in output"`
-}
+// DocsEditSafetyFlags is the shared agentic safety flags for Docs edit commands.
+type DocsEditSafetyFlags = AgenticEditSafetyFlags
