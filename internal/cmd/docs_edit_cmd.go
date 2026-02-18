@@ -250,26 +250,27 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 }
 
 type DocsInsertCmd struct {
-	DocID  string              `arg:"" name:"docId" help:"Doc ID"`
-	Text   string              `arg:"" name:"text" help:"Text to insert"`
-	Index  int64               `name:"index" help:"Insertion index (1-based)" default:"1"`
-	Safety DocsEditSafetyFlags `embed:""`
+	DocID  string                 `arg:"" name:"docId" help:"Doc ID"`
+	Text   string                 `arg:"" name:"text" help:"Text to insert"`
+	Index  int64                  `name:"index" help:"Insertion index (1-based)" default:"1"`
+	Safety AgenticEditSafetyFlags `embed:""`
 }
 
 func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
 	docID := strings.TrimSpace(c.DocID)
 	if docID == "" {
-		return newDocsEditError("insert", docID, "invalid_argument", "empty docId", usage("empty docId"))
+		return NewEditError("docs", "insert", docID, "invalid_argument", "empty docId", nil)
 	}
 	text := strings.TrimSpace(c.Text)
 	if text == "" {
-		return newDocsEditError("insert", docID, "invalid_argument", "empty text", usage("empty text"))
+		return NewEditError("docs", "insert", docID, "invalid_argument", "empty text", nil)
 	}
 	if c.Index < 1 {
-		return newDocsEditError("insert", docID, "invalid_argument", "index must be >= 1", usage("index must be >= 1"))
+		return NewEditError("docs", "insert", docID, "invalid_argument", "index must be >= 1", nil)
 	}
 
+	// Build the batch request
 	req := &docs.BatchUpdateDocumentRequest{
 		Requests: []*docs.Request{
 			{
@@ -280,16 +281,48 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
-	applyDocsEditSafety(req, c.Safety)
-	normalizedForJSON, normErr := docsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
-	if normErr != nil {
-		return newDocsEditError("insert", docID, "output_write_failed", "write normalized request failed", normErr)
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("docs", "insert", docID, "invalid_request", "failed to hash request", hashErr)
 	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("docs", "insert", docID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":   true,
+			"valid":          true,
+			"documentId":     docID,
+			"insertedChars":  len(text),
+			"index":          c.Index,
+			"requestHash":    requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", docID)
+		u.Out().Printf("inserted\t%d", len(text))
+		u.Out().Printf("index\t%d", c.Index)
+		return nil
+	}
+
 	if c.Safety.DryRun {
-		return docsDryRunOutputWithOpts(ctx, u, docID, req, map[string]any{
-			"insertedChars":     len(text),
-			"index":             c.Index,
-			"normalizedRequest": normalizedForJSON,
+		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
+			"insertedChars":      len(text),
+			"index":              c.Index,
+			"requestHash":        requestHash,
+			"normalizedRequest":  normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -299,13 +332,15 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 	svc, err := newDocsService(ctx, account)
 	if err != nil {
-		return newDocsEditError("insert", docID, "service_init_failed", "create docs service failed", err)
+		return NewEditError("docs", "insert", docID, "service_init_failed", "create docs service failed", err)
 	}
-	if _, err := svc.Documents.BatchUpdate(docID, req).Context(ctx).Do(); err != nil {
+
+	_, err = svc.Documents.BatchUpdate(docID, req).Context(ctx).Do()
+	if err != nil {
 		if isDocsNotFound(err) {
-			return newDocsEditError("insert", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
+			return NewEditError("docs", "insert", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
 		}
-		return newDocsEditError("insert", docID, "api_error", "insert failed", err)
+		return NewEditError("docs", "insert", docID, "api_error", "insert failed", err)
 	}
 
 	payload := map[string]any{
@@ -317,12 +352,7 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if c.Safety.Pretty {
-		if hash, hashErr := docsRequestHash(req); hashErr == nil {
-			payload["requestHash"] = hash
-		}
-		if norm, normErr := docsNormalizedRequestString(req); normErr == nil {
-			payload["normalizedRequest"] = norm
-		}
+		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(os.Stdout, payload)
