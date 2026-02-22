@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/slides/v1"
 
 	"github.com/steipete/gogcli/internal/outfmt"
@@ -24,6 +26,8 @@ type SlidesEditCmd struct {
 	CreateSlide  SlidesEditCreateSlideCmd  `cmd:"" name:"create-slide" help:"Add a new slide to a presentation"`
 	DuplicateSlide SlidesEditDuplicateSlideCmd `cmd:"" name:"duplicate-slide" help:"Duplicate an existing slide"`
 	RefreshCharts SlidesEditRefreshChartsCmd `cmd:"" name:"refresh-charts" help:"Refresh embedded Google Sheets charts"`
+	UpdateNotes  SlidesEditUpdateNotesCmd  `cmd:"" name:"update-notes" help:"Update speaker notes on a slide"`
+	DeleteSlide  SlidesEditDeleteSlideCmd  `cmd:"" name:"delete-slide" help:"Delete a slide by object ID"`
 	InsertTable  SlidesEditInsertTableCmd  `cmd:"" name:"insert-table" help:"Insert a data table into a slide"`
 	MergeData    SlidesEditMergeDataCmd    `cmd:"" name:"merge-data" help:"Generate presentations from template using JSON data (mail-merge)"`
 }
@@ -37,6 +41,7 @@ type SlidesEditBatchCmd struct {
 
 func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "slides")
 	presentationID := strings.TrimSpace(c.PresentationID)
 
 	if presentationID == "" {
@@ -78,7 +83,7 @@ func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	// Validate each request has exactly one operation
 	for i, r := range req.Requests {
-		if slidesRequestOperationCount(r) != 1 {
+		if RequestOperationCount(r) != 1 {
 			idx := i
 			err := NewEditError("slides", "batch", presentationID, "invalid_request",
 				fmt.Sprintf("request[%d] must set exactly one operation field", i), nil)
@@ -96,7 +101,7 @@ func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	requestKinds := make([]string, 0, len(req.Requests))
 	for _, r := range req.Requests {
-		requestKinds = append(requestKinds, slidesRequestOperationName(r))
+		requestKinds = append(requestKinds, RequestOperationName(r))
 	}
 
 	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, &req)
@@ -172,113 +177,6 @@ func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	return nil
 }
 
-// slidesRequestOperationCount returns the number of operation fields set in a slides.Request.
-func slidesRequestOperationCount(r *slides.Request) int {
-	if r == nil {
-		return 0
-	}
-	count := 0
-	if r.CreateSlide != nil {
-		count++
-	}
-	if r.CreateShape != nil {
-		count++
-	}
-	if r.CreateTable != nil {
-		count++
-	}
-	if r.InsertText != nil {
-		count++
-	}
-	if r.ReplaceAllText != nil {
-		count++
-	}
-	if r.DeleteObject != nil {
-		count++
-	}
-	if r.DeleteText != nil {
-		count++
-	}
-	if r.UpdatePageProperties != nil {
-		count++
-	}
-	if r.UpdateShapeProperties != nil {
-		count++
-	}
-	if r.UpdateTableCellProperties != nil {
-		count++
-	}
-	if r.UpdateTextStyle != nil {
-		count++
-	}
-	if r.DuplicateObject != nil {
-		count++
-	}
-	if r.RefreshSheetsChart != nil {
-		count++
-	}
-	if r.ReplaceAllShapesWithSheetsChart != nil {
-		count++
-	}
-	if r.ReplaceImage != nil {
-		count++
-	}
-	return count
-}
-
-// slidesRequestOperationName returns the name of the first set operation field in a slides.Request.
-func slidesRequestOperationName(r *slides.Request) string {
-	if r == nil {
-		return ""
-	}
-	if r.CreateSlide != nil {
-		return "CreateSlide"
-	}
-	if r.CreateShape != nil {
-		return "CreateShape"
-	}
-	if r.CreateTable != nil {
-		return "CreateTable"
-	}
-	if r.InsertText != nil {
-		return "InsertText"
-	}
-	if r.ReplaceAllText != nil {
-		return "ReplaceAllText"
-	}
-	if r.DeleteObject != nil {
-		return "DeleteObject"
-	}
-	if r.DeleteText != nil {
-		return "DeleteText"
-	}
-	if r.UpdatePageProperties != nil {
-		return "UpdatePageProperties"
-	}
-	if r.UpdateShapeProperties != nil {
-		return "UpdateShapeProperties"
-	}
-	if r.UpdateTableCellProperties != nil {
-		return "UpdateTableCellProperties"
-	}
-	if r.UpdateTextStyle != nil {
-		return "UpdateTextStyle"
-	}
-	if r.DuplicateObject != nil {
-		return "DuplicateObject"
-	}
-	if r.RefreshSheetsChart != nil {
-		return "RefreshSheetsChart"
-	}
-	if r.ReplaceAllShapesWithSheetsChart != nil {
-		return "ReplaceAllShapesWithSheetsChart"
-	}
-	if r.ReplaceImage != nil {
-		return "ReplaceImage"
-	}
-	return ""
-}
-
 // SlidesDryRunOutput is a wrapper for Slides dry-run output using shared helpers.
 func SlidesDryRunOutput(ctx context.Context, u *ui.UI, presentationID string, req any, extra map[string]any, includePretty bool) error {
 	return DryRunOutput(ctx, u, "slides", presentationID, req, extra, includePretty)
@@ -295,6 +193,7 @@ type SlidesEditReplaceTextCmd struct {
 
 func (c *SlidesEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "slides")
 	presentationID := strings.TrimSpace(c.PresentationID)
 	find := strings.TrimSpace(c.Find)
 	replace := c.Replace
@@ -319,6 +218,9 @@ func (c *SlidesEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 				},
 			},
 		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("slides", "replace-text", presentationID, "invalid_json", "decode execute-from-file failed", err)
 	}
 
 	requestHash, hashErr := RequestHash(req)
@@ -425,6 +327,7 @@ type SlidesEditMergeDataCmd struct {
 
 func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "slides")
 	templateID := strings.TrimSpace(c.TemplateID)
 	dataFile := strings.TrimSpace(c.DataFile)
 
@@ -544,6 +447,21 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 	if err != nil {
 		return NewEditError("slides", "merge-data", templateID, "service_init_failed", "create slides service failed", err)
 	}
+	useDrive := strings.TrimSpace(c.OutputFolderID) != "" || c.ExportAsPDF
+	var driveSvc *drive.Service
+	if useDrive {
+		driveSvc, err = newDriveService(ctx, account)
+		if err != nil {
+			return NewEditError("slides", "merge-data", templateID, "service_init_failed", "create drive service failed", err)
+		}
+	}
+	outputFolderID := strings.TrimSpace(c.OutputFolderID)
+	if outputFolderID == "" && c.ExportAsPDF && driveSvc != nil {
+		templateMeta, metaErr := driveSvc.Files.Get(templateID).Fields("parents").Context(ctx).Do()
+		if metaErr == nil && len(templateMeta.Parents) > 0 {
+			outputFolderID = strings.TrimSpace(templateMeta.Parents[0])
+		}
+	}
 
 	results := make([]map[string]any, 0, len(dataRecords))
 	generatedCount := 0
@@ -595,23 +513,110 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 		}
 
 		// 3. Move to output folder if specified
-		outputFolderID := strings.TrimSpace(c.OutputFolderID)
-		if outputFolderID != "" {
-			// Note: Would need Drive API to move file
-			// For now, just track it
+		if outputFolderID != "" && driveSvc != nil {
+			fileMeta, getErr := driveSvc.Files.Get(newPres.PresentationId).Fields("parents").Context(ctx).Do()
+			if getErr != nil {
+				results = append(results, map[string]any{
+					"index":          i,
+					"status":         "failed",
+					"error":          getErr.Error(),
+					"stage":          "get-parents",
+					"presentationId": newPres.PresentationId,
+				})
+				failedCount++
+				continue
+			}
+			removeParents := strings.Join(fileMeta.Parents, ",")
+			moveCall := driveSvc.Files.Update(newPres.PresentationId, &drive.File{}).AddParents(outputFolderID)
+			if strings.TrimSpace(removeParents) != "" {
+				moveCall = moveCall.RemoveParents(removeParents)
+			}
+			if _, moveErr := moveCall.Context(ctx).Do(); moveErr != nil {
+				results = append(results, map[string]any{
+					"index":          i,
+					"status":         "failed",
+					"error":          moveErr.Error(),
+					"stage":          "move-output",
+					"presentationId": newPres.PresentationId,
+				})
+				failedCount++
+				continue
+			}
 		}
 
-		// 4. Export as PDF if requested (would require additional implementation)
+		var exportedPDFID string
+		// 4. Export as PDF if requested
 		if c.ExportAsPDF {
-			// Would call Drive API export method
+			if driveSvc == nil {
+				results = append(results, map[string]any{
+					"index":          i,
+					"status":         "failed",
+					"error":          "drive service unavailable",
+					"stage":          "export-pdf",
+					"presentationId": newPres.PresentationId,
+				})
+				failedCount++
+				continue
+			}
+			exportResp, exportErr := driveSvc.Files.Export(newPres.PresentationId, "application/pdf").Context(ctx).Download()
+			if exportErr != nil {
+				results = append(results, map[string]any{
+					"index":          i,
+					"status":         "failed",
+					"error":          exportErr.Error(),
+					"stage":          "export-pdf",
+					"presentationId": newPres.PresentationId,
+				})
+				failedCount++
+				continue
+			}
+			pdfBytes, readErr := io.ReadAll(exportResp.Body)
+			_ = exportResp.Body.Close()
+			if readErr != nil {
+				results = append(results, map[string]any{
+					"index":          i,
+					"status":         "failed",
+					"error":          readErr.Error(),
+					"stage":          "read-exported-pdf",
+					"presentationId": newPres.PresentationId,
+				})
+				failedCount++
+				continue
+			}
+			pdfName := filename + ".pdf"
+			pdfFile := &drive.File{Name: pdfName, MimeType: "application/pdf"}
+			if outputFolderID != "" {
+				pdfFile.Parents = []string{outputFolderID}
+			}
+			createdPDF, createErr := driveSvc.Files.Create(pdfFile).Media(bytes.NewReader(pdfBytes)).Context(ctx).Do()
+			if createErr != nil {
+				results = append(results, map[string]any{
+					"index":          i,
+					"status":         "failed",
+					"error":          createErr.Error(),
+					"stage":          "create-pdf-file",
+					"presentationId": newPres.PresentationId,
+				})
+				failedCount++
+				continue
+			}
+			exportedPDFID = createdPDF.Id
+			_ = driveSvc.Files.Delete(newPres.PresentationId).Context(ctx).Do()
 		}
 
-		results = append(results, map[string]any{
+		result := map[string]any{
 			"index":          i,
 			"status":         "success",
 			"presentationId": newPres.PresentationId,
 			"title":          newPres.Title,
-		})
+		}
+		if outputFolderID != "" {
+			result["outputFolderId"] = outputFolderID
+		}
+		if c.ExportAsPDF {
+			result["pdfFileId"] = exportedPDFID
+		}
+		results = append(results, result)
 		generatedCount++
 	}
 
@@ -621,6 +626,7 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 		"generated":      generatedCount,
 		"failed":         failedCount,
 		"exportAsPDF":    c.ExportAsPDF,
+		"outputFolderId": outputFolderID,
 		"results":        results,
 	}
 	if outfmt.IsJSON(ctx) {
@@ -669,6 +675,7 @@ type SlidesEditReplaceImageCmd struct {
 
 func (c *SlidesEditReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "slides")
 	presentationID := strings.TrimSpace(c.PresentationID)
 	objectID := strings.TrimSpace(c.ObjectID)
 	sourceURL := strings.TrimSpace(c.SourceURL)
@@ -693,6 +700,9 @@ func (c *SlidesEditReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) e
 				},
 			},
 		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("slides", "replace-image", presentationID, "invalid_json", "decode execute-from-file failed", err)
 	}
 
 	requestHash, hashErr := RequestHash(req)
@@ -783,6 +793,7 @@ type SlidesEditCreateSlideCmd struct {
 
 func (c *SlidesEditCreateSlideCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "slides")
 	presentationID := strings.TrimSpace(c.PresentationID)
 	layout := strings.TrimSpace(c.Layout)
 
@@ -806,6 +817,9 @@ func (c *SlidesEditCreateSlideCmd) Run(ctx context.Context, flags *RootFlags) er
 				},
 			},
 		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("slides", "create-slide", presentationID, "invalid_json", "decode execute-from-file failed", err)
 	}
 
 	requestHash, hashErr := RequestHash(req)
@@ -902,6 +916,7 @@ type SlidesEditDuplicateSlideCmd struct {
 
 func (c *SlidesEditDuplicateSlideCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "slides")
 	presentationID := strings.TrimSpace(c.PresentationID)
 	slideID := strings.TrimSpace(c.SlideID)
 
@@ -925,6 +940,9 @@ func (c *SlidesEditDuplicateSlideCmd) Run(ctx context.Context, flags *RootFlags)
 				ObjectId: slideID,
 			},
 		})
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("slides", "duplicate-slide", presentationID, "invalid_json", "decode execute-from-file failed", err)
 	}
 
 	requestHash, hashErr := RequestHash(req)
@@ -1025,6 +1043,7 @@ type SlidesEditRefreshChartsCmd struct {
 
 func (c *SlidesEditRefreshChartsCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "slides")
 	presentationID := strings.TrimSpace(c.PresentationID)
 	chartID := strings.TrimSpace(c.ChartID)
 
@@ -1056,6 +1075,9 @@ func (c *SlidesEditRefreshChartsCmd) Run(ctx context.Context, flags *RootFlags) 
 				},
 			},
 		}
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, batchReq); err != nil {
+		return NewEditError("slides", "refresh-charts", presentationID, "invalid_json", "decode execute-from-file failed", err)
 	}
 
 	requestHash, hashErr := RequestHash(batchReq)
@@ -1152,6 +1174,252 @@ func (c *SlidesEditRefreshChartsCmd) Run(ctx context.Context, flags *RootFlags) 
 	return nil
 }
 
+type SlidesEditUpdateNotesCmd struct {
+	PresentationID string  `arg:"" name:"presentationId" help:"Presentation ID"`
+	SlideID        string  `arg:"" name:"slideId" help:"Slide object ID"`
+	Notes          *string `name:"notes" help:"Speaker notes text (use --notes '' to clear notes)"`
+	NotesFile      string  `name:"notes-file" help:"Path to file containing speaker notes"`
+	Safety         AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *SlidesEditUpdateNotesCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "slides")
+	presentationID := strings.TrimSpace(c.PresentationID)
+	slideID := strings.TrimSpace(c.SlideID)
+	if presentationID == "" {
+		return newSlidesEditError("update-notes", presentationID, "invalid_argument", "empty presentationId", nil)
+	}
+	if slideID == "" {
+		return newSlidesEditError("update-notes", presentationID, "invalid_argument", "empty slideId", nil)
+	}
+	notes := ""
+	updateNotes := false
+	if strings.TrimSpace(c.NotesFile) != "" {
+		data, err := os.ReadFile(c.NotesFile)
+		if err != nil {
+			return newSlidesEditError("update-notes", presentationID, "input_open_failed", "read notes-file failed", err)
+		}
+		notes = string(data)
+		updateNotes = true
+	} else if c.Notes != nil {
+		notes = *c.Notes
+		updateNotes = true
+	}
+	if !updateNotes {
+		return newSlidesEditError("update-notes", presentationID, "invalid_argument", "provide --notes or --notes-file", nil)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSlidesService(ctx, account)
+	if err != nil {
+		return newSlidesEditError("update-notes", presentationID, "service_init_failed", "create slides service failed", err)
+	}
+	pres, err := svc.Presentations.Get(presentationID).Context(ctx).Do()
+	if err != nil {
+		return newSlidesEditError("update-notes", presentationID, "api_error", "get presentation failed", err)
+	}
+
+	notesObjectID := ""
+	foundSlide := false
+	for _, s := range pres.Slides {
+		if s.ObjectId != slideID {
+			continue
+		}
+		foundSlide = true
+		if s.SlideProperties != nil && s.SlideProperties.NotesPage != nil {
+			np := s.SlideProperties.NotesPage
+			if np.NotesProperties != nil {
+				notesObjectID = np.NotesProperties.SpeakerNotesObjectId
+			}
+			if notesObjectID == "" {
+				for _, el := range np.PageElements {
+					if el.Shape != nil && el.Shape.Placeholder != nil && el.Shape.Placeholder.Type == placeholderTypeBody {
+						notesObjectID = el.ObjectId
+						break
+					}
+				}
+			}
+		}
+		break
+	}
+	if !foundSlide {
+		return newSlidesEditError("update-notes", presentationID, "not_found", "slide not found", nil)
+	}
+	if notesObjectID == "" {
+		return newSlidesEditError("update-notes", presentationID, "invalid_response", "speaker notes placeholder not found", nil)
+	}
+
+	requests := []*slides.Request{
+		{
+			DeleteText: &slides.DeleteTextRequest{
+				ObjectId: notesObjectID,
+				TextRange: &slides.Range{
+					Type: "ALL",
+				},
+			},
+		},
+	}
+	if notes != "" {
+		requests = append(requests, &slides.Request{
+			InsertText: &slides.InsertTextRequest{
+				ObjectId: notesObjectID,
+				Text:     notes,
+			},
+		})
+	}
+	req := &slides.BatchUpdatePresentationRequest{Requests: requests}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("slides", "update-notes", presentationID, "invalid_json", "decode execute-from-file failed", err)
+	}
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return newSlidesEditError("update-notes", presentationID, "invalid_request", "failed to hash request", hashErr)
+	}
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return newSlidesEditError("update-notes", presentationID, "output_write_failed", "write normalized request failed", normErr)
+	}
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":   true,
+			"valid":          true,
+			"presentationId": presentationID,
+			"slideId":        slideID,
+			"requestHash":    requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", presentationID)
+		u.Out().Printf("slide\t%s", slideID)
+		return nil
+	}
+	if isEditDryRun(flags, c.Safety) {
+		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
+			"slideId":           slideID,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+	if _, err := svc.Presentations.BatchUpdate(presentationID, req).Context(ctx).Do(); err != nil {
+		return newSlidesEditError("update-notes", presentationID, "api_error", "update notes failed", err)
+	}
+	payload := map[string]any{
+		"presentationId": presentationID,
+		"slideId":        slideID,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+	}
+	u.Out().Printf("Updated notes on slide %s", slideID)
+	return nil
+}
+
+type SlidesEditDeleteSlideCmd struct {
+	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
+	SlideID        string `arg:"" name:"slideId" help:"Slide object ID to delete"`
+	Safety         AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *SlidesEditDeleteSlideCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "slides")
+	presentationID := strings.TrimSpace(c.PresentationID)
+	slideID := strings.TrimSpace(c.SlideID)
+	if presentationID == "" {
+		return newSlidesEditError("delete-slide", presentationID, "invalid_argument", "empty presentationId", nil)
+	}
+	if slideID == "" {
+		return newSlidesEditError("delete-slide", presentationID, "invalid_argument", "empty slideId", nil)
+	}
+	if !isEditDryRun(flags, c.Safety) && !outfmt.IsJSON(ctx) && (flags == nil || !flags.Force) {
+		return newSlidesEditError("delete-slide", presentationID, "confirmation_required", "delete-slide is destructive; rerun with --force or use --dry-run", nil)
+	}
+	req := &slides.BatchUpdatePresentationRequest{
+		Requests: []*slides.Request{
+			{
+				DeleteObject: &slides.DeleteObjectRequest{ObjectId: slideID},
+			},
+		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("slides", "delete-slide", presentationID, "invalid_json", "decode execute-from-file failed", err)
+	}
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return newSlidesEditError("delete-slide", presentationID, "invalid_request", "failed to hash request", hashErr)
+	}
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return newSlidesEditError("delete-slide", presentationID, "output_write_failed", "write normalized request failed", normErr)
+	}
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":   true,
+			"valid":          true,
+			"presentationId": presentationID,
+			"slideId":        slideID,
+			"requestHash":    requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", presentationID)
+		return nil
+	}
+	if isEditDryRun(flags, c.Safety) {
+		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
+			"slideId":           slideID,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSlidesService(ctx, account)
+	if err != nil {
+		return newSlidesEditError("delete-slide", presentationID, "service_init_failed", "create slides service failed", err)
+	}
+	if _, err := svc.Presentations.BatchUpdate(presentationID, req).Context(ctx).Do(); err != nil {
+		return newSlidesEditError("delete-slide", presentationID, "api_error", "delete slide failed", err)
+	}
+	payload := map[string]any{
+		"presentationId": presentationID,
+		"slideId":        slideID,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+	}
+	u.Out().Printf("Deleted slide %s", slideID)
+	return nil
+}
+
 // SlidesEditInsertTableCmd inserts a data table into a slide.
 type SlidesEditInsertTableCmd struct {
 	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
@@ -1162,8 +1430,33 @@ type SlidesEditInsertTableCmd struct {
 	Safety         AgenticEditSafetyFlags `embed:""`
 }
 
+func parseSlidesTableData(path string) ([][]string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var raw [][]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	rows := make([][]string, 0, len(raw))
+	for _, rawRow := range raw {
+		row := make([]string, 0, len(rawRow))
+		for _, cell := range rawRow {
+			row = append(row, fmt.Sprintf("%v", cell))
+		}
+		rows = append(rows, row)
+	}
+	return rows, nil
+}
+
 func (c *SlidesEditInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "slides")
 	presentationID := strings.TrimSpace(c.PresentationID)
 	slideID := strings.TrimSpace(c.SlideID)
 
@@ -1207,6 +1500,41 @@ func (c *SlidesEditInsertTableCmd) Run(ctx context.Context, flags *RootFlags) er
 			},
 		},
 	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("slides", "insert-table", presentationID, "invalid_json", "decode execute-from-file failed", err)
+	}
+	dataRows, dataErr := parseSlidesTableData(c.DataFile)
+	if dataErr != nil {
+		return NewEditError("slides", "insert-table", presentationID, "invalid_json", "parse data-file failed", dataErr)
+	}
+	filledCells := 0
+	if len(dataRows) > 0 {
+		for rowIdx, row := range dataRows {
+			if rowIdx >= c.Rows {
+				break
+			}
+			for colIdx, text := range row {
+				if colIdx >= c.Columns {
+					break
+				}
+				if strings.TrimSpace(text) == "" {
+					continue
+				}
+				req.Requests = append(req.Requests, &slides.Request{
+					InsertText: &slides.InsertTextRequest{
+						ObjectId:       tableID,
+						InsertionIndex: 0,
+						CellLocation: &slides.TableCellLocation{
+							RowIndex:    int64(rowIdx),
+							ColumnIndex: int64(colIdx),
+						},
+						Text: text,
+					},
+				})
+				filledCells++
+			}
+		}
+	}
 
 	requestHash, hashErr := RequestHash(req)
 	if hashErr != nil {
@@ -1228,6 +1556,7 @@ func (c *SlidesEditInsertTableCmd) Run(ctx context.Context, flags *RootFlags) er
 			"columns":        c.Columns,
 			"tableId":        tableID,
 			"requestHash":    requestHash,
+			"filledCells":    filledCells,
 		}
 		if normalizedForJSON != "" || c.Safety.Pretty {
 			if norm, err := NormalizedRequestString(req); err == nil {
@@ -1251,6 +1580,7 @@ func (c *SlidesEditInsertTableCmd) Run(ctx context.Context, flags *RootFlags) er
 			"rows":              c.Rows,
 			"columns":           c.Columns,
 			"tableId":           tableID,
+			"filledCells":       filledCells,
 			"requestHash":       requestHash,
 			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
@@ -1280,6 +1610,7 @@ func (c *SlidesEditInsertTableCmd) Run(ctx context.Context, flags *RootFlags) er
 		"tableId":        tableID,
 		"rows":           c.Rows,
 		"columns":        c.Columns,
+		"filledCells":    filledCells,
 		"replies":        len(resp.Replies),
 	}
 	if normalizedForJSON != "" {

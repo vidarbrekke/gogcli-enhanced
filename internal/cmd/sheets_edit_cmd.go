@@ -20,6 +20,8 @@ type SheetsEditCmd struct {
 	Append       SheetsEditAppendCmd       `cmd:"" name:"append" help:"Append rows to a sheet"`
 	Clear        SheetsEditClearCmd        `cmd:"" name:"clear" help:"Clear values in a range"`
 	ReplaceText  SheetsEditReplaceTextCmd  `cmd:"" name:"replace-text" help:"Find and replace text across sheet cells"`
+	Format       SheetsEditFormatCmd       `cmd:"" name:"format" help:"Apply cell formatting in a range"`
+	Insert       SheetsEditInsertCmd       `cmd:"" name:"insert" help:"Insert rows/columns in a sheet"`
 	Batch        SheetsEditBatchCmd        `cmd:"" name:"batch" help:"Apply multiple Sheets API batch operations from JSON"`
 }
 
@@ -35,6 +37,7 @@ type SheetsEditValuesCmd struct {
 
 func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "sheets")
 	spreadsheetID := strings.TrimSpace(c.SpreadsheetID)
 	rangeSpec := cleanRange(c.Range)
 	if spreadsheetID == "" {
@@ -60,6 +63,16 @@ func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 		Values:             values,
 		ValueInputOption:   valueInputOption,
 		CopyValidationFrom: strings.TrimSpace(c.CopyValidationFrom),
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return newSheetsEditError("values", spreadsheetID, "invalid_json", "decode execute-from-file failed", err)
+	}
+	spreadsheetID = normalizeGoogleID(strings.TrimSpace(req.SpreadsheetID))
+	rangeSpec = cleanRange(req.Range)
+	values = req.Values
+	valueInputOption = strings.TrimSpace(req.ValueInputOption)
+	if valueInputOption == "" {
+		valueInputOption = "USER_ENTERED"
 	}
 
 	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
@@ -162,6 +175,7 @@ type SheetsEditAppendCmd struct {
 
 func (c *SheetsEditAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "sheets")
 	spreadsheetID := strings.TrimSpace(c.SpreadsheetID)
 	rangeSpec := cleanRange(c.Range)
 	if spreadsheetID == "" {
@@ -190,6 +204,17 @@ func (c *SheetsEditAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		InsertDataOption:   insertDataOption,
 		CopyValidationFrom: strings.TrimSpace(c.CopyValidationFrom),
 	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return newSheetsEditError("append", spreadsheetID, "invalid_json", "decode execute-from-file failed", err)
+	}
+	spreadsheetID = normalizeGoogleID(strings.TrimSpace(req.SpreadsheetID))
+	rangeSpec = cleanRange(req.Range)
+	values = req.Values
+	valueInputOption = strings.TrimSpace(req.ValueInputOption)
+	if valueInputOption == "" {
+		valueInputOption = "USER_ENTERED"
+	}
+	insertDataOption = strings.TrimSpace(req.InsertDataOption)
 	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
 	if normErr != nil {
 		return newSheetsEditError("append", spreadsheetID, "output_write_failed", "write normalized request failed", normErr)
@@ -283,6 +308,7 @@ type SheetsEditClearCmd struct {
 
 func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "sheets")
 	spreadsheetID := strings.TrimSpace(c.SpreadsheetID)
 	rangeSpec := cleanRange(c.Range)
 	if spreadsheetID == "" {
@@ -299,6 +325,11 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 		SpreadsheetID: spreadsheetID,
 		Range:         rangeSpec,
 	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return newSheetsEditError("clear", spreadsheetID, "invalid_json", "decode execute-from-file failed", err)
+	}
+	spreadsheetID = normalizeGoogleID(strings.TrimSpace(req.SpreadsheetID))
+	rangeSpec = cleanRange(req.Range)
 	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
 	if normErr != nil {
 		return newSheetsEditError("clear", spreadsheetID, "output_write_failed", "write normalized request failed", normErr)
@@ -368,6 +399,281 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 	return nil
 }
 
+type SheetsEditFormatCmd struct {
+	SpreadsheetID string                `arg:"" name:"spreadsheetId" help:"Spreadsheet ID"`
+	Range         string                `arg:"" name:"range" help:"Range (eg. Sheet1!A1:B2)"`
+	FormatJSON    string                `name:"format-json" help:"Cell format as JSON (Sheets API CellFormat)"`
+	FormatFields  string                `name:"format-fields" help:"Format field mask (eg. userEnteredFormat.textFormat.bold)"`
+	Safety        SheetsEditSafetyFlags `embed:""`
+}
+
+func (c *SheetsEditFormatCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "sheets")
+	spreadsheetID := normalizeGoogleID(strings.TrimSpace(c.SpreadsheetID))
+	rangeSpec := cleanRange(c.Range)
+	if spreadsheetID == "" {
+		return newSheetsEditError("format", spreadsheetID, "invalid_argument", "empty spreadsheetId", usage("empty spreadsheetId"))
+	}
+	if strings.TrimSpace(rangeSpec) == "" {
+		return newSheetsEditError("format", spreadsheetID, "invalid_argument", "empty range", usage("empty range"))
+	}
+	if strings.TrimSpace(c.FormatJSON) == "" {
+		return newSheetsEditError("format", spreadsheetID, "invalid_argument", "empty format-json", usage("empty format-json"))
+	}
+	if strings.TrimSpace(c.FormatFields) == "" {
+		return newSheetsEditError("format", spreadsheetID, "invalid_argument", "empty format-fields", usage("empty format-fields"))
+	}
+
+	b, err := resolveInlineOrFileBytes(c.FormatJSON)
+	if err != nil {
+		return newSheetsEditError("format", spreadsheetID, "invalid_json", "read --format-json failed", err)
+	}
+	var format sheets.CellFormat
+	if err := json.Unmarshal(b, &format); err != nil {
+		return newSheetsEditError("format", spreadsheetID, "invalid_json", "invalid format JSON", err)
+	}
+	formatFields := strings.TrimSpace(c.FormatFields)
+	normalizedFields, formatJSONPaths := normalizeFormatMask(formatFields)
+	if normalizedFields != "" {
+		formatFields = normalizedFields
+	}
+	if err := applyForceSendFields(&format, formatJSONPaths); err != nil {
+		return newSheetsEditError("format", spreadsheetID, "invalid_argument", "invalid format-fields", err)
+	}
+	rangeInfo, err := parseSheetRange(rangeSpec, "format")
+	if err != nil {
+		return newSheetsEditError("format", spreadsheetID, "invalid_argument", "invalid range", err)
+	}
+	req := &sheets.BatchUpdateSpreadsheetRequest{
+		Requests: []*sheets.Request{
+			{
+				RepeatCell: &sheets.RepeatCellRequest{
+					Cell: &sheets.CellData{
+						UserEnteredFormat: &format,
+					},
+					Fields: formatFields,
+				},
+			},
+		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return newSheetsEditError("format", spreadsheetID, "invalid_json", "decode execute-from-file failed", err)
+	}
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return newSheetsEditError("format", spreadsheetID, "output_write_failed", "write normalized request failed", normErr)
+	}
+	if c.Safety.ValidateOnly {
+		hash, _ := RequestHash(req)
+		payload := map[string]any{
+			"validateOnly":  true,
+			"valid":         true,
+			"spreadsheetId": spreadsheetID,
+			"range":         rangeSpec,
+			"fields":        formatFields,
+			"requestHash":   hash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", spreadsheetID)
+		u.Out().Printf("range\t%s", rangeSpec)
+		return nil
+	}
+	if isEditDryRun(flags, c.Safety) {
+		return SheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
+			"range":             rangeSpec,
+			"fields":            formatFields,
+			"normalizedRequest": normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSheetsService(ctx, account)
+	if err != nil {
+		return newSheetsEditError("format", spreadsheetID, "service_init_failed", "create sheets service failed", err)
+	}
+	sheetIDs, err := fetchSheetIDMap(ctx, svc, spreadsheetID)
+	if err != nil {
+		return newSheetsEditError("format", spreadsheetID, "api_error", "load sheet metadata failed", err)
+	}
+	gridRange, err := gridRangeFromMap(rangeInfo, sheetIDs, "format")
+	if err != nil {
+		return newSheetsEditError("format", spreadsheetID, "invalid_argument", "invalid grid range", err)
+	}
+	req.Requests[0].RepeatCell.Range = gridRange
+	if _, err := svc.Spreadsheets.BatchUpdate(spreadsheetID, req).Do(); err != nil {
+		return newSheetsEditError("format", spreadsheetID, "api_error", "format failed", err)
+	}
+	payload := map[string]any{
+		"spreadsheetId": spreadsheetID,
+		"range":         rangeSpec,
+		"fields":        formatFields,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+	}
+	u.Out().Printf("Formatted %s", rangeSpec)
+	return nil
+}
+
+type SheetsEditInsertCmd struct {
+	SpreadsheetID string                `arg:"" name:"spreadsheetId" help:"Spreadsheet ID"`
+	Sheet         string                `arg:"" name:"sheet" help:"Sheet name (eg. Sheet1)"`
+	Dimension     string                `arg:"" name:"dimension" help:"Dimension to insert: rows or cols"`
+	Start         int64                 `arg:"" name:"start" help:"Position before which to insert (1-based)"`
+	Count         int64                 `name:"count" help:"Number of rows/columns to insert" default:"1"`
+	After         bool                  `name:"after" help:"Insert after the position instead of before"`
+	Safety        SheetsEditSafetyFlags `embed:""`
+}
+
+func (c *SheetsEditInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "sheets")
+	spreadsheetID := normalizeGoogleID(strings.TrimSpace(c.SpreadsheetID))
+	sheetName := strings.TrimSpace(c.Sheet)
+	if spreadsheetID == "" {
+		return newSheetsEditError("insert", spreadsheetID, "invalid_argument", "empty spreadsheetId", usage("empty spreadsheetId"))
+	}
+	if sheetName == "" {
+		return newSheetsEditError("insert", spreadsheetID, "invalid_argument", "empty sheet", usage("empty sheet"))
+	}
+	dim := strings.ToLower(strings.TrimSpace(c.Dimension))
+	apiDimension := ""
+	switch dim {
+	case "rows", "row":
+		apiDimension = "ROWS"
+	case "cols", "col", "columns", "column":
+		apiDimension = "COLUMNS"
+	default:
+		return newSheetsEditError("insert", spreadsheetID, "invalid_argument", "dimension must be rows or cols", usage("dimension must be rows or cols"))
+	}
+	if c.Start < 1 {
+		return newSheetsEditError("insert", spreadsheetID, "invalid_argument", "start must be >= 1", usage("start must be >= 1"))
+	}
+	if c.Count < 1 {
+		return newSheetsEditError("insert", spreadsheetID, "invalid_argument", "count must be >= 1", usage("count must be >= 1"))
+	}
+	startIndex := c.Start - 1
+	if c.After {
+		startIndex = c.Start
+	}
+	endIndex := startIndex + c.Count
+	inheritFromBefore := c.After
+	req := &sheets.BatchUpdateSpreadsheetRequest{
+		Requests: []*sheets.Request{
+			{
+				InsertDimension: &sheets.InsertDimensionRequest{
+					Range: &sheets.DimensionRange{
+						Dimension:  apiDimension,
+						StartIndex: startIndex,
+						EndIndex:   endIndex,
+					},
+					InheritFromBefore: inheritFromBefore,
+				},
+			},
+		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return newSheetsEditError("insert", spreadsheetID, "invalid_json", "decode execute-from-file failed", err)
+	}
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return newSheetsEditError("insert", spreadsheetID, "output_write_failed", "write normalized request failed", normErr)
+	}
+	if c.Safety.ValidateOnly {
+		hash, _ := RequestHash(req)
+		payload := map[string]any{
+			"validateOnly":      true,
+			"valid":             true,
+			"spreadsheetId":     spreadsheetID,
+			"sheet":             sheetName,
+			"dimension":         apiDimension,
+			"start":             c.Start,
+			"count":             c.Count,
+			"after":             c.After,
+			"inheritFromBefore": inheritFromBefore,
+			"requestHash":       hash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", spreadsheetID)
+		return nil
+	}
+	if isEditDryRun(flags, c.Safety) {
+		return SheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
+			"sheet":             sheetName,
+			"dimension":         apiDimension,
+			"start":             c.Start,
+			"count":             c.Count,
+			"after":             c.After,
+			"inheritFromBefore": inheritFromBefore,
+			"normalizedRequest": normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSheetsService(ctx, account)
+	if err != nil {
+		return newSheetsEditError("insert", spreadsheetID, "service_init_failed", "create sheets service failed", err)
+	}
+	sheetIDs, err := fetchSheetIDMap(ctx, svc, spreadsheetID)
+	if err != nil {
+		return newSheetsEditError("insert", spreadsheetID, "api_error", "load sheet metadata failed", err)
+	}
+	sheetID, ok := sheetIDs[sheetName]
+	if !ok {
+		return newSheetsEditError("insert", spreadsheetID, "invalid_argument", "unknown sheet", usagef("unknown sheet %q", sheetName))
+	}
+	req.Requests[0].InsertDimension.Range.SheetId = sheetID
+	if _, err := svc.Spreadsheets.BatchUpdate(spreadsheetID, req).Do(); err != nil {
+		return newSheetsEditError("insert", spreadsheetID, "api_error", "insert dimension failed", err)
+	}
+	payload := map[string]any{
+		"spreadsheetId":     spreadsheetID,
+		"sheet":             sheetName,
+		"sheetId":           sheetID,
+		"dimension":         apiDimension,
+		"start":             c.Start,
+		"count":             c.Count,
+		"after":             c.After,
+		"inheritFromBefore": inheritFromBefore,
+		"startIndex":        startIndex,
+		"endIndex":          endIndex,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+	}
+	u.Out().Printf("Inserted %d into %s", c.Count, sheetName)
+	return nil
+}
+
 type SheetsEditBatchCmd struct {
 	SpreadsheetID string                `arg:"" name:"spreadsheetId" help:"Spreadsheet ID"`
 	RequestsFile  string                `name:"requests-file" help:"Path to JSON request body, or '-' for stdin" default:"-"`
@@ -376,6 +682,7 @@ type SheetsEditBatchCmd struct {
 
 func (c *SheetsEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "sheets")
 	spreadsheetID := strings.TrimSpace(c.SpreadsheetID)
 	if spreadsheetID == "" {
 		return newSheetsEditError("batch", spreadsheetID, "invalid_argument", "empty spreadsheetId", usage("empty spreadsheetId"))
@@ -410,7 +717,7 @@ func (c *SheetsEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return newSheetsEditError("batch", spreadsheetID, "invalid_argument", "batch request has no operations", usage("batch request has no operations"))
 	}
 	for i, r := range req.Requests {
-		if sheetsRequestOperationCount(r) != 1 {
+		if RequestOperationCount(r) != 1 {
 			idx := i
 			err := newSheetsEditError("batch", spreadsheetID, "invalid_request", fmt.Sprintf("request[%d] must set exactly one operation field", i), usage(fmt.Sprintf("request[%d] must set exactly one operation field", i)))
 			var ee *EditError
@@ -433,7 +740,7 @@ func (c *SheetsEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	requestKinds := make([]string, 0, len(req.Requests))
 	for _, r := range req.Requests {
-		requestKinds = append(requestKinds, sheetsRequestOperationName(r))
+		requestKinds = append(requestKinds, RequestOperationName(r))
 	}
 
 	if c.Safety.ValidateOnly {
@@ -569,6 +876,7 @@ type SheetsEditReplaceTextCmd struct {
 
 func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "sheets")
 	spreadsheetID := strings.TrimSpace(c.SpreadsheetID)
 	find := strings.TrimSpace(c.Find)
 	replace := c.Replace
@@ -596,6 +904,9 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 				},
 			},
 		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return newSheetsEditError("replace-text", spreadsheetID, "invalid_json", "decode execute-from-file failed", err)
 	}
 
 	requestHash, hashErr := RequestHash(req)
