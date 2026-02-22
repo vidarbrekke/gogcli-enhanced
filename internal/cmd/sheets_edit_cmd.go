@@ -84,7 +84,7 @@ func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -92,7 +92,7 @@ func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return SheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
 			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
@@ -143,7 +143,7 @@ func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("Updated %d cells in %s", resp.UpdatedCells, resp.UpdatedRange)
 	return nil
@@ -207,7 +207,7 @@ func (c *SheetsEditAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 			payload["normalizedRequest"] = normalizedForJSON
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -215,7 +215,7 @@ func (c *SheetsEditAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return SheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
 			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
@@ -269,7 +269,7 @@ func (c *SheetsEditAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("Appended %d cells to %s", resp.Updates.UpdatedCells, resp.Updates.UpdatedRange)
 	return nil
@@ -291,7 +291,7 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 	if strings.TrimSpace(rangeSpec) == "" {
 		return newSheetsEditError("clear", spreadsheetID, "invalid_argument", "empty range", usage("empty range"))
 	}
-	if !c.Safety.DryRun && !outfmt.IsJSON(ctx) && (flags == nil || !flags.Force) {
+	if !isEditDryRun(flags, c.Safety) && !outfmt.IsJSON(ctx) && (flags == nil || !flags.Force) {
 		return newSheetsEditError("clear", spreadsheetID, "confirmation_required", "clear is destructive; rerun with --force or use --dry-run", usage("clear is destructive; rerun with --force or use --dry-run"))
 	}
 
@@ -316,7 +316,7 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 			payload["normalizedRequest"] = normalizedForJSON
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -324,7 +324,7 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return SheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
 			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
@@ -362,7 +362,7 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("Cleared %s", resp.ClearedRange)
 	return nil
@@ -454,7 +454,7 @@ func (c *SheetsEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -463,7 +463,7 @@ func (c *SheetsEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return SheetsDryRunOutput(ctx, u, spreadsheetID, &req, map[string]any{
 			"operations":        len(req.Requests),
 			"requestKinds":      requestKinds,
@@ -497,7 +497,7 @@ func (c *SheetsEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", spreadsheetID)
 	u.Out().Printf("operations\t%d", len(req.Requests))
@@ -631,7 +631,7 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -641,7 +641,7 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		scope := "all sheets"
 		if !c.AllSheets && c.SheetID != 0 {
 			scope = fmt.Sprintf("sheet %d", c.SheetID)
@@ -689,7 +689,7 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", spreadsheetID)
 	u.Out().Printf("replaced\t%d", replacements)

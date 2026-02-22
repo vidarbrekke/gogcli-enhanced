@@ -119,7 +119,7 @@ func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -128,7 +128,7 @@ func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return SlidesDryRunOutput(ctx, u, presentationID, &req, map[string]any{
 			"operations":        len(req.Requests),
 			"requestKinds":      requestKinds,
@@ -164,7 +164,7 @@ func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", presentationID)
 	u.Out().Printf("operations\t%d", len(req.Requests))
@@ -347,7 +347,7 @@ func (c *SlidesEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -357,7 +357,7 @@ func (c *SlidesEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
 			"find":              find,
 			"replace":           replace,
@@ -403,7 +403,7 @@ func (c *SlidesEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", presentationID)
 	u.Out().Printf("find\t%s", find)
@@ -495,7 +495,7 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 			"exportAsPDF":    c.ExportAsPDF,
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -505,7 +505,7 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		dryRunPayload := map[string]any{
 			"dryRun":       true,
 			"service":      "slides",
@@ -524,7 +524,7 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 		}
 
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, dryRunPayload)
+			return outfmt.WriteJSON(ctx, os.Stdout, dryRunPayload)
 		}
 		u.Out().Printf("dry-run\ttrue")
 		u.Out().Printf("service\tslides")
@@ -624,7 +624,7 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 		"results":        results,
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("template\t%s", templateID)
 	u.Out().Printf("records\t%d", len(dataRecords))
@@ -720,7 +720,7 @@ func (c *SlidesEditReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) e
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -729,7 +729,7 @@ func (c *SlidesEditReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) e
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
 			"objectId":          objectID,
 			"sourceUrl":         sourceURL,
@@ -765,7 +765,7 @@ func (c *SlidesEditReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) e
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", presentationID)
 	u.Out().Printf("object\t%s", objectID)
@@ -833,7 +833,7 @@ func (c *SlidesEditCreateSlideCmd) Run(ctx context.Context, flags *RootFlags) er
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -842,7 +842,7 @@ func (c *SlidesEditCreateSlideCmd) Run(ctx context.Context, flags *RootFlags) er
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
 			"layout":            layout,
 			"index":             c.Index,
@@ -884,7 +884,7 @@ func (c *SlidesEditCreateSlideCmd) Run(ctx context.Context, flags *RootFlags) er
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", presentationID)
 	u.Out().Printf("layout\t%s", layout)
@@ -952,7 +952,7 @@ func (c *SlidesEditDuplicateSlideCmd) Run(ctx context.Context, flags *RootFlags)
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -962,7 +962,7 @@ func (c *SlidesEditDuplicateSlideCmd) Run(ctx context.Context, flags *RootFlags)
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
 			"slideId":           slideID,
 			"count":             c.Count,
@@ -1006,7 +1006,7 @@ func (c *SlidesEditDuplicateSlideCmd) Run(ctx context.Context, flags *RootFlags)
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", presentationID)
 	u.Out().Printf("slide\t%s", slideID)
@@ -1085,7 +1085,7 @@ func (c *SlidesEditRefreshChartsCmd) Run(ctx context.Context, flags *RootFlags) 
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -1098,7 +1098,7 @@ func (c *SlidesEditRefreshChartsCmd) Run(ctx context.Context, flags *RootFlags) 
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		extra := map[string]any{
 			"all":               c.All,
 			"requestHash":       requestHash,
@@ -1140,7 +1140,7 @@ func (c *SlidesEditRefreshChartsCmd) Run(ctx context.Context, flags *RootFlags) 
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", presentationID)
 	if c.All {
@@ -1235,7 +1235,7 @@ func (c *SlidesEditInsertTableCmd) Run(ctx context.Context, flags *RootFlags) er
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -1245,7 +1245,7 @@ func (c *SlidesEditInsertTableCmd) Run(ctx context.Context, flags *RootFlags) er
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return SlidesDryRunOutput(ctx, u, presentationID, req, map[string]any{
 			"slideId":           slideID,
 			"rows":              c.Rows,
@@ -1286,7 +1286,7 @@ func (c *SlidesEditInsertTableCmd) Run(ctx context.Context, flags *RootFlags) er
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", presentationID)
 	u.Out().Printf("slide\t%s", slideID)

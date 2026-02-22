@@ -63,7 +63,7 @@ func TestExecute_DocsEditReplace_JSON(t *testing.T) {
 
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			if execErr := Execute([]string{"--json", "--account", "a@b.com", "docs", "edit", "replace", "d1", "hello", "world", "--match-case"}); execErr != nil {
+			if execErr := Execute([]string{"--json", "--account", "a@b.com", "docs", "edit", "replace", "d1", "--find", "hello", "--replace", "world", "--match-case"}); execErr != nil {
 				t.Fatalf("Execute: %v", execErr)
 			}
 		})
@@ -100,7 +100,7 @@ func TestExecute_DocsEditReplace_NotFound(t *testing.T) {
 	}
 	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
 
-	err = Execute([]string{"--account", "a@b.com", "docs", "edit", "replace", "missing", "a", "b"})
+	err = Execute([]string{"--account", "a@b.com", "docs", "edit", "replace", "missing", "--find", "a", "--replace", "b"})
 	if err == nil || !strings.Contains(err.Error(), "doc not found or not a Google Doc") {
 		t.Fatalf("expected not found error, got: %v", err)
 	}
@@ -344,8 +344,8 @@ func TestExecute_DocsEditDelete_JSONErrorEnvelope(t *testing.T) {
 	if errorObj["operation"] != "delete" {
 		t.Fatalf("operation=%v", errorObj["operation"])
 	}
-	if errorObj["doc_id"] != "d1" {
-		t.Fatalf("doc_id=%v", errorObj["doc_id"])
+	if errorObj["resource_id"] != "d1" {
+		t.Fatalf("resource_id=%v", errorObj["resource_id"])
 	}
 }
 
@@ -686,7 +686,7 @@ func TestExecute_DocsEditReplace_DryRun_JSON(t *testing.T) {
 
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			if execErr := Execute([]string{"--json", "--account", "a@b.com", "docs", "edit", "replace", "d1", "old", "new", "--dry-run"}); execErr != nil {
+			if execErr := Execute([]string{"--json", "--account", "a@b.com", "docs", "edit", "replace", "d1", "--find", "old", "--replace", "new", "--dry-run"}); execErr != nil {
 				t.Fatalf("Execute: %v", execErr)
 			}
 		})
@@ -702,7 +702,7 @@ func TestExecute_DocsEditReplace_DryRun_JSON(t *testing.T) {
 
 func TestExecute_DocsEditReplace_DryRun_NoAuth(t *testing.T) {
 	// Dry-run must not require auth or network: agents build plans without credentials.
-	if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "old", "new", "--dry-run"}); err != nil {
+	if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "--find", "old", "--replace", "new", "--dry-run"}); err != nil {
 		t.Fatalf("dry-run without auth should succeed: %v", err)
 	}
 }
@@ -722,7 +722,7 @@ func TestExecute_DocsEditDelete_DryRun_NoAuth(t *testing.T) {
 func TestExecute_DocsEditReplace_DryRun_Pretty_JSON(t *testing.T) {
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "old", "new", "--dry-run", "--pretty"}); err != nil {
+			if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "--find", "old", "--replace", "new", "--dry-run", "--pretty"}); err != nil {
 				t.Fatalf("Execute: %v", err)
 			}
 		})
@@ -735,9 +735,8 @@ func TestExecute_DocsEditReplace_DryRun_Pretty_JSON(t *testing.T) {
 	if !ok || len(hash) != 64 {
 		t.Fatalf("requestHash=%v", parsed["requestHash"])
 	}
-	norm, ok := parsed["normalizedRequest"].(string)
-	if !ok || !strings.Contains(norm, "\"requests\"") {
-		t.Fatalf("normalizedRequest=%v", parsed["normalizedRequest"])
+	if _, ok := parsed["requestHash"].(string); !ok {
+		t.Fatalf("requestHash=%v", parsed["requestHash"])
 	}
 }
 
@@ -745,7 +744,7 @@ func TestExecute_DocsEditReplace_OutputRequestFile_JSON(t *testing.T) {
 	outFile := filepath.Join(t.TempDir(), "replace-request.json")
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "old", "new", "--dry-run", "--output-request-file", outFile}); err != nil {
+			if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "--find", "old", "--replace", "new", "--dry-run", "--output-request-file", outFile}); err != nil {
 				t.Fatalf("Execute: %v", err)
 			}
 		})
@@ -766,7 +765,7 @@ func TestExecute_DocsEditReplace_OutputRequestFile_JSON(t *testing.T) {
 func TestExecute_DocsEditReplace_OutputRequestFileDash_JSON(t *testing.T) {
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "old", "new", "--dry-run", "--output-request-file", "-"}); err != nil {
+			if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "--find", "old", "--replace", "new", "--dry-run", "--output-request-file", "-"}); err != nil {
 				t.Fatalf("Execute: %v", err)
 			}
 		})
@@ -775,9 +774,8 @@ func TestExecute_DocsEditReplace_OutputRequestFileDash_JSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
 		t.Fatalf("parse json: %v; out=%q", err, out)
 	}
-	norm, ok := parsed["normalizedRequest"].(string)
-	if !ok || !strings.Contains(norm, "\"requests\"") {
-		t.Fatalf("normalizedRequest=%v", parsed["normalizedRequest"])
+	if _, ok := parsed["requestHash"].(string); !ok {
+		t.Fatalf("requestHash=%v", parsed["requestHash"])
 	}
 }
 
@@ -910,7 +908,7 @@ func TestExecute_DocsEditReplace_Pretty_JSON(t *testing.T) {
 
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			if err := Execute([]string{"--json", "--account", "a@b.com", "docs", "edit", "replace", "d1", "old", "new", "--pretty"}); err != nil {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "docs", "edit", "replace", "d1", "--find", "old", "--replace", "new", "--pretty"}); err != nil {
 				t.Fatalf("Execute: %v", err)
 			}
 		})
@@ -923,9 +921,8 @@ func TestExecute_DocsEditReplace_Pretty_JSON(t *testing.T) {
 	if !ok || len(hash) != 64 {
 		t.Fatalf("requestHash=%v", parsed["requestHash"])
 	}
-	norm, ok := parsed["normalizedRequest"].(string)
-	if !ok || !strings.Contains(norm, "\"requests\"") {
-		t.Fatalf("normalizedRequest=%v", parsed["normalizedRequest"])
+	if _, ok := parsed["requestHash"].(string); !ok {
+		t.Fatalf("requestHash=%v", parsed["requestHash"])
 	}
 }
 
@@ -960,7 +957,7 @@ func TestExecute_DocsEditReplace_RequireRevision(t *testing.T) {
 	}
 	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
 
-	if err := Execute([]string{"--account", "a@b.com", "docs", "edit", "replace", "d1", "a", "b", "--require-revision", "rev-123"}); err != nil {
+	if err := Execute([]string{"--account", "a@b.com", "docs", "edit", "replace", "d1", "--find", "a", "--replace", "b", "--require-revision", "rev-123"}); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 }

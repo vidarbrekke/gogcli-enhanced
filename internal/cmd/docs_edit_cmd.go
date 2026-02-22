@@ -106,7 +106,7 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			payload["requiredRevisionId"] = req.WriteControl.RequiredRevisionId
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -120,7 +120,7 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 		return nil
 	}
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return docsDryRunOutput(ctx, u, docID, &req, map[string]any{
 			"operations":        len(req.Requests),
 			"requestKinds":      requestKinds,
@@ -155,7 +155,7 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		if normalizedForJSON != "" {
 			payload["normalizedRequest"] = normalizedForJSON
 		}
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("operations\t%d", operations)
@@ -182,7 +182,7 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 	if c.EndIndex <= c.StartIndex {
 		return NewEditError("docs", "delete", docID, "invalid_argument", "end must be > start", nil)
 	}
-	if !c.Safety.DryRun && !outfmt.IsJSON(ctx) && (flags == nil || !flags.Force) {
+	if !isEditDryRun(flags, c.Safety) && !outfmt.IsJSON(ctx) && (flags == nil || !flags.Force) {
 		return NewEditError("docs", "delete", docID, "confirmation_required", "delete is destructive; rerun with --force or use --dry-run", nil)
 	}
 
@@ -199,6 +199,7 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
+	applyDocsEditSafety(req, c.Safety)
 
 	requestHash, hashErr := RequestHash(req)
 	if hashErr != nil {
@@ -225,7 +226,7 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -234,7 +235,7 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
 			"deletedChars":       deletedChars,
 			"startIndex":         c.StartIndex,
@@ -272,7 +273,7 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("deleted\t%d", deletedChars)
@@ -311,6 +312,7 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
+	applyDocsEditSafety(req, c.Safety)
 
 	requestHash, hashErr := RequestHash(req)
 	if hashErr != nil {
@@ -337,7 +339,7 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -347,7 +349,7 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
 			"insertedChars":      len(text),
 			"index":              c.Index,
@@ -385,7 +387,7 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("inserted\t%d", len(text))
@@ -444,7 +446,7 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 	if normErr != nil {
 		return newDocsEditError("append", docID, "output_write_failed", "write normalized request failed", normErr)
 	}
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return docsDryRunOutputWithOpts(ctx, u, docID, req, map[string]any{
 			"insertedChars":     len(text),
 			"index":             index,
@@ -475,7 +477,7 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("appended\t%d", len(text))
@@ -516,6 +518,7 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
+	applyDocsEditSafety(req, c.Safety)
 
 	requestHash, hashErr := RequestHash(req)
 	if hashErr != nil {
@@ -543,7 +546,7 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -553,7 +556,7 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
 			"find":               find,
 			"replace":            c.Replace,
@@ -596,7 +599,7 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("replaced\t%d", occurrences)
@@ -673,7 +676,7 @@ func (c *DocsInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -683,7 +686,7 @@ func (c *DocsInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		position := "end"
 		if c.Index > 0 {
 			position = fmt.Sprintf("index %d", c.Index)
@@ -731,7 +734,7 @@ func (c *DocsInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("table-inserted\ttrue")
@@ -807,7 +810,7 @@ func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -816,7 +819,7 @@ func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	if c.Safety.DryRun {
+	if isEditDryRun(flags, c.Safety) {
 		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
 			"imageId":            imageID,
 			"uri":                uri,
@@ -855,7 +858,7 @@ func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("image-replaced\ttrue")

@@ -22,12 +22,19 @@ import (
 // AgenticEditSafetyFlags provides common safety flags across all edit commands.
 // Docs, Sheets, and Slides edit commands embed this struct.
 type AgenticEditSafetyFlags struct {
-	DryRun            bool   `name:"dry-run" help:"Build request and print it without executing API call"`
+	DryRun            bool   `name:"dry-run-edit" help:"Build request and print it without executing API call"`
 	ValidateOnly      bool   `name:"validate-only" help:"Validate request payload locally without executing API call"`
 	Pretty            bool   `name:"pretty" help:"Include normalized pretty-printed request JSON in output"`
 	OutputRequestFile string `name:"output-request-file" help:"Write normalized request JSON to this file (use '-' for stdout)"`
 	ExecuteFromFile   string `name:"execute-from-file" help:"Execute request JSON from this file (bypasses direct command input)"`
 	RequireRevision   string `name:"require-revision" help:"Require specific revision ID to prevent conflicts (Docs only)"`
+}
+
+func isEditDryRun(flags *RootFlags, safety AgenticEditSafetyFlags) bool {
+	if safety.DryRun {
+		return true
+	}
+	return flags != nil && flags.DryRun
 }
 
 // EditError provides structured error metadata for JSON error envelopes.
@@ -280,7 +287,7 @@ func DryRunOutput(ctx context.Context, u *ui.UI, service, resourceID string, req
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	// Human-readable output
 	u.Out().Printf("dry-run\ttrue")

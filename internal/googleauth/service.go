@@ -16,11 +16,13 @@ const (
 	ServiceClassroom Service = "classroom"
 	ServiceDrive     Service = "drive"
 	ServiceDocs      Service = "docs"
+	ServiceSlides    Service = "slides"
 	ServiceContacts  Service = "contacts"
 	ServiceTasks     Service = "tasks"
 	ServicePeople    Service = "people"
 	ServiceSheets    Service = "sheets"
-	ServiceSlides    Service = "slides"
+	ServiceForms     Service = "forms"
+	ServiceAppScript Service = "appscript"
 	ServiceGroups    Service = "groups"
 	ServiceKeep      Service = "keep"
 )
@@ -63,11 +65,13 @@ var serviceOrder = []Service{
 	ServiceClassroom,
 	ServiceDrive,
 	ServiceDocs,
+	ServiceSlides,
 	ServiceContacts,
 	ServiceTasks,
 	ServiceSheets,
-	ServiceSlides,
 	ServicePeople,
+	ServiceForms,
+	ServiceAppScript,
 	ServiceGroups,
 	ServiceKeep,
 }
@@ -129,6 +133,16 @@ var serviceInfoByService = map[Service]serviceInfo{
 		apis: []string{"Docs API", "Drive API"},
 		note: "Export/copy/create via Drive",
 	},
+	ServiceSlides: {
+		// Slides commands use both Slides API and Drive API
+		scopes: []string{
+			"https://www.googleapis.com/auth/drive",
+			"https://www.googleapis.com/auth/presentations",
+		},
+		user: true,
+		apis: []string{"Slides API", "Drive API"},
+		note: "Create/edit presentations",
+	},
 	ServiceContacts: {
 		scopes: []string{
 			"https://www.googleapis.com/auth/contacts",
@@ -160,14 +174,22 @@ var serviceInfoByService = map[Service]serviceInfo{
 		apis: []string{"Sheets API", "Drive API"},
 		note: "Export via Drive",
 	},
-	ServiceSlides: {
+	ServiceForms: {
 		scopes: []string{
-			"https://www.googleapis.com/auth/drive",
-			"https://www.googleapis.com/auth/presentations",
+			"https://www.googleapis.com/auth/forms.body",
+			"https://www.googleapis.com/auth/forms.responses.readonly",
 		},
 		user: true,
-		apis: []string{"Slides API", "Drive API"},
-		note: "Export via Drive",
+		apis: []string{"Forms API"},
+	},
+	ServiceAppScript: {
+		scopes: []string{
+			"https://www.googleapis.com/auth/script.projects",
+			"https://www.googleapis.com/auth/script.deployments",
+			"https://www.googleapis.com/auth/script.processes",
+		},
+		user: true,
+		apis: []string{"Apps Script API"},
 	},
 	ServiceGroups: {
 		scopes: []string{"https://www.googleapis.com/auth/cloud-identity.groups.readonly"},
@@ -443,6 +465,13 @@ func scopesForServiceWithOptions(service Service, opts ScopeOptions) ([]string, 
 		}
 
 		return []string{driveScopeValue(), docScope}, nil
+	case ServiceSlides:
+		slidesScope := "https://www.googleapis.com/auth/presentations"
+		if opts.Readonly {
+			slidesScope = "https://www.googleapis.com/auth/presentations.readonly"
+		}
+
+		return []string{driveScopeValue(), slidesScope}, nil
 	case ServiceContacts:
 		contactsScope := "https://www.googleapis.com/auth/contacts"
 		if opts.Readonly {
@@ -470,13 +499,25 @@ func scopesForServiceWithOptions(service Service, opts ScopeOptions) ([]string, 
 		}
 
 		return []string{driveScopeValue(), sheetsScope}, nil
-	case ServiceSlides:
-		slidesScope := "https://www.googleapis.com/auth/presentations"
+	case ServiceForms:
+		formBodyScope := "https://www.googleapis.com/auth/forms.body"
 		if opts.Readonly {
-			slidesScope = "https://www.googleapis.com/auth/presentations.readonly"
+			formBodyScope = "https://www.googleapis.com/auth/forms.body.readonly"
 		}
 
-		return []string{driveScopeValue(), slidesScope}, nil
+		return []string{
+			formBodyScope,
+			"https://www.googleapis.com/auth/forms.responses.readonly",
+		}, nil
+	case ServiceAppScript:
+		if opts.Readonly {
+			return []string{
+				"https://www.googleapis.com/auth/script.projects.readonly",
+				"https://www.googleapis.com/auth/script.deployments.readonly",
+			}, nil
+		}
+
+		return Scopes(service)
 	case ServiceGroups:
 		return Scopes(service)
 	case ServiceKeep:
