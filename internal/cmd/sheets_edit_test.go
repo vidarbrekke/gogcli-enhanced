@@ -343,3 +343,148 @@ func TestExecute_SheetsEditBatch_OutputRequestFileDash_JSON(t *testing.T) {
 		}
 	})
 }
+
+func TestExecute_SheetsEditReplaceText_JSON(t *testing.T) {
+	origSheets := newSheetsService
+	t.Cleanup(func() { newSheetsService = origSheets })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v4/spreadsheets/d1:batchUpdate" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"spreadsheetId": "d1",
+				"replies": []any{
+					map[string]any{
+						"findReplace": map[string]any{
+							"occurrencesChanged": 3,
+						},
+					},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	svc, err := sheets.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewSheetsService: %v", err)
+	}
+	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if execErr := Execute([]string{"--json", "--account", "a@b.com", "sheets", "edit", "replace-text", "d1", "--find", "old", "--replace", "new"}); execErr != nil {
+				t.Fatalf("Execute: %v", execErr)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["occurrencesChanged"] != float64(3) {
+		t.Fatalf("occurrencesChanged=%v", parsed["occurrencesChanged"])
+	}
+}
+
+func TestExecute_SheetsEditValues_ValidateOnly_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "sheets", "edit", "values", "d1", "Sheet1!A1:B1", "a|b", "--validate-only"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["validateOnly"] != true || parsed["valid"] != true {
+		t.Fatalf("unexpected validate payload: %#v", parsed)
+	}
+}
+
+func TestExecute_SheetsEditAppend_ValidateOnly_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "sheets", "edit", "append", "d1", "Sheet1!A:C", "a|b", "--validate-only"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["validateOnly"] != true || parsed["valid"] != true {
+		t.Fatalf("unexpected validate payload: %#v", parsed)
+	}
+}
+
+func TestExecute_SheetsEditReplaceText_Invalid_JSONErrorEnvelope(t *testing.T) {
+	stderr := captureStderr(t, func() {
+		err := Execute([]string{"--json", "sheets", "edit", "replace-text", "d1", "--replace", "new"})
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &parsed); err != nil {
+		t.Fatalf("parse stderr json: %v; stderr=%q", err, stderr)
+	}
+	errorObj, ok := parsed["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing error object: %#v", parsed)
+	}
+	if errorObj["error_code"] != "invalid_argument" {
+		t.Fatalf("error_code=%v", errorObj["error_code"])
+	}
+	if errorObj["operation"] != "replace-text" {
+		t.Fatalf("operation=%v", errorObj["operation"])
+	}
+}
+
+func TestExecute_SheetsEditFormat_ValidateOnly_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{
+				"--json", "sheets", "edit", "format", "d1", "Sheet1!A1:B1",
+				"--format-json", `{"textFormat":{"bold":true}}`,
+				"--format-fields", "textFormat.bold",
+				"--validate-only",
+			}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["validateOnly"] != true || parsed["valid"] != true {
+		t.Fatalf("unexpected validate payload: %#v", parsed)
+	}
+}
+
+func TestExecute_SheetsEditInsert_ValidateOnly_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "sheets", "edit", "insert", "d1", "Sheet1", "rows", "2", "--count", "3", "--validate-only"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["dimension"] != "ROWS" {
+		t.Fatalf("dimension=%v", parsed["dimension"])
+	}
+}
