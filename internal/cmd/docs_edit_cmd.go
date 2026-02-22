@@ -56,7 +56,7 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return newDocsEditError("batch", docID, "invalid_argument", "batch request has no operations", usage("batch request has no operations"))
 	}
 	for i, r := range req.Requests {
-		if docsRequestOperationCount(r) != 1 {
+		if RequestOperationCount(r) != 1 {
 			idx := i
 			err := newDocsEditError("batch", docID, "invalid_request", fmt.Sprintf("request[%d] must set exactly one operation field", i), usage(fmt.Sprintf("request[%d] must set exactly one operation field", i)))
 			if de, ok := err.(*EditError); ok {
@@ -66,23 +66,17 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 	}
 	applyDocsEditSafety(&req, c.Safety)
-	requestHash, hashErr := docsRequestHash(&req)
+	requestHash, hashErr := RequestHash(&req)
 	if hashErr != nil {
 		return newDocsEditError("batch", docID, "invalid_request", "failed to hash normalized request", hashErr)
 	}
-	normalizedForJSON := ""
-	if strings.TrimSpace(c.Safety.OutputRequestFile) == "-" && outfmt.IsJSON(ctx) {
-		norm, normErr := docsNormalizedRequestString(&req)
-		if normErr != nil {
-			return newDocsEditError("batch", docID, "invalid_request", "failed to normalize request", normErr)
-		}
-		normalizedForJSON = norm
-	} else if err := docsMaybeWriteNormalizedRequest(c.Safety.OutputRequestFile, &req); err != nil {
-		return newDocsEditError("batch", docID, "output_write_failed", "write normalized request failed", err)
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, &req)
+	if normErr != nil {
+		return newDocsEditError("batch", docID, "output_write_failed", "write normalized request failed", normErr)
 	}
 	requestKinds := make([]string, 0, len(req.Requests))
 	for _, r := range req.Requests {
-		requestKinds = append(requestKinds, docsRequestOperationName(r))
+		requestKinds = append(requestKinds, RequestOperationName(r))
 	}
 	if c.Safety.ValidateOnly {
 		payload := map[string]any{
@@ -93,14 +87,10 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			"requestKinds": requestKinds,
 			"requestHash":  requestHash,
 		}
-		if c.Safety.Pretty {
-			pretty, prettyErr := json.MarshalIndent(req, "", "  ")
-			if prettyErr == nil {
-				payload["prettyRequest"] = string(pretty)
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
 			}
-		}
-		if normalizedForJSON != "" {
-			payload["normalizedRequest"] = normalizedForJSON
 		}
 		if req.WriteControl != nil && strings.TrimSpace(req.WriteControl.RequiredRevisionId) != "" {
 			payload["requiredRevisionId"] = req.WriteControl.RequiredRevisionId
@@ -121,12 +111,12 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 	if isEditDryRun(flags, c.Safety) {
-		return docsDryRunOutput(ctx, u, docID, &req, map[string]any{
+		return DryRunOutput(ctx, u, "docs", docID, &req, map[string]any{
 			"operations":        len(req.Requests),
 			"requestKinds":      requestKinds,
 			"requestHash":       requestHash,
 			"normalizedRequest": normalizedForJSON,
-		})
+		}, false)
 	}
 
 	account, err := requireAccount(flags)
@@ -198,6 +188,9 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 				},
 			},
 		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("docs", "delete", docID, "invalid_json", "decode execute-from-file failed", err)
 	}
 	applyDocsEditSafety(req, c.Safety)
 
@@ -311,6 +304,9 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 				},
 			},
 		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("docs", "insert", docID, "invalid_json", "decode execute-from-file failed", err)
 	}
 	applyDocsEditSafety(req, c.Safety)
 
@@ -441,16 +437,48 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return newDocsEditError("append", docID, "invalid_json", "decode execute-from-file failed", err)
+	}
 	applyDocsEditSafety(req, c.Safety)
-	normalizedForJSON, normErr := docsNormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
 	if normErr != nil {
 		return newDocsEditError("append", docID, "output_write_failed", "write normalized request failed", normErr)
 	}
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return newDocsEditError("append", docID, "invalid_request", "failed to hash request", hashErr)
+	}
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":  true,
+			"valid":         true,
+			"documentId":    docID,
+			"insertedChars": len(text),
+			"index":         index,
+			"requestHash":   requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", docID)
+		u.Out().Printf("appended\t%d", len(text))
+		u.Out().Printf("index\t%d", index)
+		return nil
+	}
 	if isEditDryRun(flags, c.Safety) {
-		return docsDryRunOutputWithOpts(ctx, u, docID, req, map[string]any{
+		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
 			"insertedChars":     len(text),
 			"index":             index,
 			"normalizedRequest": normalizedForJSON,
+			"requestHash":       requestHash,
 		}, c.Safety.Pretty)
 	}
 	if _, err := svc.Documents.BatchUpdate(docID, req).Context(ctx).Do(); err != nil {
@@ -469,10 +497,8 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if c.Safety.Pretty {
-		if hash, hashErr := docsRequestHash(req); hashErr == nil {
-			payload["requestHash"] = hash
-		}
-		if norm, normErr := docsNormalizedRequestString(req); normErr == nil {
+		payload["requestHash"] = requestHash
+		if norm, normErr := NormalizedRequestString(req); normErr == nil {
 			payload["normalizedRequest"] = norm
 		}
 	}
@@ -517,6 +543,9 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 				},
 			},
 		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("docs", "replace-text", docID, "invalid_json", "decode execute-from-file failed", err)
 	}
 	applyDocsEditSafety(req, c.Safety)
 
@@ -637,6 +666,9 @@ func (c *DocsInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
 				},
 			},
 		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("docs", "insert-table", docID, "invalid_json", "decode execute-from-file failed", err)
 	}
 
 	// Set location: either at index or at end of document
@@ -779,6 +811,9 @@ func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 				},
 			},
 		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("docs", "replace-image", docID, "invalid_json", "decode execute-from-file failed", err)
 	}
 
 	requestHash, hashErr := RequestHash(req)

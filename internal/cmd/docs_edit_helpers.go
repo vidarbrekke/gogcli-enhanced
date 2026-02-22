@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"reflect"
-
 	"google.golang.org/api/docs/v1"
 )
 
@@ -27,49 +25,3 @@ func docsAppendIndex(doc *docs.Document) int64 {
 	return last.EndIndex - 1
 }
 
-// docsRequestOperationCount returns the number of operation fields set in a docs.Request.
-func docsRequestOperationCount(r *docs.Request) int {
-	if r == nil {
-		return 0
-	}
-	v := reflect.ValueOf(*r)
-	t := reflect.TypeOf(*r)
-	count := 0
-	for i := range t.NumField() {
-		name := t.Field(i).Name
-		if name == "ForceSendFields" || name == "NullFields" || name == "ServerResponse" {
-			continue
-		}
-		fv := v.Field(i)
-		switch fv.Kind() {
-		case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Interface:
-			if !fv.IsNil() {
-				count++
-			}
-		}
-	}
-	return count
-}
-
-// docsRequestOperationName returns the name of the first set operation field in a docs.Request.
-func docsRequestOperationName(r *docs.Request) string {
-	if r == nil {
-		return ""
-	}
-	v := reflect.ValueOf(*r)
-	t := reflect.TypeOf(*r)
-	for i := range t.NumField() {
-		name := t.Field(i).Name
-		if name == "ForceSendFields" || name == "NullFields" || name == "ServerResponse" {
-			continue
-		}
-		fv := v.Field(i)
-		switch fv.Kind() {
-		case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Interface:
-			if !fv.IsNil() {
-				return name
-			}
-		}
-	}
-	return ""
-}

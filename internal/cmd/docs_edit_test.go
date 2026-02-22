@@ -507,9 +507,9 @@ func TestExecute_DocsEditBatch_Pretty_JSON(t *testing.T) {
 		if err := json.Unmarshal([]byte(out), &parsed); err != nil {
 			t.Fatalf("parse json: %v; out=%q", err, out)
 		}
-		pretty, ok := parsed["prettyRequest"].(string)
+		pretty, ok := parsed["normalizedRequest"].(string)
 		if !ok || !strings.Contains(pretty, "\n  \"requests\"") {
-			t.Fatalf("missing prettyRequest: %#v", parsed["prettyRequest"])
+			t.Fatalf("missing normalizedRequest: %#v", parsed["normalizedRequest"])
 		}
 		hash, ok := parsed["requestHash"].(string)
 		if !ok || len(hash) != 64 {
@@ -874,6 +874,81 @@ func TestExecute_DocsEditAppend_OutputRequestFile_JSON(t *testing.T) {
 	}
 	if !strings.Contains(string(b), "\"insertText\"") {
 		t.Fatalf("expected insert request in output file, got: %q", string(b))
+	}
+}
+
+func TestExecute_DocsEditAppend_ValidateOnly_JSON(t *testing.T) {
+	origDocs := newDocsService
+	t.Cleanup(func() { newDocsService = origDocs })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/documents/d1":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"documentId": "d1",
+				"body": map[string]any{
+					"content": []any{
+						map[string]any{"startIndex": 0, "endIndex": 6},
+					},
+				},
+			})
+			return
+		default:
+			t.Fatalf("unexpected API call during append validate-only: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	docSvc, err := docs.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewDocsService: %v", err)
+	}
+	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "docs", "edit", "append", "d1", "tail", "--validate-only"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["validateOnly"] != true || parsed["valid"] != true {
+		t.Fatalf("unexpected validate payload: %#v", parsed)
+	}
+	if parsed["insertedChars"] != float64(4) {
+		t.Fatalf("insertedChars=%v", parsed["insertedChars"])
+	}
+}
+
+func TestExecute_DocsEditAppend_EmptyText_JSONErrorEnvelope(t *testing.T) {
+	stderr := captureStderr(t, func() {
+		err := Execute([]string{"--json", "--account", "a@b.com", "docs", "edit", "append", "d1", "   "})
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &parsed); err != nil {
+		t.Fatalf("parse stderr json: %v; stderr=%q", err, stderr)
+	}
+	errorObj, ok := parsed["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing error object: %#v", parsed)
+	}
+	if errorObj["error_code"] != "invalid_argument" {
+		t.Fatalf("error_code=%v", errorObj["error_code"])
+	}
+	if errorObj["operation"] != "append" {
+		t.Fatalf("operation=%v", errorObj["operation"])
 	}
 }
 
