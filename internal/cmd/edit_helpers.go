@@ -11,6 +11,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	"google.golang.org/api/docs/v1"
 	gapi "google.golang.org/api/googleapi"
@@ -342,6 +343,28 @@ func SheetsDryRunOutput(ctx context.Context, u *ui.UI, spreadsheetID string, req
 	return DryRunOutput(ctx, u, "sheets", spreadsheetID, req, extra, includePretty)
 }
 
+// FormatMergeFilename formats a filename using {{placeholder}} syntax from a data record.
+// Unreplaced placeholders are stripped. If includeTimestamp is true, appends a timestamp for uniqueness.
+// Used by Docs and Sheets merge-data; Slides has its own copy for historical reasons.
+func FormatMergeFilename(format string, data map[string]any, includeTimestamp bool) string {
+	if format == "" {
+		format = "Generated - {{name}}"
+	}
+	result := format
+	for key, value := range data {
+		placeholder := fmt.Sprintf("{{%s}}", key)
+		textValue := fmt.Sprintf("%v", value)
+		result = strings.ReplaceAll(result, placeholder, textValue)
+	}
+	result = strings.ReplaceAll(result, "{{", "")
+	result = strings.ReplaceAll(result, "}}", "")
+	result = strings.TrimSpace(result)
+	if includeTimestamp {
+		result = fmt.Sprintf("%s-%s", result, time.Now().Format("2006-01-02-150405"))
+	}
+	return result
+}
+
 // applyDocsEditSafety applies safety flags (like required revision ID) to a BatchUpdateDocumentRequest.
 // Used by legacy docs edit commands; new commands should use the shared pattern directly.
 func applyDocsEditSafety(req any, safety AgenticEditSafetyFlags) {
@@ -357,4 +380,3 @@ func applyDocsEditSafety(req any, safety AgenticEditSafetyFlags) {
 		docReq.WriteControl = &docs.WriteControl{RequiredRevisionId: requiredRevision}
 	}
 }
-

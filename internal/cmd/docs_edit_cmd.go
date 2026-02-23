@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"google.golang.org/api/docs/v1"
+	"google.golang.org/api/drive/v3"
 
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/ui"
@@ -207,11 +208,11 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if c.Safety.ValidateOnly {
 		payload := map[string]any{
-			"validateOnly":  true,
-			"valid":         true,
-			"documentId":    docID,
-			"deletedChars":  deletedChars,
-			"requestHash":   requestHash,
+			"validateOnly": true,
+			"valid":        true,
+			"documentId":   docID,
+			"deletedChars": deletedChars,
+			"requestHash":  requestHash,
 		}
 		if normalizedForJSON != "" || c.Safety.Pretty {
 			if norm, err := NormalizedRequestString(req); err == nil {
@@ -230,11 +231,11 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if isEditDryRun(flags, c.Safety) {
 		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
-			"deletedChars":       deletedChars,
-			"startIndex":         c.StartIndex,
-			"endIndex":           c.EndIndex,
-			"requestHash":        requestHash,
-			"normalizedRequest":  normalizedForJSON,
+			"deletedChars":      deletedChars,
+			"startIndex":        c.StartIndex,
+			"endIndex":          c.EndIndex,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -322,12 +323,12 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if c.Safety.ValidateOnly {
 		payload := map[string]any{
-			"validateOnly":   true,
-			"valid":          true,
-			"documentId":     docID,
-			"insertedChars":  len(text),
-			"index":          c.Index,
-			"requestHash":    requestHash,
+			"validateOnly":  true,
+			"valid":         true,
+			"documentId":    docID,
+			"insertedChars": len(text),
+			"index":         c.Index,
+			"requestHash":   requestHash,
 		}
 		if normalizedForJSON != "" || c.Safety.Pretty {
 			if norm, err := NormalizedRequestString(req); err == nil {
@@ -347,10 +348,10 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if isEditDryRun(flags, c.Safety) {
 		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
-			"insertedChars":      len(text),
-			"index":              c.Index,
-			"requestHash":        requestHash,
-			"normalizedRequest":  normalizedForJSON,
+			"insertedChars":     len(text),
+			"index":             c.Index,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -512,11 +513,11 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 }
 
 type DocsReplaceCmd struct {
-	DocID  string                 `arg:"" name:"docId" help:"Doc ID"`
-	Find   string                 `name:"find" help:"Text to find"`
-	Replace string                `name:"replace" help:"Replacement text"`
-	MatchCase bool                `name:"match-case" help:"Case-sensitive matching"`
-	Safety AgenticEditSafetyFlags `embed:""`
+	DocID     string                 `arg:"" name:"docId" help:"Doc ID"`
+	Find      string                 `name:"find" help:"Text to find"`
+	Replace   string                 `name:"replace" help:"Replacement text"`
+	MatchCase bool                   `name:"match-case" help:"Case-sensitive matching"`
+	Safety    AgenticEditSafetyFlags `embed:""`
 }
 
 func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -587,11 +588,11 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if isEditDryRun(flags, c.Safety) {
 		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
-			"find":               find,
-			"replace":            c.Replace,
-			"matchCase":          c.MatchCase,
-			"requestHash":        requestHash,
-			"normalizedRequest":  normalizedForJSON,
+			"find":              find,
+			"replace":           c.Replace,
+			"matchCase":         c.MatchCase,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -724,11 +725,11 @@ func (c *DocsInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
 			position = fmt.Sprintf("index %d", c.Index)
 		}
 		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
-			"rows":               c.Rows,
-			"cols":               c.Cols,
-			"position":           position,
-			"requestHash":        requestHash,
-			"normalizedRequest":  normalizedForJSON,
+			"rows":              c.Rows,
+			"cols":              c.Cols,
+			"position":          position,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -776,12 +777,12 @@ func (c *DocsInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
 }
 
 type DocsReplaceImageCmd struct {
-	DocID          string                 `arg:"" name:"docId" help:"Doc ID"`
-	ImageID        string                 `name:"image-id" help:"ID of existing image to replace"`
-	URI            string                 `name:"uri" help:"URI of new image"`
-	ReplaceMethod  string                 `name:"replace-method" help:"Replace method: CENTER_CROP or UNSPECIFIED" default:"UNSPECIFIED"`
-	TabID          string                 `name:"tab-id" help:"Tab ID containing the image (omit for first tab)"`
-	Safety         AgenticEditSafetyFlags `embed:""`
+	DocID         string                 `arg:"" name:"docId" help:"Doc ID"`
+	ImageID       string                 `name:"image-id" help:"ID of existing image to replace"`
+	URI           string                 `name:"uri" help:"URI of new image"`
+	ReplaceMethod string                 `name:"replace-method" help:"Replace method: CENTER_CROP or UNSPECIFIED" default:"UNSPECIFIED"`
+	TabID         string                 `name:"tab-id" help:"Tab ID containing the image (omit for first tab)"`
+	Safety        AgenticEditSafetyFlags `embed:""`
 }
 
 func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -804,10 +805,10 @@ func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 		Requests: []*docs.Request{
 			{
 				ReplaceImage: &docs.ReplaceImageRequest{
-					ImageObjectId:  imageID,
-					Uri:            uri,
+					ImageObjectId:      imageID,
+					Uri:                uri,
 					ImageReplaceMethod: strings.TrimSpace(c.ReplaceMethod),
-					TabId:          strings.TrimSpace(c.TabID),
+					TabId:              strings.TrimSpace(c.TabID),
 				},
 			},
 		},
@@ -828,13 +829,13 @@ func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if c.Safety.ValidateOnly {
 		payload := map[string]any{
-			"validateOnly":    true,
-			"valid":           true,
-			"documentId":      docID,
-			"imageId":         imageID,
-			"uri":             uri,
-			"replaceMethod":   c.ReplaceMethod,
-			"requestHash":     requestHash,
+			"validateOnly":  true,
+			"valid":         true,
+			"documentId":    docID,
+			"imageId":       imageID,
+			"uri":           uri,
+			"replaceMethod": c.ReplaceMethod,
+			"requestHash":   requestHash,
 		}
 		if strings.TrimSpace(c.TabID) != "" {
 			payload["tabId"] = c.TabID
@@ -856,11 +857,11 @@ func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if isEditDryRun(flags, c.Safety) {
 		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
-			"imageId":            imageID,
-			"uri":                uri,
-			"replaceMethod":      c.ReplaceMethod,
-			"requestHash":        requestHash,
-			"normalizedRequest":  normalizedForJSON,
+			"imageId":           imageID,
+			"uri":               uri,
+			"replaceMethod":     c.ReplaceMethod,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -903,12 +904,12 @@ func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 // DocsInsertImageCmd inserts an inline image at a specific index (VID-112).
 type DocsInsertImageCmd struct {
-	DocID     string                 `arg:"" name:"docId" help:"Doc ID"`
-	URI       string                 `name:"uri" help:"Image URI (public URL, PNG/JPEG/GIF, max 50MB)"`
-	Index     int64                  `name:"index" help:"Insertion index (1-based)" default:"1"`
-	WidthPt   float64                `name:"width-pt" help:"Width in points (optional)"`
-	HeightPt  float64                `name:"height-pt" help:"Height in points (optional)"`
-	Safety    AgenticEditSafetyFlags `embed:""`
+	DocID    string                 `arg:"" name:"docId" help:"Doc ID"`
+	URI      string                 `name:"uri" help:"Image URI (public URL, PNG/JPEG/GIF, max 50MB)"`
+	Index    int64                  `name:"index" help:"Insertion index (1-based)" default:"1"`
+	WidthPt  float64                `name:"width-pt" help:"Width in points (optional)"`
+	HeightPt float64                `name:"height-pt" help:"Height in points (optional)"`
+	Safety   AgenticEditSafetyFlags `embed:""`
 }
 
 func (c *DocsInsertImageCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -1017,10 +1018,10 @@ func (c *DocsInsertImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	payload := map[string]any{
-		"documentId":     docID,
-		"uri":            uri,
-		"index":          c.Index,
-		"imageInserted":  true,
+		"documentId":    docID,
+		"uri":           uri,
+		"index":         c.Index,
+		"imageInserted": true,
 	}
 	if normalizedForJSON != "" {
 		payload["normalizedRequest"] = normalizedForJSON
@@ -1034,5 +1035,258 @@ func (c *DocsInsertImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("image-inserted\ttrue")
 	u.Out().Printf("index\t%d", c.Index)
+	return nil
+}
+
+// DocsEditMergeDataCmd generates Google Docs from a template using JSON data (mail-merge).
+type DocsEditMergeDataCmd struct {
+	TemplateID       string                 `arg:"" name:"templateId" help:"Template document ID"`
+	DataFile         string                 `name:"data-file" help:"Path to JSON array of data objects"`
+	OutputFolderID   string                 `name:"output-folder-id" help:"Drive folder ID for output (default: same as template)"`
+	FilenameFormat   string                 `name:"filename-format" help:"Format for output filenames using {{placeholder}} syntax (default: 'Generated - {{name}}')"`
+	IncludeTimestamp bool                   `name:"include-timestamp" help:"Append timestamp to filename for uniqueness"`
+	Safety           AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *DocsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "docs")
+	templateID := strings.TrimSpace(normalizeGoogleID(c.TemplateID))
+	dataFile := strings.TrimSpace(c.DataFile)
+
+	if templateID == "" {
+		return NewEditError("docs", "merge-data", templateID, "invalid_argument", "empty templateId", nil)
+	}
+	if dataFile == "" {
+		return NewEditError("docs", "merge-data", templateID, "invalid_argument", "empty data-file", nil)
+	}
+
+	dataBytes, err := os.ReadFile(dataFile) //nolint:gosec // user-provided path
+	if err != nil {
+		return NewEditError("docs", "merge-data", templateID, "input_open_failed", "read data-file failed", err)
+	}
+
+	var dataRecords []map[string]any
+	if jsonErr := json.Unmarshal(dataBytes, &dataRecords); jsonErr != nil {
+		return NewEditError("docs", "merge-data", templateID, "invalid_json", "parse data-file failed", jsonErr)
+	}
+	if len(dataRecords) == 0 {
+		return NewEditError("docs", "merge-data", templateID, "invalid_argument", "data-file contains no records", nil)
+	}
+
+	sampleRecord := dataRecords[0]
+	if len(sampleRecord) == 0 {
+		return NewEditError("docs", "merge-data", templateID, "invalid_argument", "data records are empty", nil)
+	}
+
+	// Build preview of operations (first 3 records)
+	previewRecords := dataRecords
+	if len(previewRecords) > 3 {
+		previewRecords = previewRecords[:3]
+	}
+	operations := make([]map[string]any, 0, len(previewRecords))
+	for _, record := range previewRecords {
+		filename := FormatMergeFilename(c.FilenameFormat, record, c.IncludeTimestamp)
+		ops := make([]map[string]any, 0)
+		for key, value := range record {
+			ops = append(ops, map[string]any{
+				"operation": "ReplaceAllText",
+				"find":      fmt.Sprintf("{{%s}}", key),
+				"replace":   fmt.Sprintf("%v", value),
+			})
+		}
+		operations = append(operations, map[string]any{
+			"filename":   filename,
+			"operations": ops,
+		})
+	}
+
+	requestHash, hashErr := RequestHash(dataRecords)
+	if hashErr != nil {
+		return NewEditError("docs", "merge-data", templateID, "invalid_request", "failed to hash data", hashErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":   true,
+			"valid":          true,
+			"templateId":     templateID,
+			"recordCount":    len(dataRecords),
+			"sampleFilename": FormatMergeFilename(c.FilenameFormat, sampleRecord, c.IncludeTimestamp),
+			"requestHash":    requestHash,
+			"operations":     operations,
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("template\t%s", templateID)
+		u.Out().Printf("records\t%d", len(dataRecords))
+		u.Out().Printf("sample-filename\t%s", payload["sampleFilename"])
+		return nil
+	}
+
+	if isEditDryRun(flags, c.Safety) {
+		dryRunPayload := map[string]any{
+			"dryRun":      true,
+			"service":     "docs",
+			"templateId":  templateID,
+			"recordCount": len(dataRecords),
+			"requestHash": requestHash,
+			"operations":  operations,
+		}
+		if c.Safety.Pretty {
+			if norm, normErr := NormalizedRequestString(dataRecords); normErr == nil {
+				dryRunPayload["normalizedData"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, dryRunPayload)
+		}
+		u.Out().Printf("dry-run\ttrue")
+		u.Out().Printf("service\tdocs")
+		u.Out().Printf("template\t%s", templateID)
+		u.Out().Printf("records\t%d", len(dataRecords))
+		return nil
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+
+	driveSvc, err := newDriveService(ctx, account)
+	if err != nil {
+		return NewEditError("docs", "merge-data", templateID, "service_init_failed", "create drive service failed", err)
+	}
+	docsSvc, err := newDocsService(ctx, account)
+	if err != nil {
+		return NewEditError("docs", "merge-data", templateID, "service_init_failed", "create docs service failed", err)
+	}
+
+	outputFolderID := strings.TrimSpace(c.OutputFolderID)
+	if outputFolderID == "" {
+		templateMeta, metaErr := driveSvc.Files.Get(templateID).Fields("parents").Context(ctx).Do()
+		if metaErr == nil && templateMeta != nil && len(templateMeta.Parents) > 0 {
+			outputFolderID = strings.TrimSpace(templateMeta.Parents[0])
+		}
+	}
+
+	results := make([]map[string]any, 0, len(dataRecords))
+	generatedCount := 0
+	failedCount := 0
+
+	for i, record := range dataRecords {
+		filename := FormatMergeFilename(c.FilenameFormat, record, c.IncludeTimestamp)
+
+		// 1. Copy template via Drive
+		copyFile := &drive.File{Name: filename}
+		if outputFolderID != "" {
+			copyFile.Parents = []string{outputFolderID}
+		}
+		copied, copyErr := driveSvc.Files.Copy(templateID, copyFile).Context(ctx).Do()
+		if copyErr != nil {
+			if IsNotFound(copyErr) {
+				results = append(results, map[string]any{
+					"index": i, "status": "failed", "error": copyErr.Error(),
+					"stage": "copy", "error_code": "template_not_found",
+				})
+			} else {
+				results = append(results, map[string]any{
+					"index": i, "status": "failed", "error": copyErr.Error(), "stage": "copy",
+				})
+			}
+			failedCount++
+			continue
+		}
+		newDocID := copied.Id
+
+		// 2. ReplaceAllText for each placeholder
+		req := &docs.BatchUpdateDocumentRequest{
+			Requests: make([]*docs.Request, 0, len(record)),
+		}
+		for key, value := range record {
+			textValue := fmt.Sprintf("%v", value)
+			req.Requests = append(req.Requests, &docs.Request{
+				ReplaceAllText: &docs.ReplaceAllTextRequest{
+					ContainsText: &docs.SubstringMatchCriteria{
+						Text:      fmt.Sprintf("{{%s}}", key),
+						MatchCase: false,
+					},
+					ReplaceText: textValue,
+				},
+			})
+		}
+
+		_, batchErr := docsSvc.Documents.BatchUpdate(newDocID, req).Context(ctx).Do()
+		if batchErr != nil {
+			results = append(results, map[string]any{
+				"index": i, "status": "failed", "error": batchErr.Error(),
+				"stage": "batch-update", "documentId": newDocID,
+			})
+			failedCount++
+			continue
+		}
+
+		// 3. Move to output folder if different from copy parent
+		if outputFolderID != "" && copied.Parents != nil {
+			alreadyInFolder := false
+			for _, p := range copied.Parents {
+				if strings.TrimSpace(p) == outputFolderID {
+					alreadyInFolder = true
+					break
+				}
+			}
+			if !alreadyInFolder {
+				fileMeta, getErr := driveSvc.Files.Get(newDocID).Fields("parents").Context(ctx).Do()
+				if getErr != nil {
+					results = append(results, map[string]any{
+						"index": i, "status": "failed", "error": getErr.Error(),
+						"stage": "get-parents", "documentId": newDocID,
+					})
+					failedCount++
+					continue
+				}
+				removeParents := strings.Join(fileMeta.Parents, ",")
+				moveCall := driveSvc.Files.Update(newDocID, &drive.File{}).AddParents(outputFolderID)
+				if strings.TrimSpace(removeParents) != "" {
+					moveCall = moveCall.RemoveParents(removeParents)
+				}
+				if _, moveErr := moveCall.Context(ctx).Do(); moveErr != nil {
+					results = append(results, map[string]any{
+						"index": i, "status": "failed", "error": moveErr.Error(),
+						"stage": "move-output", "documentId": newDocID,
+					})
+					failedCount++
+					continue
+				}
+			}
+		}
+
+		results = append(results, map[string]any{
+			"index":      i,
+			"status":     "success",
+			"documentId": newDocID,
+			"title":      filename,
+		})
+		generatedCount++
+	}
+
+	payload := map[string]any{
+		"templateId":     templateID,
+		"recordCount":    len(dataRecords),
+		"generated":      generatedCount,
+		"failed":         failedCount,
+		"outputFolderId": outputFolderID,
+		"results":        results,
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+	}
+	u.Out().Printf("template\t%s", templateID)
+	u.Out().Printf("records\t%d", len(dataRecords))
+	u.Out().Printf("generated\t%d", generatedCount)
+	u.Out().Printf("failed\t%d", failedCount)
 	return nil
 }

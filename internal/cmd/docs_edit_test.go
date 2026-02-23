@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"google.golang.org/api/docs/v1"
+	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
 )
 
@@ -1146,5 +1148,148 @@ func TestExecute_DocsEditInsertImage_EmptyUri_Error(t *testing.T) {
 	code, _ := parsed["error"].(map[string]any)["error_code"].(string)
 	if code != "invalid_argument" {
 		t.Fatalf("error_code=%v", code)
+	}
+}
+
+func TestExecute_DocsEditMergeData_ValidateOnly_JSON(t *testing.T) {
+	dataFile := filepath.Join(t.TempDir(), "merge-data.json")
+	if err := os.WriteFile(dataFile, []byte(`[{"firstName":"Alice","lastName":"Smith"}]`), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	out := captureStdout(t, func() {
+		if err := Execute([]string{
+			"--json", "docs", "edit", "merge-data", "tpl1",
+			"--data-file", dataFile,
+			"--filename-format", "Offer - {{firstName}} {{lastName}}",
+			"--validate-only",
+		}); err != nil {
+			t.Fatalf("Execute: %v", err)
+		}
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["validateOnly"] != true || parsed["valid"] != true {
+		t.Fatalf("validateOnly=%v valid=%v", parsed["validateOnly"], parsed["valid"])
+	}
+	if parsed["templateId"] != "tpl1" || parsed["recordCount"] != float64(1) {
+		t.Fatalf("templateId=%v recordCount=%v", parsed["templateId"], parsed["recordCount"])
+	}
+	if !strings.Contains(fmt.Sprint(parsed["sampleFilename"]), "Alice") {
+		t.Fatalf("sampleFilename should contain Alice: %v", parsed["sampleFilename"])
+	}
+}
+
+func TestExecute_DocsEditMergeData_DryRun_JSON(t *testing.T) {
+	dataFile := filepath.Join(t.TempDir(), "merge-data.json")
+	if err := os.WriteFile(dataFile, []byte(`[{"a":"1"},{"a":"2"}]`), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	out := captureStdout(t, func() {
+		if err := Execute([]string{
+			"--json", "docs", "edit", "merge-data", "tpl1",
+			"--data-file", dataFile,
+			"--dry-run",
+		}); err != nil {
+			t.Fatalf("Execute: %v", err)
+		}
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["dryRun"] != true || parsed["service"] != "docs" {
+		t.Fatalf("dryRun=%v service=%v", parsed["dryRun"], parsed["service"])
+	}
+	if parsed["recordCount"] != float64(2) {
+		t.Fatalf("recordCount=%v", parsed["recordCount"])
+	}
+}
+
+func TestExecute_DocsEditMergeData_Success_JSON(t *testing.T) {
+	origDocs := newDocsService
+	origDrive := newDriveService
+	t.Cleanup(func() {
+		newDocsService = origDocs
+		newDriveService = origDrive
+	})
+
+	path := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && strings.Contains(path, "files/tpl1") && strings.Contains(r.URL.RawQuery, "parents"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "tpl1", "parents": []string{"folder1"}})
+		case r.Method == http.MethodPost && strings.HasSuffix(path, "/copy"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "new-doc-1", "parents": []string{"folder1"}})
+		case r.Method == http.MethodPost && strings.Contains(path, "documents/new-doc-1:batchUpdate"):
+			var req docs.BatchUpdateDocumentRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode batchUpdate: %v", err)
+			}
+			if len(req.Requests) < 1 {
+				t.Fatalf("expected ReplaceAllText requests")
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"documentId": "new-doc-1",
+				"replies":    []any{},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	docSvc, err := docs.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("docs.NewService: %v", err)
+	}
+	driveSvc, err := drive.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("drive.NewService: %v", err)
+	}
+	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
+	newDriveService = func(context.Context, string) (*drive.Service, error) { return driveSvc, nil }
+
+	dataFile := filepath.Join(t.TempDir(), "merge-data.json")
+	if err := os.WriteFile(dataFile, []byte(`[{"name":"Alice","role":"Engineer"}]`), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{
+				"--json", "--account", "a@b.com",
+				"docs", "edit", "merge-data", "tpl1",
+				"--data-file", dataFile,
+			}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["generated"] != float64(1) || parsed["failed"] != float64(0) {
+		t.Fatalf("generated=%v failed=%v", parsed["generated"], parsed["failed"])
+	}
+	results, _ := parsed["results"].([]any)
+	if len(results) != 1 {
+		t.Fatalf("results len=%d", len(results))
+	}
+	row, _ := results[0].(map[string]any)
+	if row["status"] != "success" || row["documentId"] != "new-doc-1" {
+		t.Fatalf("result=%#v", row)
 	}
 }

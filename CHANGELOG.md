@@ -3,6 +3,7 @@
 ## 0.12.0 - Unreleased
 
 ### Added
+- Docs: add `gog docs edit merge-data` for mail-merge (template + JSON data file → one Doc per record via Drive copy + ReplaceAllText). Supports `--data-file`, `--filename-format`, `--output-folder-id`, `--include-timestamp`, and agentic flags (`--validate-only`, `--dry-run`). (VID-115)
 - Gmail: add `--exclude-labels` to `watch serve` (defaults: `SPAM,TRASH`). (#194) — thanks @salmonumbrella.
 - Drive: share files with an entire Workspace domain via `drive share --to domain`. (#192) — thanks @Danielkweber.
 - Docs: inline editing commands via `gog docs edit` (`replace`, `append`, `insert`, `delete`, `batch`) plus guide at `docs/editing.md`.
