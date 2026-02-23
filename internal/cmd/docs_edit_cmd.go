@@ -900,3 +900,139 @@ func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u.Out().Printf("image-id\t%s", imageID)
 	return nil
 }
+
+// DocsInsertImageCmd inserts an inline image at a specific index (VID-112).
+type DocsInsertImageCmd struct {
+	DocID     string                 `arg:"" name:"docId" help:"Doc ID"`
+	URI       string                 `name:"uri" help:"Image URI (public URL, PNG/JPEG/GIF, max 50MB)"`
+	Index     int64                  `name:"index" help:"Insertion index (1-based)" default:"1"`
+	WidthPt   float64                `name:"width-pt" help:"Width in points (optional)"`
+	HeightPt  float64                `name:"height-pt" help:"Height in points (optional)"`
+	Safety    AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *DocsInsertImageCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	docID := strings.TrimSpace(c.DocID)
+	if docID == "" {
+		return NewEditError("docs", "insert-image", docID, "invalid_argument", "empty docId", nil)
+	}
+	uri := strings.TrimSpace(c.URI)
+	if uri == "" {
+		return NewEditError("docs", "insert-image", docID, "invalid_argument", "empty uri", nil)
+	}
+	if c.Index < 1 {
+		return NewEditError("docs", "insert-image", docID, "invalid_argument", "index must be >= 1", nil)
+	}
+
+	insertReq := &docs.InsertInlineImageRequest{
+		Uri:      uri,
+		Location: &docs.Location{Index: c.Index},
+	}
+	if c.WidthPt > 0 || c.HeightPt > 0 {
+		insertReq.ObjectSize = &docs.Size{}
+		if c.WidthPt > 0 {
+			insertReq.ObjectSize.Width = &docs.Dimension{Magnitude: c.WidthPt, Unit: "PT"}
+		}
+		if c.HeightPt > 0 {
+			insertReq.ObjectSize.Height = &docs.Dimension{Magnitude: c.HeightPt, Unit: "PT"}
+		}
+	}
+
+	req := &docs.BatchUpdateDocumentRequest{
+		Requests: []*docs.Request{
+			{InsertInlineImage: insertReq},
+		},
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return NewEditError("docs", "insert-image", docID, "invalid_json", "decode execute-from-file failed", err)
+	}
+	applyDocsEditSafety(req, c.Safety)
+
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("docs", "insert-image", docID, "invalid_request", "failed to hash request", hashErr)
+	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("docs", "insert-image", docID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly": true,
+			"valid":        true,
+			"documentId":   docID,
+			"uri":          uri,
+			"index":        c.Index,
+			"requestHash":  requestHash,
+		}
+		if c.WidthPt > 0 {
+			payload["widthPt"] = c.WidthPt
+		}
+		if c.HeightPt > 0 {
+			payload["heightPt"] = c.HeightPt
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", docID)
+		u.Out().Printf("uri\t%s", uri)
+		u.Out().Printf("index\t%d", c.Index)
+		return nil
+	}
+
+	if isEditDryRun(flags, c.Safety) {
+		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
+			"uri":               uri,
+			"index":             c.Index,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newDocsService(ctx, account)
+	if err != nil {
+		return NewEditError("docs", "insert-image", docID, "service_init_failed", "create docs service failed", err)
+	}
+
+	_, err = svc.Documents.BatchUpdate(docID, req).Context(ctx).Do()
+	if err != nil {
+		if isDocsNotFound(err) {
+			return NewEditError("docs", "insert-image", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
+		}
+		return NewEditError("docs", "insert-image", docID, "api_error", "insert image failed", err)
+	}
+
+	payload := map[string]any{
+		"documentId":     docID,
+		"uri":            uri,
+		"index":          c.Index,
+		"imageInserted":  true,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if c.Safety.Pretty {
+		payload["requestHash"] = requestHash
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+	}
+	u.Out().Printf("id\t%s", docID)
+	u.Out().Printf("image-inserted\ttrue")
+	u.Out().Printf("index\t%d", c.Index)
+	return nil
+}

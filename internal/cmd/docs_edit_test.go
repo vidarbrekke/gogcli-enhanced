@@ -1036,3 +1036,115 @@ func TestExecute_DocsEditReplace_RequireRevision(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 }
+
+func TestExecute_DocsEditInsertImage_ValidateOnly_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "docs", "edit", "insert-image", "d1", "--uri", "https://example.com/logo.png", "--index", "1", "--validate-only"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["validateOnly"] != true || parsed["valid"] != true {
+		t.Fatalf("unexpected validate payload: %#v", parsed)
+	}
+	if parsed["uri"] != "https://example.com/logo.png" || parsed["index"] != float64(1) {
+		t.Fatalf("uri/index: %v %v", parsed["uri"], parsed["index"])
+	}
+	hash, ok := parsed["requestHash"].(string)
+	if !ok || len(hash) != 64 {
+		t.Fatalf("requestHash=%v", parsed["requestHash"])
+	}
+}
+
+func TestExecute_DocsEditInsertImage_DryRun_Pretty_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "docs", "edit", "insert-image", "d1", "--uri", "https://example.com/img.png", "--index", "5", "--dry-run", "--pretty"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["dryRun"] != true || parsed["service"] != "docs" {
+		t.Fatalf("dryRun=%v service=%v", parsed["dryRun"], parsed["service"])
+	}
+	if parsed["index"] != float64(5) {
+		t.Fatalf("index=%v", parsed["index"])
+	}
+}
+
+func TestExecute_DocsEditInsertImage_JSON(t *testing.T) {
+	origDocs := newDocsService
+	t.Cleanup(func() { newDocsService = origDocs })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/documents/d1:batchUpdate" {
+			var req docs.BatchUpdateDocumentRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode request: %v", err)
+			}
+			if len(req.Requests) != 1 || req.Requests[0] == nil || req.Requests[0].InsertInlineImage == nil {
+				t.Fatalf("expected one InsertInlineImage request")
+			}
+			got := req.Requests[0].InsertInlineImage
+			if got.Uri != "https://example.com/logo.png" || got.Location == nil || got.Location.Index != 1 {
+				t.Fatalf("unexpected insert: uri=%q index=%v", got.Uri, got.Location)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"documentId": "d1", "replies": []any{}})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	docSvc, err := docs.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewDocsService: %v", err)
+	}
+	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if execErr := Execute([]string{"--json", "--account", "a@b.com", "docs", "edit", "insert-image", "d1", "--uri", "https://example.com/logo.png", "--index", "1"}); execErr != nil {
+				t.Fatalf("Execute: %v", execErr)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["documentId"] != "d1" || parsed["imageInserted"] != true {
+		t.Fatalf("documentId=%v imageInserted=%v", parsed["documentId"], parsed["imageInserted"])
+	}
+}
+
+func TestExecute_DocsEditInsertImage_EmptyUri_Error(t *testing.T) {
+	stderr := captureStderr(t, func() {
+		err := Execute([]string{"--json", "docs", "edit", "insert-image", "d1", "--index", "1"})
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &parsed); err != nil {
+		t.Fatalf("parse stderr: %v; stderr=%q", err, stderr)
+	}
+	code, _ := parsed["error"].(map[string]any)["error_code"].(string)
+	if code != "invalid_argument" {
+		t.Fatalf("error_code=%v", code)
+	}
+}
