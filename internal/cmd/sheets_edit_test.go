@@ -488,3 +488,117 @@ func TestExecute_SheetsEditInsert_ValidateOnly_JSON(t *testing.T) {
 		t.Fatalf("dimension=%v", parsed["dimension"])
 	}
 }
+
+func TestExecute_SheetsEditDeleteRange_ValidateOnly_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "sheets", "edit", "delete-range", "d1", "Sheet1!A1:C10", "--shift-dimension", "ROWS", "--validate-only"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["validateOnly"] != true || parsed["valid"] != true {
+		t.Fatalf("unexpected validate payload: %#v", parsed)
+	}
+	hash, ok := parsed["requestHash"].(string)
+	if !ok || len(hash) != 64 {
+		t.Fatalf("requestHash=%v", parsed["requestHash"])
+	}
+}
+
+func TestExecute_SheetsEditDeleteRange_DryRun_Pretty_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "sheets", "edit", "delete-range", "d1", "Sheet1!A1:C10", "--shift-dimension", "COLUMNS", "--dry-run", "--pretty"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["dryRun"] != true {
+		t.Fatalf("dryRun=%v", parsed["dryRun"])
+	}
+	if parsed["service"] != "sheets" {
+		t.Fatalf("service=%v", parsed["service"])
+	}
+}
+
+func TestExecute_SheetsEditDeleteRange_RequiresForceOrDryRun(t *testing.T) {
+	err := Execute([]string{"--account", "a@b.com", "sheets", "edit", "delete-range", "d1", "Sheet1!A1:B2", "--shift-dimension", "ROWS"})
+	if err == nil || !strings.Contains(err.Error(), "destructive") {
+		t.Fatalf("expected destructive guard error, got: %v", err)
+	}
+}
+
+func TestExecute_SheetsEditDeleteRange_JSON(t *testing.T) {
+	origSheets := newSheetsService
+	t.Cleanup(func() { newSheetsService = origSheets })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v4/spreadsheets/d1:batchUpdate" {
+			var req sheets.BatchUpdateSpreadsheetRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode request: %v", err)
+			}
+			if len(req.Requests) != 1 || req.Requests[0].DeleteRange == nil {
+				t.Fatalf("expected one DeleteRange request, got %d requests", len(req.Requests))
+			}
+			dr := req.Requests[0].DeleteRange
+			if dr.ShiftDimension != "ROWS" {
+				t.Fatalf("shiftDimension=%q", dr.ShiftDimension)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"spreadsheetId": "d1",
+				"replies":       []any{map[string]any{}},
+			})
+			return
+		}
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/v4/spreadsheets/d1") && strings.Contains(r.URL.RawQuery, "fields=") {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"sheets": []any{
+					map[string]any{"properties": map[string]any{"sheetId": int64(0), "title": "Sheet1"}},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	svc, err := sheets.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewSheetsService: %v", err)
+	}
+	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if execErr := Execute([]string{"--json", "--account", "a@b.com", "sheets", "edit", "delete-range", "d1", "Sheet1!A1:C10", "--shift-dimension", "ROWS", "--force"}); execErr != nil {
+				t.Fatalf("Execute: %v", execErr)
+			}
+		})
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["deletedRange"] != "Sheet1!A1:C10" {
+		t.Fatalf("deletedRange=%v", parsed["deletedRange"])
+	}
+	if parsed["shiftDimension"] != "ROWS" {
+		t.Fatalf("shiftDimension=%v", parsed["shiftDimension"])
+	}
+}

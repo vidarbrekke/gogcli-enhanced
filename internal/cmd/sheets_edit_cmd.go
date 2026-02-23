@@ -19,6 +19,7 @@ type SheetsEditCmd struct {
 	Values       SheetsEditValuesCmd       `cmd:"" name:"values" help:"Update cell values in a range"`
 	Append       SheetsEditAppendCmd       `cmd:"" name:"append" help:"Append rows to a sheet"`
 	Clear        SheetsEditClearCmd        `cmd:"" name:"clear" help:"Clear values in a range"`
+	DeleteRange  SheetsEditDeleteRangeCmd  `cmd:"" name:"delete-range" help:"Delete a range and shift cells (ROWS or COLUMNS)"`
 	ReplaceText  SheetsEditReplaceTextCmd  `cmd:"" name:"replace-text" help:"Find and replace text across sheet cells"`
 	Format       SheetsEditFormatCmd       `cmd:"" name:"format" help:"Apply cell formatting in a range"`
 	Insert       SheetsEditInsertCmd       `cmd:"" name:"insert" help:"Insert rows/columns in a sheet"`
@@ -396,6 +397,148 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 	u.Out().Printf("Cleared %s", resp.ClearedRange)
+	return nil
+}
+
+// SheetsEditDeleteRangeCmd deletes a range and shifts cells (ROWS or COLUMNS). VID-111.
+type SheetsEditDeleteRangeCmd struct {
+	SpreadsheetID   string                `arg:"" name:"spreadsheetId" help:"Spreadsheet ID"`
+	Range          string                `arg:"" name:"range" help:"Range to delete (eg. Sheet1!A1:C10)"`
+	ShiftDimension string                `name:"shift-dimension" help:"How to shift: ROWS or COLUMNS" enum:"ROWS,COLUMNS" default:"ROWS"`
+	Safety         SheetsEditSafetyFlags `embed:""`
+}
+
+type sheetsEditDeleteRangeRequest struct {
+	SpreadsheetID   string `json:"spreadsheetId"`
+	Range           string `json:"range"`
+	ShiftDimension  string `json:"shiftDimension"`
+}
+
+func (c *SheetsEditDeleteRangeCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "sheets")
+	spreadsheetID := normalizeGoogleID(strings.TrimSpace(c.SpreadsheetID))
+	rangeSpec := cleanRange(c.Range)
+	shiftDim := strings.TrimSpace(strings.ToUpper(c.ShiftDimension))
+	if spreadsheetID == "" {
+		return newSheetsEditError("delete-range", spreadsheetID, "invalid_argument", "empty spreadsheetId", usage("empty spreadsheetId"))
+	}
+	if strings.TrimSpace(rangeSpec) == "" {
+		return newSheetsEditError("delete-range", spreadsheetID, "invalid_argument", "empty range", usage("empty range"))
+	}
+	if shiftDim != "ROWS" && shiftDim != "COLUMNS" {
+		return newSheetsEditError("delete-range", spreadsheetID, "invalid_argument", "shift-dimension must be ROWS or COLUMNS", usage("shift-dimension must be ROWS or COLUMNS"))
+	}
+	if _, err := parseSheetRange(rangeSpec, "delete-range"); err != nil {
+		return newSheetsEditError("delete-range", spreadsheetID, "invalid_argument", "range must include sheet name (eg. Sheet1!A1:C10)", err)
+	}
+	if !isEditDryRun(flags, c.Safety) && !outfmt.IsJSON(ctx) && (flags == nil || !flags.Force) {
+		return newSheetsEditError("delete-range", spreadsheetID, "confirmation_required", "delete-range is destructive; rerun with --force or use --dry-run", usage("delete-range is destructive; rerun with --force or use --dry-run"))
+	}
+
+	req := &sheetsEditDeleteRangeRequest{
+		SpreadsheetID:  spreadsheetID,
+		Range:          rangeSpec,
+		ShiftDimension: shiftDim,
+	}
+	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
+		return newSheetsEditError("delete-range", spreadsheetID, "invalid_json", "decode execute-from-file failed", err)
+	}
+	spreadsheetID = normalizeGoogleID(strings.TrimSpace(req.SpreadsheetID))
+	rangeSpec = cleanRange(req.Range)
+	shiftDim = strings.TrimSpace(strings.ToUpper(req.ShiftDimension))
+	if shiftDim == "" {
+		shiftDim = "ROWS"
+	}
+
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return newSheetsEditError("delete-range", spreadsheetID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		hash, _ := RequestHash(req)
+		payload := map[string]any{
+			"validateOnly":  true,
+			"valid":         true,
+			"spreadsheetId": spreadsheetID,
+			"requestHash":   hash,
+		}
+		if normalizedForJSON != "" {
+			payload["normalizedRequest"] = normalizedForJSON
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", spreadsheetID)
+		return nil
+	}
+
+	if isEditDryRun(flags, c.Safety) {
+		return SheetsDryRunOutput(ctx, u, spreadsheetID, req, map[string]any{
+			"normalizedRequest": normalizedForJSON,
+		}, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newSheetsService(ctx, account)
+	if err != nil {
+		return newSheetsEditError("delete-range", spreadsheetID, "service_init_failed", "create sheets service failed", err)
+	}
+	rangeInfo, err := parseSheetRange(rangeSpec, "delete-range")
+	if err != nil {
+		return newSheetsEditError("delete-range", spreadsheetID, "invalid_argument", "invalid range", err)
+	}
+	sheetIDs, err := fetchSheetIDMap(ctx, svc, spreadsheetID)
+	if err != nil {
+		return newSheetsEditError("delete-range", spreadsheetID, "api_error", "load sheet metadata failed", err)
+	}
+	gridRange, err := gridRangeFromMap(rangeInfo, sheetIDs, "delete-range")
+	if err != nil {
+		return newSheetsEditError("delete-range", spreadsheetID, "invalid_argument", "invalid grid range", err)
+	}
+	batchReq := &sheets.BatchUpdateSpreadsheetRequest{
+		Requests: []*sheets.Request{
+			{
+				DeleteRange: &sheets.DeleteRangeRequest{
+					Range:          gridRange,
+					ShiftDimension: shiftDim,
+				},
+			},
+		},
+	}
+	_, err = svc.Spreadsheets.BatchUpdate(spreadsheetID, batchReq).Do()
+	if err != nil {
+		if isSheetsNotFound(err) {
+			return newSheetsEditError("delete-range", spreadsheetID, "sheet_not_found", fmt.Sprintf("spreadsheet not found (id=%s)", spreadsheetID), err)
+		}
+		return newSheetsEditError("delete-range", spreadsheetID, "api_error", "delete-range failed", err)
+	}
+
+	payload := map[string]any{
+		"deletedRange":   rangeSpec,
+		"shiftDimension": shiftDim,
+	}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if c.Safety.Pretty {
+		if hash, err := RequestHash(req); err == nil {
+			payload["requestHash"] = hash
+		}
+		if norm, err := NormalizedRequestString(req); err == nil {
+			payload["normalizedRequest"] = norm
+		}
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+	}
+	u.Out().Printf("Deleted %s (shift %s)", rangeSpec, shiftDim)
 	return nil
 }
 
