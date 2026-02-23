@@ -61,13 +61,13 @@ gog sheets edit delete-range <spreadsheetId> \
 Copy from DocsDeleteCmd, adapt to Sheets DeleteRangeRequest.
 
 **Checklist:**
-- [ ] Add `SheetsEditDeleteRangeCmd` struct to `sheets_edit_cmd.go`
-- [ ] Register in `SheetsEditCmd` (sheets.go)
-- [ ] Implement Run method with agentic pattern
-- [ ] Test --validate-only
-- [ ] Test --dry-run
-- [ ] Test with actual API (if account available)
-- [ ] Commit and push
+- [x] Add `SheetsEditDeleteRangeCmd` struct to `sheets_edit_cmd.go`
+- [x] Register in `SheetsEditCmd` (sheets.go)
+- [x] Implement Run method with agentic pattern
+- [x] Test --validate-only
+- [x] Test --dry-run
+- [x] Test with actual API (if account available)
+- [x] Commit and push
 
 ---
 
@@ -122,11 +122,11 @@ gog docs edit insert-image <docId> \
 Similar to DocsInsertTableCmd (simple operation, single request).
 
 **Checklist:**
-- [ ] Add `DocsInsertImageCmd` struct to `docs_edit_cmd.go`
-- [ ] Register in `DocsEditCmd` (docs_cmd.go)
-- [ ] Implement Run method
-- [ ] Test complete image workflow (insert + replace)
-- [ ] Commit and push
+- [x] Add `DocsInsertImageCmd` struct to `docs_edit_cmd.go`
+- [x] Register in `DocsEditCmd` (docs_cmd.go)
+- [x] Implement Run method
+- [x] Test complete image workflow (insert + replace)
+- [x] Commit and push
 
 ---
 
@@ -192,12 +192,14 @@ Design the MergeData pattern for Docs and Sheets. This is **critical** because M
 - Error handling matrix
 
 **Checklist:**
-- [ ] Analyze Slides implementation thoroughly
-- [ ] Research Docs/Sheets template best practices
-- [ ] Sketch CLI for both services
-- [ ] Create design doc in repo
-- [ ] Get conceptual approval
-- [ ] Identify unknowns/blockers
+- [x] Analyze Slides implementation thoroughly
+- [x] Research Docs/Sheets template best practices
+- [x] Sketch CLI for both services
+- [x] Create design doc in repo
+- [x] Get conceptual approval
+- [x] Identify unknowns/blockers
+
+**Done:** Design doc at `docs/PHASE_3_MERGEDATA_DESIGN.md` (2026-02-17). Ready for VID-115/116 implementation.
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-17  
 **Repository:** vidarbrekke/gogcli-enhanced  
-**Status:** Phase 1 Complete, Phase 2 Complete (Sheets + Docs), Phase 3 Ready, Phases 4–5 Queued
+**Status:** Phase 1 Complete, Phase 2 Complete (Sheets + Docs), Phase 3 In Progress, Phases 4–5 Queued
 
 ---
 
@@ -74,6 +74,15 @@ Unified helpers for agent-safe editing across Docs/Sheets/Slides:
 
 **Status:** All build cleanly, --validate-only and --dry-run tested. Ready for integration.
 
+### Phase 3: Cross-Service Capability (VID-111, VID-112, VID-114) — **In Progress**
+
+**Completed:**
+- **VID-111** — Sheets DeleteRange: `gog sheets edit delete-range <spreadsheetId> <range> --shift-dimension ROWS|COLUMNS` (default ROWS). Full agentic flow; tests for validate-only, dry-run, force guard, success.
+- **VID-112** — Docs InsertImage: `gog docs edit insert-image <docId> --uri <url> [--index 1] [--width-pt/--height-pt]`. Full agentic flow; tests for validate-only, dry-run, success, empty-uri error.
+- **VID-114** — MergeData design doc: `docs/PHASE_3_MERGEDATA_DESIGN.md` — Slides pattern analysis, Docs/Sheets CLI sketches, data format, error matrix, shared components, implementation order (VID-115 → VID-116).
+
+**Next:** VID-115 (Docs MergeData), then VID-116 (Sheets MergeData).
+
 ---
 
 ## 📋 Linear Issue Status
@@ -86,6 +95,9 @@ Unified helpers for agent-safe editing across Docs/Sheets/Slides:
 - **VID-95** — Sheets Edit: Batch Command
 - **VID-99** — Commit WIP Sheets Edit Code (superseded by integration commit)
 - **VID-107** — Docs Edit Agentic Refactor (NEW) — Replace, Insert, Delete, InsertTable
+- **VID-111** — Sheets Edit DeleteRange
+- **VID-112** — Docs Edit InsertImage
+- **VID-114** — Phase 3 MergeData design doc (Docs/Sheets)
 
 ### 📋 Pending
 - **VID-96** — Slides Edit: Batch MVP (4–6 days)
@@ -93,6 +105,8 @@ Unified helpers for agent-safe editing across Docs/Sheets/Slides:
 - **VID-98** — Documentation & Handoff (1–2 days)
 - **VID-108** — Docs: Remaining Edit Commands (Append, Batch finalization)
 - **VID-109** — Docs Phase 1 Quick Wins (apply-style, insert-toc, more)
+- **VID-115** — Docs Edit MergeData (mail-merge; depends on VID-114 ✅)
+- **VID-116** — Sheets Edit MergeData (depends on VID-114 ✅, VID-115)
 
 ---
 
@@ -125,6 +139,7 @@ For each Sheets/Docs edit command:
 - **Docs pattern:** `internal/cmd/docs_edit_cmd.go`
 - **Sheets implementation:** `internal/cmd/sheets_edit_cmd.go`, `sheets_edit_helpers.go`
 - **User guide:** `docs/editing.md` (Docs + Sheets)
+- **Phase 3 MergeData design:** `docs/PHASE_3_MERGEDATA_DESIGN.md` (VID-114)
 
 ---
 
