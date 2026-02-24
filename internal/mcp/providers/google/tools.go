@@ -117,7 +117,9 @@ func docsPlanBatch(_ context.Context, input map[string]any) (map[string]any, err
 		return nil, err
 	}
 	defer os.Remove(path)
-	args := []string{"--json", maybeOpID(input), "docs", "edit", "batch", docID, "--requests-file", path, "--validate-only"}
+	args := []string{"--json"}
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, "docs", "edit", "batch", docID, "--requests-file", path, "--validate-only")
 	return runCLI(cleanArgs(args), "docs", "planBatch")
 }
 
@@ -135,7 +137,9 @@ func docsExecuteBatch(_ context.Context, input map[string]any) (map[string]any, 
 		return nil, err
 	}
 	defer os.Remove(path)
-	args := []string{"--json", maybeOpID(input), "docs", "edit", "batch", docID, "--requests-file", path}
+	args := []string{"--json"}
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, "docs", "edit", "batch", docID, "--requests-file", path)
 	return runCLI(cleanArgs(args), "docs", "executeBatch")
 }
 
@@ -144,7 +148,10 @@ func driveEnsureFolder(_ context.Context, input map[string]any) (map[string]any,
 	if path == "" {
 		return map[string]any{"service": "drive", "operation": "ensureFolder", "error_code": "invalid_argument", "message": "missing path"}, errMissingPath
 	}
-	args := []string{"--json", maybeAccount(input), maybeOpID(input), "drive", "ensure-folder", path}
+	args := []string{"--json"}
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, "drive", "ensure-folder", path)
 	if parent := strings.TrimSpace(asString(input["parentId"])); parent != "" {
 		args = append(args, "--parent", parent)
 	}
@@ -156,7 +163,10 @@ func driveUntrash(_ context.Context, input map[string]any) (map[string]any, erro
 	if fileID == "" {
 		return map[string]any{"service": "drive", "operation": "untrash", "error_code": "invalid_argument", "message": "missing fileId"}, errMissingFileID
 	}
-	args := []string{"--json", maybeAccount(input), maybeOpID(input), "drive", "untrash", fileID}
+	args := []string{"--json"}
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, "drive", "untrash", fileID)
 	return runCLI(cleanArgs(args), "drive", "untrash")
 }
 
@@ -166,7 +176,10 @@ func driveGetPermission(_ context.Context, input map[string]any) (map[string]any
 	if fileID == "" || permissionID == "" {
 		return map[string]any{"service": "drive", "operation": "getPermission", "error_code": "invalid_argument", "message": "missing fileId or permissionId"}, errMissingFileOrPermissionID
 	}
-	args := []string{"--json", maybeAccount(input), maybeOpID(input), "drive", "permission", fileID, permissionID}
+	args := []string{"--json"}
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, "drive", "permission", fileID, permissionID)
 	return runCLI(cleanArgs(args), "drive", "getPermission")
 }
 
@@ -225,29 +238,26 @@ func writeTempJSON(v any) (string, error) {
 	return f.Name(), nil
 }
 
-func maybeOpID(input map[string]any) string {
+func maybeOpIDArgs(input map[string]any) []string {
 	if opID := strings.TrimSpace(asString(input["opId"])); opID != "" {
-		return "--op-id " + opID
+		return []string{"--op-id", opID}
 	}
-	return ""
+	return nil
 }
 
-func maybeAccount(input map[string]any) string {
+func maybeAccountArgs(input map[string]any) []string {
 	if acct := strings.TrimSpace(asString(input["account"])); acct != "" {
-		return "--account " + acct
+		return []string{"--account", acct}
 	}
-	return ""
+	return nil
 }
 
+// cleanArgs trims and drops empty strings. It does not split on spaces so paths and values with spaces stay intact.
 func cleanArgs(args []string) []string {
 	out := make([]string, 0, len(args))
 	for _, a := range args {
 		if s := strings.TrimSpace(a); s != "" {
-			for _, p := range strings.Split(s, " ") {
-				if strings.TrimSpace(p) != "" {
-					out = append(out, p)
-				}
-			}
+			out = append(out, s)
 		}
 	}
 	return out

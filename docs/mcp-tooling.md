@@ -60,7 +60,13 @@ This repo now includes a minimal internal operations layer in `internal/ops` to 
 
 ### gofmt and formatting
 
-- `internal/cmd/mcp.go` is multi-line (~28 lines), not minified; `make fmt` leaves it unchanged. If a reviewer sees a minified version, it may be from an older branch.
+- `internal/cmd/mcp.go` is kept multi-line and gofmt'd; it has a trailing newline. If the raw view on GitHub still shows a minified version, try a hard refresh or re-clone (and ensure `core.autocrlf` or line-ending filters aren't altering the file).
+
+### Fixes applied (external review)
+
+- **Scanner limit:** `ServeStdio` now sets `scanner.Buffer(..., 10*1024*1024)` so large `tools/call` payloads don't hit the default 64KB limit and drop the connection.
+- **Arg building:** `maybeOpID`/`maybeAccount` replaced with `maybeOpIDArgs`/`maybeAccountArgs` returning `[]string`; `cleanArgs` only trims and drops empty strings (no split on spaces). Paths and values with spaces (e.g. `"My Folder/2026"`) are preserved.
+- **Unmarshal:** The code uses `&params` (ASCII ampersand). If a reviewer sees `¶ms`, it is a display/encoding artifact; the repo builds and the source is correct.
 
 ### Mutable global state
 

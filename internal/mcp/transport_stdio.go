@@ -32,6 +32,9 @@ type rpcError struct {
 
 func ServeStdio(ctx context.Context, r io.Reader, w io.Writer, s *server.Server) error {
 	scanner := bufio.NewScanner(r)
+	// Raise max token size above default 64KB so large tools/call payloads don't drop the connection.
+	const maxScanTokenSize = 10 * 1024 * 1024
+	scanner.Buffer(make([]byte, 0, 64*1024), maxScanTokenSize)
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if len(line) == 0 {

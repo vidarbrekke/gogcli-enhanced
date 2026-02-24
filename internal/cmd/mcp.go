@@ -26,3 +26,4 @@ func (c *MCPServeCmd) Run(ctx context.Context) error {
 	})
 	return mcp.ServeStdio(ctx, os.Stdin, os.Stdout, s)
 }
+
