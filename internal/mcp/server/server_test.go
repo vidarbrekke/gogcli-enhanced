@@ -33,3 +33,16 @@ func TestExecuteTool_ErrorNormalization(t *testing.T) {
 		t.Fatalf("unexpected error: %#v", got.Error)
 	}
 }
+
+func TestListToolSpecs(t *testing.T) {
+	s := New()
+	s.RegisterToolSpec(ToolSpec{Name: "b.tool", Handler: func(context.Context, map[string]any) (map[string]any, error) { return map[string]any{}, nil }})
+	s.RegisterToolSpec(ToolSpec{Name: "a.tool", Handler: func(context.Context, map[string]any) (map[string]any, error) { return map[string]any{}, nil }})
+	specs := s.ListToolSpecs()
+	if len(specs) != 2 {
+		t.Fatalf("expected 2 specs, got %d", len(specs))
+	}
+	if specs[0].Name != "a.tool" || specs[1].Name != "b.tool" {
+		t.Fatalf("unexpected ordering: %#v", specs)
+	}
+}

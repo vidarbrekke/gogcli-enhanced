@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
-	"github.com/steipete/gogcli/internal/cmd"
 	"github.com/steipete/gogcli/internal/mcp/server"
 )
+
+type Executor func(args []string) (stdout string, stderr string, err error)
 
 var (
 	errMissingDocID              = errors.New("missing docId")
@@ -22,15 +22,86 @@ var (
 	errMissingFileOrPermissionID = errors.New("missing fileId or permissionId")
 	errToolCommandFailed         = errors.New("tool command failed")
 	errToolStderr                = errors.New("tool stderr")
+	errExecutorNotConfigured     = errors.New("executor not configured")
 )
 
-func Register(s *server.Server) {
-	s.RegisterTool("docs.planBatch", docsPlanBatch)
-	s.RegisterTool("docs.executeBatch", docsExecuteBatch)
-	s.RegisterTool("drive.ensureFolder", driveEnsureFolder)
-	s.RegisterTool("drive.untrash", driveUntrash)
-	s.RegisterTool("drive.getPermission", driveGetPermission)
+func Register(s *server.Server, executor Executor) {
+	s.RegisterToolSpec(server.ToolSpec{
+		Name:        "docs.planBatch",
+		Description: "Validate and plan a Docs batch update request without applying changes.",
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"docId", "request"},
+			"properties": map[string]any{
+				"docId":   map[string]any{"type": "string"},
+				"request": map[string]any{"type": "object"},
+				"opId":    map[string]any{"type": "string"},
+			},
+		},
+		Handler: docsPlanBatch,
+	})
+	s.RegisterToolSpec(server.ToolSpec{
+		Name:        "docs.executeBatch",
+		Description: "Execute a Docs batch update request.",
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"docId", "request"},
+			"properties": map[string]any{
+				"docId":   map[string]any{"type": "string"},
+				"request": map[string]any{"type": "object"},
+				"opId":    map[string]any{"type": "string"},
+			},
+		},
+		Handler: docsExecuteBatch,
+	})
+	s.RegisterToolSpec(server.ToolSpec{
+		Name:        "drive.ensureFolder",
+		Description: "Ensure a folder path exists in Drive; create missing segments.",
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"path"},
+			"properties": map[string]any{
+				"path":     map[string]any{"type": "string"},
+				"parentId": map[string]any{"type": "string"},
+				"account":  map[string]any{"type": "string"},
+				"opId":     map[string]any{"type": "string"},
+			},
+		},
+		Handler: driveEnsureFolder,
+	})
+	s.RegisterToolSpec(server.ToolSpec{
+		Name:        "drive.untrash",
+		Description: "Restore a trashed Drive file.",
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"fileId"},
+			"properties": map[string]any{
+				"fileId":  map[string]any{"type": "string"},
+				"account": map[string]any{"type": "string"},
+				"opId":    map[string]any{"type": "string"},
+			},
+		},
+		Handler: driveUntrash,
+	})
+	s.RegisterToolSpec(server.ToolSpec{
+		Name:        "drive.getPermission",
+		Description: "Get one permission entry for a Drive file.",
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"fileId", "permissionId"},
+			"properties": map[string]any{
+				"fileId":       map[string]any{"type": "string"},
+				"permissionId": map[string]any{"type": "string"},
+				"account":      map[string]any{"type": "string"},
+				"opId":         map[string]any{"type": "string"},
+			},
+		},
+		Handler: driveGetPermission,
+	})
+	execCommand = executor
 }
+
+var execCommand Executor
 
 func docsPlanBatch(_ context.Context, input map[string]any) (map[string]any, error) {
 	docID := strings.TrimSpace(asString(input["docId"]))
@@ -47,7 +118,7 @@ func docsPlanBatch(_ context.Context, input map[string]any) (map[string]any, err
 	}
 	defer os.Remove(path)
 	args := []string{"--json", maybeOpID(input), "docs", "edit", "batch", docID, "--requests-file", path, "--validate-only"}
-	return runCLI(cleanArgs(args), "docs", "planBatch") //nolint:contextcheck // cmd.Execute has no context-aware variant
+	return runCLI(cleanArgs(args), "docs", "planBatch")
 }
 
 func docsExecuteBatch(_ context.Context, input map[string]any) (map[string]any, error) {
@@ -65,7 +136,7 @@ func docsExecuteBatch(_ context.Context, input map[string]any) (map[string]any, 
 	}
 	defer os.Remove(path)
 	args := []string{"--json", maybeOpID(input), "docs", "edit", "batch", docID, "--requests-file", path}
-	return runCLI(cleanArgs(args), "docs", "executeBatch") //nolint:contextcheck // cmd.Execute has no context-aware variant
+	return runCLI(cleanArgs(args), "docs", "executeBatch")
 }
 
 func driveEnsureFolder(_ context.Context, input map[string]any) (map[string]any, error) {
@@ -77,7 +148,7 @@ func driveEnsureFolder(_ context.Context, input map[string]any) (map[string]any,
 	if parent := strings.TrimSpace(asString(input["parentId"])); parent != "" {
 		args = append(args, "--parent", parent)
 	}
-	return runCLI(cleanArgs(args), "drive", "ensureFolder") //nolint:contextcheck // cmd.Execute has no context-aware variant
+	return runCLI(cleanArgs(args), "drive", "ensureFolder")
 }
 
 func driveUntrash(_ context.Context, input map[string]any) (map[string]any, error) {
@@ -86,7 +157,7 @@ func driveUntrash(_ context.Context, input map[string]any) (map[string]any, erro
 		return map[string]any{"service": "drive", "operation": "untrash", "error_code": "invalid_argument", "message": "missing fileId"}, errMissingFileID
 	}
 	args := []string{"--json", maybeAccount(input), maybeOpID(input), "drive", "untrash", fileID}
-	return runCLI(cleanArgs(args), "drive", "untrash") //nolint:contextcheck // cmd.Execute has no context-aware variant
+	return runCLI(cleanArgs(args), "drive", "untrash")
 }
 
 func driveGetPermission(_ context.Context, input map[string]any) (map[string]any, error) {
@@ -96,13 +167,28 @@ func driveGetPermission(_ context.Context, input map[string]any) (map[string]any
 		return map[string]any{"service": "drive", "operation": "getPermission", "error_code": "invalid_argument", "message": "missing fileId or permissionId"}, errMissingFileOrPermissionID
 	}
 	args := []string{"--json", maybeAccount(input), maybeOpID(input), "drive", "permission", fileID, permissionID}
-	return runCLI(cleanArgs(args), "drive", "getPermission") //nolint:contextcheck // cmd.Execute has no context-aware variant
+	return runCLI(cleanArgs(args), "drive", "getPermission")
 }
 
 func runCLI(args []string, service, operation string) (map[string]any, error) {
-	stdout, stderr := captureOutput(func() {
-		_ = cmd.Execute(args)
-	})
+	if execCommand == nil {
+		return map[string]any{
+			"service":    service,
+			"operation":  operation,
+			"error_code": "internal_error",
+			"message":    "mcp executor is not configured",
+		}, errExecutorNotConfigured
+	}
+
+	stdout, stderr, execErr := execCommand(args)
+	if execErr != nil && strings.TrimSpace(stderr) == "" {
+		return map[string]any{
+			"service":    service,
+			"operation":  operation,
+			"error_code": "api_error",
+			"message":    execErr.Error(),
+		}, execErr
+	}
 	if strings.TrimSpace(stderr) != "" {
 		var parsed map[string]any
 		if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &parsed); jsonErr == nil {
@@ -121,23 +207,6 @@ func runCLI(args []string, service, operation string) (map[string]any, error) {
 	parsed["service"] = service
 	parsed["operation"] = operation
 	return parsed, nil
-}
-
-func captureOutput(fn func()) (string, string) {
-	oldOut := os.Stdout
-	oldErr := os.Stderr
-	outR, outW, _ := os.Pipe()
-	errR, errW, _ := os.Pipe()
-	os.Stdout = outW
-	os.Stderr = errW
-	fn()
-	_ = outW.Close()
-	_ = errW.Close()
-	outBytes, _ := io.ReadAll(outR)
-	errBytes, _ := io.ReadAll(errR)
-	os.Stdout = oldOut
-	os.Stderr = oldErr
-	return string(outBytes), string(errBytes)
 }
 
 func writeTempJSON(v any) (string, error) {

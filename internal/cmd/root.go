@@ -87,6 +87,7 @@ type CLI struct {
 	Config     ConfigCmd             `cmd:"" help:"Manage configuration"`
 	ExitCodes  AgentExitCodesCmd     `cmd:"" name:"exit-codes" aliases:"exitcodes" help:"Print stable exit codes (alias for 'agent exit-codes')"`
 	Agent      AgentCmd              `cmd:"" help:"Agent-friendly helpers"`
+	MCP        MCPCmd                `cmd:"" name:"mcp" help:"Model Context Protocol server"`
 	Schema     SchemaCmd             `cmd:"" help:"Machine-readable command/flag schema" aliases:"help-json,helpjson"`
 	VersionCmd VersionCmd            `cmd:"" name:"version" help:"Print version"`
 	Completion CompletionCmd         `cmd:"" help:"Generate shell completion scripts"`

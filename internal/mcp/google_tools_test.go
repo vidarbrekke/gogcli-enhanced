@@ -2,11 +2,18 @@ package mcp
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
 func TestGoogleTools_DocsPlanBatch(t *testing.T) {
-	s := NewGoogleServer()
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		if strings.Join(args, " ") == "" {
+			t.Fatal("expected args")
+		}
+
+		return `{"validateOnly":true,"valid":true,"requestHash":"abc","opId":"mcp-docs-plan-1"}`, "", nil
+	})
 
 	env := s.ExecuteTool(context.Background(), "docs.planBatch", map[string]any{
 		"opId":  "mcp-docs-plan-1",
@@ -32,7 +39,9 @@ func TestGoogleTools_DocsPlanBatch(t *testing.T) {
 }
 
 func TestGoogleTools_DriveEnsureFolder_InvalidInput(t *testing.T) {
-	s := NewGoogleServer()
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		return "{}", "", nil
+	})
 
 	env := s.ExecuteTool(context.Background(), "drive.ensureFolder", map[string]any{})
 	if env.OK {

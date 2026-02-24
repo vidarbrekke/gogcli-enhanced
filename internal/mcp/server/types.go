@@ -4,6 +4,13 @@ import "context"
 
 type ToolHandler func(ctx context.Context, input map[string]any) (map[string]any, error)
 
+type ToolSpec struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	InputSchema map[string]any `json:"input_schema,omitempty"`
+	Handler     ToolHandler    `json:"-"`
+}
+
 type Envelope struct {
 	OK          bool           `json:"ok"`
 	Service     string         `json:"service,omitempty"`

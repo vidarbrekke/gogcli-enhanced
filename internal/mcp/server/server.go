@@ -4,26 +4,54 @@ package server
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 )
 
 type Server struct {
-	tools map[string]ToolHandler
+	tools map[string]ToolSpec
 }
 
 func New() *Server {
-	return &Server{tools: map[string]ToolHandler{}}
+	return &Server{tools: map[string]ToolSpec{}}
 }
 
 func (s *Server) RegisterTool(name string, handler ToolHandler) {
 	if s == nil || strings.TrimSpace(name) == "" || handler == nil {
 		return
 	}
-	s.tools[strings.TrimSpace(name)] = handler
+	s.tools[strings.TrimSpace(name)] = ToolSpec{
+		Name:    strings.TrimSpace(name),
+		Handler: handler,
+	}
+}
+
+func (s *Server) RegisterToolSpec(spec ToolSpec) {
+	if s == nil || strings.TrimSpace(spec.Name) == "" || spec.Handler == nil {
+		return
+	}
+	spec.Name = strings.TrimSpace(spec.Name)
+	s.tools[spec.Name] = spec
+}
+
+func (s *Server) ListToolSpecs() []ToolSpec {
+	if s == nil {
+		return nil
+	}
+	names := make([]string, 0, len(s.tools))
+	for name := range s.tools {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	out := make([]ToolSpec, 0, len(names))
+	for _, name := range names {
+		out = append(out, s.tools[name])
+	}
+	return out
 }
 
 func (s *Server) ExecuteTool(ctx context.Context, name string, input map[string]any) Envelope {
-	handler, ok := s.tools[strings.TrimSpace(name)]
+	spec, ok := s.tools[strings.TrimSpace(name)]
 	if !ok {
 		return Envelope{
 			OK: false,
@@ -33,7 +61,7 @@ func (s *Server) ExecuteTool(ctx context.Context, name string, input map[string]
 			},
 		}
 	}
-	result, err := handler(ctx, input)
+	result, err := spec.Handler(ctx, input)
 	if err != nil {
 		return normalizeError(result, err)
 	}
