@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -60,7 +61,8 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		if RequestOperationCount(r) != 1 {
 			idx := i
 			err := newDocsEditError("batch", docID, "invalid_request", fmt.Sprintf("request[%d] must set exactly one operation field", i), usage(fmt.Sprintf("request[%d] must set exactly one operation field", i)))
-			if de, ok := err.(*EditError); ok {
+			var de *EditError
+			if errors.As(err, &de) {
 				de.RequestIndex = &idx
 			}
 			return err
@@ -400,11 +402,6 @@ type DocsAppendCmd struct {
 
 func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
-	account, err := requireAccount(flags)
-	if err != nil {
-		return err
-	}
-
 	docID := strings.TrimSpace(c.DocID)
 	if docID == "" {
 		return newDocsEditError("append", docID, "invalid_argument", "empty docId", usage("empty docId"))
@@ -414,19 +411,27 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return newDocsEditError("append", docID, "invalid_argument", "empty text", usage("empty text"))
 	}
 
-	svc, err := newDocsService(ctx, account)
-	if err != nil {
-		return newDocsEditError("append", docID, "service_init_failed", "create docs service failed", err)
-	}
-
-	doc, err := svc.Documents.Get(docID).Context(ctx).Do()
-	if err != nil {
-		if isDocsNotFound(err) {
-			return newDocsEditError("append", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
+	index := int64(1)
+	needsDocFetch := !c.Safety.ValidateOnly && !isEditDryRun(flags, c.Safety)
+	var svc *docs.Service
+	if needsDocFetch {
+		account, err := requireAccount(flags)
+		if err != nil {
+			return err
 		}
-		return newDocsEditError("append", docID, "api_error", "fetch document failed", err)
+		svc, err = newDocsService(ctx, account)
+		if err != nil {
+			return newDocsEditError("append", docID, "service_init_failed", "create docs service failed", err)
+		}
+		doc, getErr := svc.Documents.Get(docID).Context(ctx).Do()
+		if getErr != nil {
+			if isDocsNotFound(getErr) {
+				return newDocsEditError("append", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), getErr)
+			}
+			return newDocsEditError("append", docID, "api_error", "fetch document failed", getErr)
+		}
+		index = docsAppendIndex(doc)
 	}
-	index := docsAppendIndex(doc)
 
 	req := &docs.BatchUpdateDocumentRequest{
 		Requests: []*docs.Request{
@@ -457,6 +462,7 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 			"documentId":    docID,
 			"insertedChars": len(text),
 			"index":         index,
+			"indexResolved": needsDocFetch,
 			"requestHash":   requestHash,
 		}
 		if normalizedForJSON != "" || c.Safety.Pretty {
@@ -478,6 +484,7 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
 			"insertedChars":     len(text),
 			"index":             index,
+			"indexResolved":     false,
 			"normalizedRequest": normalizedForJSON,
 			"requestHash":       requestHash,
 		}, c.Safety.Pretty)
@@ -1061,45 +1068,13 @@ func (c *DocsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) error 
 		return NewEditError("docs", "merge-data", templateID, "invalid_argument", "empty data-file", nil)
 	}
 
-	dataBytes, err := os.ReadFile(dataFile) //nolint:gosec // user-provided path
+	dataRecords, sampleRecord, err := loadMergeDataRecords(dataFile, func(code, msg string, cause error) error {
+		return NewEditError("docs", "merge-data", templateID, code, msg, cause)
+	})
 	if err != nil {
-		return NewEditError("docs", "merge-data", templateID, "input_open_failed", "read data-file failed", err)
+		return err
 	}
-
-	var dataRecords []map[string]any
-	if jsonErr := json.Unmarshal(dataBytes, &dataRecords); jsonErr != nil {
-		return NewEditError("docs", "merge-data", templateID, "invalid_json", "parse data-file failed", jsonErr)
-	}
-	if len(dataRecords) == 0 {
-		return NewEditError("docs", "merge-data", templateID, "invalid_argument", "data-file contains no records", nil)
-	}
-
-	sampleRecord := dataRecords[0]
-	if len(sampleRecord) == 0 {
-		return NewEditError("docs", "merge-data", templateID, "invalid_argument", "data records are empty", nil)
-	}
-
-	// Build preview of operations (first 3 records)
-	previewRecords := dataRecords
-	if len(previewRecords) > 3 {
-		previewRecords = previewRecords[:3]
-	}
-	operations := make([]map[string]any, 0, len(previewRecords))
-	for _, record := range previewRecords {
-		filename := FormatMergeFilename(c.FilenameFormat, record, c.IncludeTimestamp)
-		ops := make([]map[string]any, 0)
-		for key, value := range record {
-			ops = append(ops, map[string]any{
-				"operation": "ReplaceAllText",
-				"find":      fmt.Sprintf("{{%s}}", key),
-				"replace":   fmt.Sprintf("%v", value),
-			})
-		}
-		operations = append(operations, map[string]any{
-			"filename":   filename,
-			"operations": ops,
-		})
-	}
+	operations := buildMergeDataPreview(dataRecords, c.FilenameFormat, c.IncludeTimestamp, "ReplaceAllText")
 
 	requestHash, hashErr := RequestHash(dataRecords)
 	if hashErr != nil {
@@ -1165,13 +1140,7 @@ func (c *DocsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) error 
 		return NewEditError("docs", "merge-data", templateID, "service_init_failed", "create docs service failed", err)
 	}
 
-	outputFolderID := strings.TrimSpace(c.OutputFolderID)
-	if outputFolderID == "" {
-		templateMeta, metaErr := driveSvc.Files.Get(templateID).Fields("parents").Context(ctx).Do()
-		if metaErr == nil && templateMeta != nil && len(templateMeta.Parents) > 0 {
-			outputFolderID = strings.TrimSpace(templateMeta.Parents[0])
-		}
-	}
+	outputFolderID := resolveMergeDataOutputFolder(ctx, driveSvc, templateID, c.OutputFolderID)
 
 	results := make([]map[string]any, 0, len(dataRecords))
 	generatedCount := 0

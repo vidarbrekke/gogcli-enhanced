@@ -19,7 +19,7 @@ Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Sli
 - **Forms** - create/get forms and inspect responses
 - **Apps Script** - create/get projects, inspect content, and run functions
 - **Docs/Slides** - export to PDF/DOCX/PPTX via Drive (plus create/copy, docs-to-text)
-- **Docs editing** - inline edit commands via `gog docs edit` (`replace`, `append`, `insert`, `delete`, `batch`) with agentic safety controls
+- **Docs editing** - inline edit commands via `gog docs edit` (`replace`, `append`, `insert`, `delete`, `batch`, `merge-data`) with agentic safety controls
 - **People** - access profile information
 - **Keep (Workspace only)** - list/get/search notes and download attachments (service account + domain-wide delegation)
 - **Groups** - list groups you belong to, view group members (Google Workspace)
@@ -879,6 +879,9 @@ gog docs edit batch <docId> --requests-file ./ops.json --validate-only
 gog docs edit batch <docId> --requests-file ./ops.json --validate-only --pretty
 gog docs edit batch <docId> --requests-file ./ops.json --validate-only --output-request-file ./normalized.json
 # validate-only JSON output includes requestHash for idempotency/correlation
+# append validate-only/dry-run is local-safe (no auth/API calls)
+gog docs edit append <docId> $'\nRelease notes' --validate-only
+gog docs edit merge-data <templateId> --data-file ./records.json --dry-run
 gog docs edit replace <docId> "Draft" "Final" --dry-run --require-revision <revisionId>
 
 # Slides
@@ -1166,6 +1169,8 @@ cat ops.json | gog docs edit batch <docId> --requests-file -
 cat ops.json | gog docs edit batch <docId> --requests-file - --validate-only
 cat ops.json | gog docs edit batch <docId> --requests-file - --validate-only --pretty
 cat ops.json | gog docs edit batch <docId> --requests-file - --validate-only --output-request-file ./normalized.json
+gog docs edit append <docId> $'\nAppendix' --validate-only
+gog docs edit merge-data <templateId> --data-file ./records.json --dry-run
 gog docs edit replace <docId> "old text" "new text" --dry-run --require-revision <revisionId>
 ```
 

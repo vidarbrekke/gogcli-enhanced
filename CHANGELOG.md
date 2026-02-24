@@ -14,6 +14,9 @@
 - Contacts: support `--org`, `--title`, `--url`, `--note`, and `--custom` on create/update; include custom fields in get output with deterministic ordering. (#199) — thanks @phuctm97.
 
 ### Fixed
+- Docs: make `docs edit append --validate-only|--dry-run` local-safe (no auth/API dependency) and keep deterministic request metadata in JSON output.
+- Docs/Sheets: harden `edit merge-data` with shared parsing/preview helpers and explicit failure-stage coverage (`copy`, `batch-update`) in tests.
+- CLI tests: add cross-service contract tests for validate-only, dry-run, and structured error-envelope parity across Docs/Sheets/Slides edit commands.
 - Calendar: respond patches only attendees to avoid custom reminders validation errors. (#265) — thanks @sebasrodriguez.
 - Secrets: respect empty `GOG_KEYRING_PASSWORD` (treat set-to-empty as intentional; avoids headless prompts). (#269) — thanks @zerone0x.
 - Calendar: reject ambiguous calendar-name selectors for `calendar events` instead of guessing. (#131) — thanks @salmonumbrella.

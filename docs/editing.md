@@ -39,9 +39,11 @@ Returns:
 
 ```bash
 gog docs edit append <docId> $'\nChangelog:\n- item'
+gog --json docs edit append <docId> $'\nChangelog:\n- item' --validate-only
 ```
 
 Append inserts text right before the document's trailing newline.
+For `--validate-only` and `--dry-run`, append uses a safe local index preview and does not require auth/API calls.
 
 ### Insert text at index
 
@@ -88,6 +90,16 @@ cat ops.json | gog docs edit batch <docId> --requests-file - --validate-only --o
 ```
 
 `--validate-only` output also includes `requestHash` (SHA256 over normalized request JSON), which is useful for idempotency checks and agent step correlation.
+
+### Merge data (template -> many docs)
+
+```bash
+gog docs edit merge-data <templateId> --data-file ./records.json --validate-only
+gog docs edit merge-data <templateId> --data-file ./records.json --dry-run
+gog docs edit merge-data <templateId> --data-file ./records.json --filename-format "Offer - {{name}}" --output-folder-id <folderId>
+```
+
+`merge-data` returns per-record results with `status` and `stage` fields. Common failure stages include `copy` (template copy/create) and `batch-update` (placeholder replacement).
 
 ### Safety flags for agents
 

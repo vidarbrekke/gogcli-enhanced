@@ -1154,11 +1154,11 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 
 // SheetsEditMergeDataCmd generates Google Sheets from a template using JSON data (mail-merge).
 type SheetsEditMergeDataCmd struct {
-	TemplateID       string                 `arg:"" name:"templateId" help:"Template spreadsheet ID"`
-	DataFile         string                 `name:"data-file" help:"Path to JSON array of data objects"`
-	OutputFolderID   string                 `name:"output-folder-id" help:"Drive folder ID for output (default: same as template)"`
-	FilenameFormat   string                 `name:"filename-format" help:"Format for output filenames using {{placeholder}} syntax (default: 'Generated - {{name}}')"`
-	IncludeTimestamp bool                   `name:"include-timestamp" help:"Append timestamp to filename for uniqueness"`
+	TemplateID       string                `arg:"" name:"templateId" help:"Template spreadsheet ID"`
+	DataFile         string                `name:"data-file" help:"Path to JSON array of data objects"`
+	OutputFolderID   string                `name:"output-folder-id" help:"Drive folder ID for output (default: same as template)"`
+	FilenameFormat   string                `name:"filename-format" help:"Format for output filenames using {{placeholder}} syntax (default: 'Generated - {{name}}')"`
+	IncludeTimestamp bool                  `name:"include-timestamp" help:"Append timestamp to filename for uniqueness"`
 	Safety           SheetsEditSafetyFlags `embed:""`
 }
 
@@ -1175,45 +1175,13 @@ func (c *SheetsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 		return newSheetsEditError("merge-data", templateID, "invalid_argument", "empty data-file", nil)
 	}
 
-	dataBytes, err := os.ReadFile(dataFile) //nolint:gosec // user-provided path
+	dataRecords, sampleRecord, err := loadMergeDataRecords(dataFile, func(code, msg string, cause error) error {
+		return newSheetsEditError("merge-data", templateID, code, msg, cause)
+	})
 	if err != nil {
-		return newSheetsEditError("merge-data", templateID, "input_open_failed", "read data-file failed", err)
+		return err
 	}
-
-	var dataRecords []map[string]any
-	if jsonErr := json.Unmarshal(dataBytes, &dataRecords); jsonErr != nil {
-		return newSheetsEditError("merge-data", templateID, "invalid_json", "parse data-file failed", jsonErr)
-	}
-	if len(dataRecords) == 0 {
-		return newSheetsEditError("merge-data", templateID, "invalid_argument", "data-file contains no records", nil)
-	}
-
-	sampleRecord := dataRecords[0]
-	if len(sampleRecord) == 0 {
-		return newSheetsEditError("merge-data", templateID, "invalid_argument", "data records are empty", nil)
-	}
-
-	// Build preview of operations (first 3 records)
-	previewRecords := dataRecords
-	if len(previewRecords) > 3 {
-		previewRecords = previewRecords[:3]
-	}
-	operations := make([]map[string]any, 0, len(previewRecords))
-	for _, record := range previewRecords {
-		filename := FormatMergeFilename(c.FilenameFormat, record, c.IncludeTimestamp)
-		ops := make([]map[string]any, 0)
-		for key, value := range record {
-			ops = append(ops, map[string]any{
-				"operation": "FindReplace",
-				"find":      fmt.Sprintf("{{%s}}", key),
-				"replace":   fmt.Sprintf("%v", value),
-			})
-		}
-		operations = append(operations, map[string]any{
-			"filename":   filename,
-			"operations": ops,
-		})
-	}
+	operations := buildMergeDataPreview(dataRecords, c.FilenameFormat, c.IncludeTimestamp, "FindReplace")
 
 	requestHash, hashErr := RequestHash(dataRecords)
 	if hashErr != nil {
@@ -1279,13 +1247,7 @@ func (c *SheetsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 		return newSheetsEditError("merge-data", templateID, "service_init_failed", "create sheets service failed", err)
 	}
 
-	outputFolderID := strings.TrimSpace(c.OutputFolderID)
-	if outputFolderID == "" {
-		templateMeta, metaErr := driveSvc.Files.Get(templateID).Fields("parents").Context(ctx).Do()
-		if metaErr == nil && templateMeta != nil && len(templateMeta.Parents) > 0 {
-			outputFolderID = strings.TrimSpace(templateMeta.Parents[0])
-		}
-	}
+	outputFolderID := resolveMergeDataOutputFolder(ctx, driveSvc, templateID, c.OutputFolderID)
 
 	results := make([]map[string]any, 0, len(dataRecords))
 	generatedCount := 0
@@ -1324,12 +1286,12 @@ func (c *SheetsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 			textValue := fmt.Sprintf("%v", value)
 			req.Requests = append(req.Requests, &sheets.Request{
 				FindReplace: &sheets.FindReplaceRequest{
-					Find:              fmt.Sprintf("{{%s}}", key),
-					Replacement:       textValue,
-					AllSheets:         true,
-					MatchCase:         false,
-					SearchByRegex:     false,
-					IncludeFormulas:   false,
+					Find:            fmt.Sprintf("{{%s}}", key),
+					Replacement:     textValue,
+					AllSheets:       true,
+					MatchCase:       false,
+					SearchByRegex:   false,
+					IncludeFormulas: false,
 				},
 			})
 		}
@@ -1380,7 +1342,7 @@ func (c *SheetsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 		}
 
 		results = append(results, map[string]any{
-			"index":          i,
+			"index":         i,
 			"status":        "success",
 			"spreadsheetId": newSheetID,
 			"title":         filename,

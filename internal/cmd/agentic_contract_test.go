@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,7 +32,8 @@ func TestAgenticContract(t *testing.T) {
 				err := NewEditError(tc.service, tc.operation, "test-id", tc.code, "test message", nil)
 				require.Error(t, err)
 
-				editErr, ok := err.(*EditError)
+				var editErr *EditError
+				ok := errors.As(err, &editErr)
 				require.True(t, ok, "error should be *EditError")
 
 				fields := editErr.JSONErrorFields()
@@ -124,6 +126,153 @@ func TestAgenticContract(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestCrossServiceValidateOnlyAndDryRunContract(t *testing.T) {
+	validateCases := []struct {
+		name      string
+		args      []string
+		idField   string
+		idValue   string
+		operation string
+	}{
+		{
+			name:      "docs_insert_validate_only",
+			args:      []string{"--json", "docs", "edit", "insert", "d1", "x", "--validate-only"},
+			idField:   "documentId",
+			idValue:   "d1",
+			operation: "insert",
+		},
+		{
+			name:      "sheets_values_validate_only",
+			args:      []string{"--json", "sheets", "edit", "values", "s1", "A1", "x", "--validate-only"},
+			idField:   "spreadsheetId",
+			idValue:   "s1",
+			operation: "values",
+		},
+		{
+			name:      "slides_replace_text_validate_only",
+			args:      []string{"--json", "slides", "edit", "replace-text", "p1", "--find", "a", "--replace", "b", "--validate-only"},
+			idField:   "presentationId",
+			idValue:   "p1",
+			operation: "replace-text",
+		},
+	}
+
+	for _, tc := range validateCases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := captureStdout(t, func() {
+				stderr := captureStderr(t, func() {
+					err := Execute(tc.args)
+					require.NoError(t, err)
+				})
+				require.Empty(t, stderr)
+			})
+
+			var parsed map[string]any
+			require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+			assert.Equal(t, true, parsed["validateOnly"])
+			assert.Equal(t, true, parsed["valid"])
+			assert.Equal(t, tc.idValue, parsed[tc.idField])
+
+			hash, ok := parsed["requestHash"].(string)
+			if !ok || len(hash) != 64 {
+				t.Fatalf("%s requestHash=%v", tc.operation, parsed["requestHash"])
+			}
+		})
+	}
+
+	dryRunCases := []struct {
+		name    string
+		args    []string
+		service string
+	}{
+		{
+			name:    "docs_insert_dry_run",
+			args:    []string{"--json", "docs", "edit", "insert", "d1", "x", "--dry-run"},
+			service: "docs",
+		},
+		{
+			name:    "sheets_values_dry_run",
+			args:    []string{"--json", "sheets", "edit", "values", "s1", "A1", "x", "--dry-run"},
+			service: "sheets",
+		},
+		{
+			name:    "slides_replace_text_dry_run",
+			args:    []string{"--json", "slides", "edit", "replace-text", "p1", "--find", "a", "--replace", "b", "--dry-run"},
+			service: "slides",
+		},
+	}
+
+	for _, tc := range dryRunCases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := captureStdout(t, func() {
+				stderr := captureStderr(t, func() {
+					err := Execute(tc.args)
+					require.NoError(t, err)
+				})
+				require.Empty(t, stderr)
+			})
+
+			var parsed map[string]any
+			require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+			assert.Equal(t, true, parsed["dryRun"])
+			assert.Equal(t, tc.service, parsed["service"])
+			assert.NotEmpty(t, parsed["resourceId"], "resourceId should be present")
+			_, hasRequest := parsed["request"]
+			assert.True(t, hasRequest, "dry-run payload should include request")
+		})
+	}
+}
+
+func TestCrossServiceErrorEnvelopeContract(t *testing.T) {
+	testCases := []struct {
+		name      string
+		args      []string
+		service   string
+		operation string
+		code      string
+	}{
+		{
+			name:      "docs_insert_missing_text",
+			args:      []string{"--json", "docs", "edit", "insert", "d1", "   "},
+			service:   "docs",
+			operation: "insert",
+			code:      "invalid_argument",
+		},
+		{
+			name:      "sheets_values_missing_range",
+			args:      []string{"--json", "sheets", "edit", "values", "s1", "   ", "x"},
+			service:   "sheets",
+			operation: "values",
+			code:      "invalid_argument",
+		},
+		{
+			name:      "slides_replace_text_missing_find",
+			args:      []string{"--json", "slides", "edit", "replace-text", "p1", "--replace", "x"},
+			service:   "slides",
+			operation: "replace-text",
+			code:      "invalid_argument",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			stderr := captureStderr(t, func() {
+				err := Execute(tc.args)
+				require.Error(t, err)
+			})
+			var parsed map[string]any
+			require.NoError(t, json.Unmarshal([]byte(stderr), &parsed), fmt.Sprintf("stderr=%q", stderr))
+
+			errObj, ok := parsed["error"].(map[string]any)
+			require.True(t, ok, "missing error object")
+			assert.Equal(t, tc.code, errObj["error_code"])
+			assert.Equal(t, tc.service, errObj["service"])
+			assert.Equal(t, tc.operation, errObj["operation"])
+			assert.NotEmpty(t, errObj["message"])
+		})
+	}
 }
 
 // TestServiceSpecificHardening tests each service follows the agentic pattern.
