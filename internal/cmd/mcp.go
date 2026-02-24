@@ -15,6 +15,9 @@ type MCPCmd struct {
 type MCPServeCmd struct{}
 
 func (c *MCPServeCmd) Run(ctx context.Context) error {
+	// CLI runs use injected I/O only: each tool call gets fresh buffers and
+	// ExecuteWithIO(args, outBuf, errBuf). No global os.Stdout/os.Stderr swap
+	// and no pipes, so no deadlock or FD leak from concurrent or large output.
 	s := mcp.NewGoogleServer(func(args []string) (string, string, error) {
 		var outBuf bytes.Buffer
 		var errBuf bytes.Buffer
