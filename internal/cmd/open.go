@@ -112,7 +112,7 @@ func bestEffortWebURL(kind string, input string) string {
 			return fmt.Sprintf("https://drive.google.com/drive/folders/%s", id)
 		}
 		return ""
-	case "docs":
+	case docsService:
 		if id != "" {
 			return fmt.Sprintf("https://docs.google.com/document/d/%s/edit", id)
 		}

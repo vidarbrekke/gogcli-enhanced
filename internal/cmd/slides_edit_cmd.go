@@ -64,7 +64,7 @@ func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	// Read request body
 	var reader io.Reader = os.Stdin
 	if requestsFile != "-" {
-		f, openErr := os.Open(requestsFile)
+		f, openErr := os.Open(requestsFile) //nolint:gosec // user-provided path
 		if openErr != nil {
 			return NewEditError("slides", "batch", presentationID, "input_open_failed", "open requests-file failed", openErr)
 		}
@@ -87,7 +87,8 @@ func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			idx := i
 			err := NewEditError("slides", "batch", presentationID, "invalid_request",
 				fmt.Sprintf("request[%d] must set exactly one operation field", i), nil)
-			if editErr, ok := err.(*EditError); ok {
+			var editErr *EditError
+			if errors.As(err, &editErr) {
 				editErr.RequestIndex = &idx
 			}
 			return err
@@ -339,14 +340,14 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 	}
 
 	// Read and parse the data file
-	dataBytes, err := os.ReadFile(dataFile)
+	dataBytes, err := os.ReadFile(dataFile) //nolint:gosec // user-provided path
 	if err != nil {
 		return NewEditError("slides", "merge-data", templateID, "input_open_failed", "read data-file failed", err)
 	}
 
 	var dataRecords []map[string]any
-	if err := json.Unmarshal(dataBytes, &dataRecords); err != nil {
-		return NewEditError("slides", "merge-data", templateID, "invalid_json", "parse data-file failed", err)
+	if unmarshalErr := json.Unmarshal(dataBytes, &dataRecords); unmarshalErr != nil {
+		return NewEditError("slides", "merge-data", templateID, "invalid_json", "parse data-file failed", unmarshalErr)
 	}
 	if len(dataRecords) == 0 {
 		return NewEditError("slides", "merge-data", templateID, "invalid_argument", "data-file contains no records", nil)
@@ -421,7 +422,7 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 
 		// Add full preview if --pretty
 		if c.Safety.Pretty {
-			if norm, err := NormalizedRequestString(dataRecords); err == nil {
+			if norm, normErr := NormalizedRequestString(dataRecords); normErr == nil {
 				dryRunPayload["normalizedData"] = norm
 			}
 		}
@@ -1435,7 +1436,7 @@ func parseSlidesTableData(path string) ([][]string, error) {
 	if path == "" {
 		return nil, nil
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // user-provided path
 	if err != nil {
 		return nil, err
 	}

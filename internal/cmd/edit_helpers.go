@@ -20,6 +20,8 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
+const docsService = "docs"
+
 // AgenticEditSafetyFlags provides common safety flags across all edit commands.
 // Docs, Sheets, and Slides edit commands embed this struct.
 type AgenticEditSafetyFlags struct {
@@ -42,7 +44,7 @@ func warnRequireRevisionUnsupported(ctx context.Context, u *ui.UI, safety Agenti
 	if strings.TrimSpace(safety.RequireRevision) == "" {
 		return
 	}
-	if service == "docs" || outfmt.IsJSON(ctx) || u == nil {
+	if service == docsService || outfmt.IsJSON(ctx) || u == nil {
 		return
 	}
 	u.Err().Printf("Warning: --require-revision is not supported for %s edits and will be ignored", service)
@@ -208,7 +210,7 @@ func DecodeExecuteRequestIfProvided(path string, dst any) (bool, error) {
 	if dst == nil {
 		return false, errors.New("nil destination")
 	}
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) //nolint:gosec // user-provided path
 	if err != nil {
 		return false, err
 	}
@@ -330,12 +332,12 @@ func DryRunOutput(ctx context.Context, u *ui.UI, service, resourceID string, req
 // DocsDryRunOutput is a backward-compatible wrapper for Docs dry-run output.
 // Uses the new shared DryRunOutput under the hood.
 func DocsDryRunOutput(ctx context.Context, u *ui.UI, docID string, req any, extra map[string]any) error {
-	return DryRunOutput(ctx, u, "docs", docID, req, extra, false)
+	return DryRunOutput(ctx, u, docsService, docID, req, extra, false)
 }
 
 // DocsDryRunOutputWithOpts includes pretty-printed request info.
 func DocsDryRunOutputWithOpts(ctx context.Context, u *ui.UI, docID string, req any, extra map[string]any, includePretty bool) error {
-	return DryRunOutput(ctx, u, "docs", docID, req, extra, includePretty)
+	return DryRunOutput(ctx, u, docsService, docID, req, extra, includePretty)
 }
 
 // SheetsDryRunOutput is a wrapper for Sheets dry-run output.

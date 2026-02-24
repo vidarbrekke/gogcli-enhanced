@@ -17,6 +17,8 @@ import (
 
 var newSheetsService = googleapi.NewSheets
 
+const sheetsValueInputUserEntered = "USER_ENTERED"
+
 // cleanRange removes shell escape sequences from range arguments.
 // Some shells escape ! to \! (bash history expansion), which breaks Google Sheets API calls.
 func cleanRange(r string) string {
@@ -184,7 +186,7 @@ func (c *SheetsUpdateCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	valueInputOption := strings.TrimSpace(c.ValueInput)
 	if valueInputOption == "" {
-		valueInputOption = "USER_ENTERED"
+		valueInputOption = sheetsValueInputUserEntered
 	}
 
 	if err := dryRunExit(ctx, flags, "sheets.update", map[string]any{
@@ -292,7 +294,7 @@ func (c *SheetsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	valueInputOption := strings.TrimSpace(c.ValueInput)
 	if valueInputOption == "" {
-		valueInputOption = "USER_ENTERED"
+		valueInputOption = sheetsValueInputUserEntered
 	}
 	insertDataOption := strings.TrimSpace(c.Insert)
 

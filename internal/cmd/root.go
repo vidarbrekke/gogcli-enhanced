@@ -247,7 +247,7 @@ func wantsJSONFromArgsOrEnv(args []string) bool {
 		}
 	}
 	v := strings.ToLower(strings.TrimSpace(os.Getenv("GOG_JSON")))
-	return v == "1" || v == "true" || v == "yes"
+	return v == "1" || v == strTrue || v == "yes"
 }
 
 func rewriteDesirePathArgs(args []string) []string {

@@ -16,6 +16,11 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
+const (
+	sheetsShiftRows    = "ROWS"
+	sheetsShiftColumns = "COLUMNS"
+)
+
 type SheetsEditCmd struct {
 	Values      SheetsEditValuesCmd      `cmd:"" name:"values" help:"Update cell values in a range"`
 	Append      SheetsEditAppendCmd      `cmd:"" name:"append" help:"Append rows to a sheet"`
@@ -57,7 +62,7 @@ func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	valueInputOption := strings.TrimSpace(c.ValueInput)
 	if valueInputOption == "" {
-		valueInputOption = "USER_ENTERED"
+		valueInputOption = sheetsValueInputUserEntered
 	}
 
 	req := &sheetsEditValuesRequest{
@@ -67,15 +72,15 @@ func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 		ValueInputOption:   valueInputOption,
 		CopyValidationFrom: strings.TrimSpace(c.CopyValidationFrom),
 	}
-	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
-		return newSheetsEditError("values", spreadsheetID, "invalid_json", "decode execute-from-file failed", err)
+	if _, decodeErr := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); decodeErr != nil {
+		return newSheetsEditError("values", spreadsheetID, "invalid_json", "decode execute-from-file failed", decodeErr)
 	}
 	spreadsheetID = normalizeGoogleID(strings.TrimSpace(req.SpreadsheetID))
 	rangeSpec = cleanRange(req.Range)
 	values = req.Values
 	valueInputOption = strings.TrimSpace(req.ValueInputOption)
 	if valueInputOption == "" {
-		valueInputOption = "USER_ENTERED"
+		valueInputOption = sheetsValueInputUserEntered
 	}
 
 	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
@@ -207,8 +212,8 @@ func (c *SheetsEditAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		InsertDataOption:   insertDataOption,
 		CopyValidationFrom: strings.TrimSpace(c.CopyValidationFrom),
 	}
-	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
-		return newSheetsEditError("append", spreadsheetID, "invalid_json", "decode execute-from-file failed", err)
+	if _, decodeErr := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); decodeErr != nil {
+		return newSheetsEditError("append", spreadsheetID, "invalid_json", "decode execute-from-file failed", decodeErr)
 	}
 	spreadsheetID = normalizeGoogleID(strings.TrimSpace(req.SpreadsheetID))
 	rangeSpec = cleanRange(req.Range)
@@ -428,7 +433,7 @@ func (c *SheetsEditDeleteRangeCmd) Run(ctx context.Context, flags *RootFlags) er
 	if strings.TrimSpace(rangeSpec) == "" {
 		return newSheetsEditError("delete-range", spreadsheetID, "invalid_argument", "empty range", usage("empty range"))
 	}
-	if shiftDim != "ROWS" && shiftDim != "COLUMNS" {
+	if shiftDim != sheetsShiftRows && shiftDim != sheetsShiftColumns {
 		return newSheetsEditError("delete-range", spreadsheetID, "invalid_argument", "shift-dimension must be ROWS or COLUMNS", usage("shift-dimension must be ROWS or COLUMNS"))
 	}
 	if _, err := parseSheetRange(rangeSpec, "delete-range"); err != nil {
@@ -450,7 +455,7 @@ func (c *SheetsEditDeleteRangeCmd) Run(ctx context.Context, flags *RootFlags) er
 	rangeSpec = cleanRange(req.Range)
 	shiftDim = strings.TrimSpace(strings.ToUpper(req.ShiftDimension))
 	if shiftDim == "" {
-		shiftDim = "ROWS"
+		shiftDim = sheetsShiftRows
 	}
 
 	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
@@ -575,16 +580,16 @@ func (c *SheetsEditFormatCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return newSheetsEditError("format", spreadsheetID, "invalid_json", "read --format-json failed", err)
 	}
 	var format sheets.CellFormat
-	if err := json.Unmarshal(b, &format); err != nil {
-		return newSheetsEditError("format", spreadsheetID, "invalid_json", "invalid format JSON", err)
+	if unmarshalErr := json.Unmarshal(b, &format); unmarshalErr != nil {
+		return newSheetsEditError("format", spreadsheetID, "invalid_json", "invalid format JSON", unmarshalErr)
 	}
 	formatFields := strings.TrimSpace(c.FormatFields)
 	normalizedFields, formatJSONPaths := normalizeFormatMask(formatFields)
 	if normalizedFields != "" {
 		formatFields = normalizedFields
 	}
-	if err := applyForceSendFields(&format, formatJSONPaths); err != nil {
-		return newSheetsEditError("format", spreadsheetID, "invalid_argument", "invalid format-fields", err)
+	if forceFieldsErr := applyForceSendFields(&format, formatJSONPaths); forceFieldsErr != nil {
+		return newSheetsEditError("format", spreadsheetID, "invalid_argument", "invalid format-fields", forceFieldsErr)
 	}
 	rangeInfo, err := parseSheetRange(rangeSpec, "format")
 	if err != nil {
@@ -602,8 +607,8 @@ func (c *SheetsEditFormatCmd) Run(ctx context.Context, flags *RootFlags) error {
 			},
 		},
 	}
-	if _, err := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); err != nil {
-		return newSheetsEditError("format", spreadsheetID, "invalid_json", "decode execute-from-file failed", err)
+	if _, decodeErr := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, req); decodeErr != nil {
+		return newSheetsEditError("format", spreadsheetID, "invalid_json", "decode execute-from-file failed", decodeErr)
 	}
 	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
 	if normErr != nil {
@@ -620,7 +625,7 @@ func (c *SheetsEditFormatCmd) Run(ctx context.Context, flags *RootFlags) error {
 			"requestHash":   hash,
 		}
 		if normalizedForJSON != "" || c.Safety.Pretty {
-			if norm, err := NormalizedRequestString(req); err == nil {
+			if norm, normErr := NormalizedRequestString(req); normErr == nil {
 				payload["normalizedRequest"] = norm
 			}
 		}
@@ -697,12 +702,12 @@ func (c *SheetsEditInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return newSheetsEditError("insert", spreadsheetID, "invalid_argument", "empty sheet", usage("empty sheet"))
 	}
 	dim := strings.ToLower(strings.TrimSpace(c.Dimension))
-	apiDimension := ""
+	var apiDimension string
 	switch dim {
 	case "rows", "row":
-		apiDimension = "ROWS"
+		apiDimension = sheetsShiftRows
 	case "cols", "col", "columns", "column":
-		apiDimension = "COLUMNS"
+		apiDimension = sheetsShiftColumns
 	default:
 		return newSheetsEditError("insert", spreadsheetID, "invalid_argument", "dimension must be rows or cols", usage("dimension must be rows or cols"))
 	}
@@ -1130,7 +1135,7 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 	}
 
 	var replacements int64
-	if resp.Replies != nil && len(resp.Replies) > 0 && resp.Replies[0] != nil && resp.Replies[0].FindReplace != nil {
+	if len(resp.Replies) > 0 && resp.Replies[0] != nil && resp.Replies[0].FindReplace != nil {
 		replacements = resp.Replies[0].FindReplace.OccurrencesChanged
 	}
 
