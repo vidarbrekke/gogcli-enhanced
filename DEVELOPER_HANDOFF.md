@@ -172,6 +172,12 @@ For each Sheets/Docs edit command:
 4. **Slides (VID-96):** Complete remaining slides operations
 5. **Hardening (VID-97):** Standardize JSON shape across all services
 6. **Docs (VID-98):** Update README, AGENTS.md, CHANGELOG
+7. **MergeData hardening follow-up:**
+   - Extract shared helpers for Docs/Sheets merge-data (`parseMergeData`, replace-op builders, Drive copy/move helper)
+   - Add failure-path tests (copy failure, template not found, batch-update failure)
+   - Normalize merge-data response/error schema across Docs/Sheets/Slides
+   - Run lint cleanup focused on files touched in Phase 3
+   - Create a separate lint-debt cleanup pass for pre-existing repo issues
 
 ---
 
