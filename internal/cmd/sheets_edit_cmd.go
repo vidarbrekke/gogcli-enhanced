@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/sheets/v4"
 
 	"github.com/steipete/gogcli/internal/outfmt"
@@ -16,14 +17,15 @@ import (
 )
 
 type SheetsEditCmd struct {
-	Values       SheetsEditValuesCmd       `cmd:"" name:"values" help:"Update cell values in a range"`
-	Append       SheetsEditAppendCmd       `cmd:"" name:"append" help:"Append rows to a sheet"`
-	Clear        SheetsEditClearCmd        `cmd:"" name:"clear" help:"Clear values in a range"`
-	DeleteRange  SheetsEditDeleteRangeCmd  `cmd:"" name:"delete-range" help:"Delete a range and shift cells (ROWS or COLUMNS)"`
-	ReplaceText  SheetsEditReplaceTextCmd  `cmd:"" name:"replace-text" help:"Find and replace text across sheet cells"`
-	Format       SheetsEditFormatCmd       `cmd:"" name:"format" help:"Apply cell formatting in a range"`
-	Insert       SheetsEditInsertCmd       `cmd:"" name:"insert" help:"Insert rows/columns in a sheet"`
-	Batch        SheetsEditBatchCmd        `cmd:"" name:"batch" help:"Apply multiple Sheets API batch operations from JSON"`
+	Values      SheetsEditValuesCmd      `cmd:"" name:"values" help:"Update cell values in a range"`
+	Append      SheetsEditAppendCmd      `cmd:"" name:"append" help:"Append rows to a sheet"`
+	Clear       SheetsEditClearCmd       `cmd:"" name:"clear" help:"Clear values in a range"`
+	DeleteRange SheetsEditDeleteRangeCmd `cmd:"" name:"delete-range" help:"Delete a range and shift cells (ROWS or COLUMNS)"`
+	MergeData   SheetsEditMergeDataCmd   `cmd:"" name:"merge-data" help:"Generate sheets from template using JSON data (mail-merge)"`
+	ReplaceText SheetsEditReplaceTextCmd `cmd:"" name:"replace-text" help:"Find and replace text across sheet cells"`
+	Format      SheetsEditFormatCmd      `cmd:"" name:"format" help:"Apply cell formatting in a range"`
+	Insert      SheetsEditInsertCmd      `cmd:"" name:"insert" help:"Insert rows/columns in a sheet"`
+	Batch       SheetsEditBatchCmd       `cmd:"" name:"batch" help:"Apply multiple Sheets API batch operations from JSON"`
 }
 
 type SheetsEditValuesCmd struct {
@@ -402,16 +404,16 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 // SheetsEditDeleteRangeCmd deletes a range and shifts cells (ROWS or COLUMNS). VID-111.
 type SheetsEditDeleteRangeCmd struct {
-	SpreadsheetID   string                `arg:"" name:"spreadsheetId" help:"Spreadsheet ID"`
+	SpreadsheetID  string                `arg:"" name:"spreadsheetId" help:"Spreadsheet ID"`
 	Range          string                `arg:"" name:"range" help:"Range to delete (eg. Sheet1!A1:C10)"`
 	ShiftDimension string                `name:"shift-dimension" help:"How to shift: ROWS or COLUMNS" enum:"ROWS,COLUMNS" default:"ROWS"`
 	Safety         SheetsEditSafetyFlags `embed:""`
 }
 
 type sheetsEditDeleteRangeRequest struct {
-	SpreadsheetID   string `json:"spreadsheetId"`
-	Range           string `json:"range"`
-	ShiftDimension  string `json:"shiftDimension"`
+	SpreadsheetID  string `json:"spreadsheetId"`
+	Range          string `json:"range"`
+	ShiftDimension string `json:"shiftDimension"`
 }
 
 func (c *SheetsEditDeleteRangeCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -1036,14 +1038,14 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 		Requests: []*sheets.Request{
 			{
 				FindReplace: &sheets.FindReplaceRequest{
-					Find:             find,
-					Replacement:      replace,
-					MatchCase:        c.MatchCase,
-					MatchEntireCell:  c.MatchEntireCell,
-					SearchByRegex:    c.UseRegex,
-					IncludeFormulas:  c.IncludeFormulas,
-					AllSheets:        c.AllSheets,
-					SheetId:          c.SheetID, // 0 if not specified, which includes all sheets when AllSheets is true
+					Find:            find,
+					Replacement:     replace,
+					MatchCase:       c.MatchCase,
+					MatchEntireCell: c.MatchEntireCell,
+					SearchByRegex:   c.UseRegex,
+					IncludeFormulas: c.IncludeFormulas,
+					AllSheets:       c.AllSheets,
+					SheetId:         c.SheetID, // 0 if not specified, which includes all sheets when AllSheets is true
 				},
 			},
 		},
@@ -1064,17 +1066,17 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 
 	if c.Safety.ValidateOnly {
 		payload := map[string]any{
-			"validateOnly":      true,
-			"valid":             true,
-			"spreadsheetId":     spreadsheetID,
-			"find":              find,
-			"replace":           replace,
-			"matchCase":         c.MatchCase,
-			"matchEntireCell":   c.MatchEntireCell,
-			"useRegex":          c.UseRegex,
-			"includeFormulas":   c.IncludeFormulas,
-			"allSheets":         c.AllSheets,
-			"requestHash":       requestHash,
+			"validateOnly":    true,
+			"valid":           true,
+			"spreadsheetId":   spreadsheetID,
+			"find":            find,
+			"replace":         replace,
+			"matchCase":       c.MatchCase,
+			"matchEntireCell": c.MatchEntireCell,
+			"useRegex":        c.UseRegex,
+			"includeFormulas": c.IncludeFormulas,
+			"allSheets":       c.AllSheets,
+			"requestHash":     requestHash,
 		}
 		if c.SheetID != 0 {
 			payload["sheetId"] = c.SheetID
@@ -1101,15 +1103,15 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 			scope = fmt.Sprintf("sheet %d", c.SheetID)
 		}
 		return DryRunOutput(ctx, u, "sheets", spreadsheetID, req, map[string]any{
-			"find":               find,
-			"replace":            replace,
-			"scope":              scope,
-			"matchCase":          c.MatchCase,
-			"matchEntireCell":    c.MatchEntireCell,
-			"useRegex":           c.UseRegex,
-			"includeFormulas":    c.IncludeFormulas,
-			"requestHash":        requestHash,
-			"normalizedRequest":  normalizedForJSON,
+			"find":              find,
+			"replace":           replace,
+			"scope":             scope,
+			"matchCase":         c.MatchCase,
+			"matchEntireCell":   c.MatchEntireCell,
+			"useRegex":          c.UseRegex,
+			"includeFormulas":   c.IncludeFormulas,
+			"requestHash":       requestHash,
+			"normalizedRequest": normalizedForJSON,
 		}, c.Safety.Pretty)
 	}
 
@@ -1147,5 +1149,259 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 	}
 	u.Out().Printf("id\t%s", spreadsheetID)
 	u.Out().Printf("replaced\t%d", replacements)
+	return nil
+}
+
+// SheetsEditMergeDataCmd generates Google Sheets from a template using JSON data (mail-merge).
+type SheetsEditMergeDataCmd struct {
+	TemplateID       string                 `arg:"" name:"templateId" help:"Template spreadsheet ID"`
+	DataFile         string                 `name:"data-file" help:"Path to JSON array of data objects"`
+	OutputFolderID   string                 `name:"output-folder-id" help:"Drive folder ID for output (default: same as template)"`
+	FilenameFormat   string                 `name:"filename-format" help:"Format for output filenames using {{placeholder}} syntax (default: 'Generated - {{name}}')"`
+	IncludeTimestamp bool                   `name:"include-timestamp" help:"Append timestamp to filename for uniqueness"`
+	Safety           SheetsEditSafetyFlags `embed:""`
+}
+
+func (c *SheetsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	warnRequireRevisionUnsupported(ctx, u, c.Safety, "sheets")
+	templateID := strings.TrimSpace(normalizeGoogleID(c.TemplateID))
+	dataFile := strings.TrimSpace(c.DataFile)
+
+	if templateID == "" {
+		return newSheetsEditError("merge-data", templateID, "invalid_argument", "empty templateId", nil)
+	}
+	if dataFile == "" {
+		return newSheetsEditError("merge-data", templateID, "invalid_argument", "empty data-file", nil)
+	}
+
+	dataBytes, err := os.ReadFile(dataFile) //nolint:gosec // user-provided path
+	if err != nil {
+		return newSheetsEditError("merge-data", templateID, "input_open_failed", "read data-file failed", err)
+	}
+
+	var dataRecords []map[string]any
+	if jsonErr := json.Unmarshal(dataBytes, &dataRecords); jsonErr != nil {
+		return newSheetsEditError("merge-data", templateID, "invalid_json", "parse data-file failed", jsonErr)
+	}
+	if len(dataRecords) == 0 {
+		return newSheetsEditError("merge-data", templateID, "invalid_argument", "data-file contains no records", nil)
+	}
+
+	sampleRecord := dataRecords[0]
+	if len(sampleRecord) == 0 {
+		return newSheetsEditError("merge-data", templateID, "invalid_argument", "data records are empty", nil)
+	}
+
+	// Build preview of operations (first 3 records)
+	previewRecords := dataRecords
+	if len(previewRecords) > 3 {
+		previewRecords = previewRecords[:3]
+	}
+	operations := make([]map[string]any, 0, len(previewRecords))
+	for _, record := range previewRecords {
+		filename := FormatMergeFilename(c.FilenameFormat, record, c.IncludeTimestamp)
+		ops := make([]map[string]any, 0)
+		for key, value := range record {
+			ops = append(ops, map[string]any{
+				"operation": "FindReplace",
+				"find":      fmt.Sprintf("{{%s}}", key),
+				"replace":   fmt.Sprintf("%v", value),
+			})
+		}
+		operations = append(operations, map[string]any{
+			"filename":   filename,
+			"operations": ops,
+		})
+	}
+
+	requestHash, hashErr := RequestHash(dataRecords)
+	if hashErr != nil {
+		return newSheetsEditError("merge-data", templateID, "invalid_request", "failed to hash data", hashErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly":   true,
+			"valid":          true,
+			"templateId":     templateID,
+			"recordCount":    len(dataRecords),
+			"sampleFilename": FormatMergeFilename(c.FilenameFormat, sampleRecord, c.IncludeTimestamp),
+			"requestHash":    requestHash,
+			"operations":     operations,
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("template\t%s", templateID)
+		u.Out().Printf("records\t%d", len(dataRecords))
+		u.Out().Printf("sample-filename\t%s", payload["sampleFilename"])
+		return nil
+	}
+
+	if isEditDryRun(flags, c.Safety) {
+		dryRunPayload := map[string]any{
+			"dryRun":      true,
+			"service":     "sheets",
+			"templateId":  templateID,
+			"recordCount": len(dataRecords),
+			"requestHash": requestHash,
+			"operations":  operations,
+		}
+		if c.Safety.Pretty {
+			if norm, normErr := NormalizedRequestString(dataRecords); normErr == nil {
+				dryRunPayload["normalizedData"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, dryRunPayload)
+		}
+		u.Out().Printf("dry-run\ttrue")
+		u.Out().Printf("service\tsheets")
+		u.Out().Printf("template\t%s", templateID)
+		u.Out().Printf("records\t%d", len(dataRecords))
+		return nil
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+
+	driveSvc, err := newDriveService(ctx, account)
+	if err != nil {
+		return newSheetsEditError("merge-data", templateID, "service_init_failed", "create drive service failed", err)
+	}
+	sheetsSvc, err := newSheetsService(ctx, account)
+	if err != nil {
+		return newSheetsEditError("merge-data", templateID, "service_init_failed", "create sheets service failed", err)
+	}
+
+	outputFolderID := strings.TrimSpace(c.OutputFolderID)
+	if outputFolderID == "" {
+		templateMeta, metaErr := driveSvc.Files.Get(templateID).Fields("parents").Context(ctx).Do()
+		if metaErr == nil && templateMeta != nil && len(templateMeta.Parents) > 0 {
+			outputFolderID = strings.TrimSpace(templateMeta.Parents[0])
+		}
+	}
+
+	results := make([]map[string]any, 0, len(dataRecords))
+	generatedCount := 0
+	failedCount := 0
+
+	for i, record := range dataRecords {
+		filename := FormatMergeFilename(c.FilenameFormat, record, c.IncludeTimestamp)
+
+		// 1. Copy template via Drive
+		copyFile := &drive.File{Name: filename}
+		if outputFolderID != "" {
+			copyFile.Parents = []string{outputFolderID}
+		}
+		copied, copyErr := driveSvc.Files.Copy(templateID, copyFile).Context(ctx).Do()
+		if copyErr != nil {
+			if IsNotFound(copyErr) {
+				results = append(results, map[string]any{
+					"index": i, "status": "failed", "error": copyErr.Error(),
+					"stage": "copy", "error_code": "template_not_found",
+				})
+			} else {
+				results = append(results, map[string]any{
+					"index": i, "status": "failed", "error": copyErr.Error(), "stage": "copy",
+				})
+			}
+			failedCount++
+			continue
+		}
+		newSheetID := copied.Id
+
+		// 2. FindReplace for each placeholder (all sheets, value cells only)
+		req := &sheets.BatchUpdateSpreadsheetRequest{
+			Requests: make([]*sheets.Request, 0, len(record)),
+		}
+		for key, value := range record {
+			textValue := fmt.Sprintf("%v", value)
+			req.Requests = append(req.Requests, &sheets.Request{
+				FindReplace: &sheets.FindReplaceRequest{
+					Find:              fmt.Sprintf("{{%s}}", key),
+					Replacement:       textValue,
+					AllSheets:         true,
+					MatchCase:         false,
+					SearchByRegex:     false,
+					IncludeFormulas:   false,
+				},
+			})
+		}
+
+		_, batchErr := sheetsSvc.Spreadsheets.BatchUpdate(newSheetID, req).Context(ctx).Do()
+		if batchErr != nil {
+			results = append(results, map[string]any{
+				"index": i, "status": "failed", "error": batchErr.Error(),
+				"stage": "batch-update", "spreadsheetId": newSheetID,
+			})
+			failedCount++
+			continue
+		}
+
+		// 3. Move to output folder if different from copy parent
+		if outputFolderID != "" && copied.Parents != nil {
+			alreadyInFolder := false
+			for _, p := range copied.Parents {
+				if strings.TrimSpace(p) == outputFolderID {
+					alreadyInFolder = true
+					break
+				}
+			}
+			if !alreadyInFolder {
+				fileMeta, getErr := driveSvc.Files.Get(newSheetID).Fields("parents").Context(ctx).Do()
+				if getErr != nil {
+					results = append(results, map[string]any{
+						"index": i, "status": "failed", "error": getErr.Error(),
+						"stage": "get-parents", "spreadsheetId": newSheetID,
+					})
+					failedCount++
+					continue
+				}
+				removeParents := strings.Join(fileMeta.Parents, ",")
+				moveCall := driveSvc.Files.Update(newSheetID, &drive.File{}).AddParents(outputFolderID)
+				if strings.TrimSpace(removeParents) != "" {
+					moveCall = moveCall.RemoveParents(removeParents)
+				}
+				if _, moveErr := moveCall.Context(ctx).Do(); moveErr != nil {
+					results = append(results, map[string]any{
+						"index": i, "status": "failed", "error": moveErr.Error(),
+						"stage": "move-output", "spreadsheetId": newSheetID,
+					})
+					failedCount++
+					continue
+				}
+			}
+		}
+
+		results = append(results, map[string]any{
+			"index":          i,
+			"status":        "success",
+			"spreadsheetId": newSheetID,
+			"title":         filename,
+		})
+		generatedCount++
+	}
+
+	payload := map[string]any{
+		"templateId":     templateID,
+		"recordCount":    len(dataRecords),
+		"generated":      generatedCount,
+		"failed":         failedCount,
+		"outputFolderId": outputFolderID,
+		"results":        results,
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+	}
+	u.Out().Printf("template\t%s", templateID)
+	u.Out().Printf("records\t%d", len(dataRecords))
+	u.Out().Printf("generated\t%d", generatedCount)
+	u.Out().Printf("failed\t%d", failedCount)
 	return nil
 }

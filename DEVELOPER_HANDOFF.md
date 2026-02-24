@@ -80,8 +80,10 @@ Unified helpers for agent-safe editing across Docs/Sheets/Slides:
 - **VID-111** — Sheets DeleteRange: `gog sheets edit delete-range <spreadsheetId> <range> --shift-dimension ROWS|COLUMNS` (default ROWS). Full agentic flow; tests for validate-only, dry-run, force guard, success.
 - **VID-112** — Docs InsertImage: `gog docs edit insert-image <docId> --uri <url> [--index 1] [--width-pt/--height-pt]`. Full agentic flow; tests for validate-only, dry-run, success, empty-uri error.
 - **VID-114** — MergeData design doc: `docs/PHASE_3_MERGEDATA_DESIGN.md` — Slides pattern analysis, Docs/Sheets CLI sketches, data format, error matrix, shared components, implementation order (VID-115 → VID-116).
+- **VID-115** — Docs Edit MergeData: `gog docs edit merge-data <templateId> --data-file <path>` (Drive copy + ReplaceAllText per record).
+- **VID-116** — Sheets Edit MergeData: `gog sheets edit merge-data <templateId> --data-file <path>` (Drive copy + FindReplace all sheets per record).
 
-**Next:** VID-115 (Docs MergeData), then VID-116 (Sheets MergeData).
+**Next:** Phase 3 merge-data complete; optional VID-113 (DeleteRange code review), then Phase 4/5.
 
 ---
 
@@ -105,8 +107,8 @@ Unified helpers for agent-safe editing across Docs/Sheets/Slides:
 - **VID-98** — Documentation & Handoff (1–2 days)
 - **VID-108** — Docs: Remaining Edit Commands (Append, Batch finalization)
 - **VID-109** — Docs Phase 1 Quick Wins (apply-style, insert-toc, more)
-- **VID-115** — Docs Edit MergeData (mail-merge; depends on VID-114 ✅)
-- **VID-116** — Sheets Edit MergeData (depends on VID-114 ✅, VID-115)
+- **VID-115** — Docs Edit MergeData ✅
+- **VID-116** — Sheets Edit MergeData ✅
 
 ---
 
