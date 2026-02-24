@@ -12,4 +12,3 @@ func newSheetsEditError(op, spreadsheetID, code, msg string, cause error) error 
 func isSheetsNotFound(err error) bool {
 	return IsNotFound(err)
 }
-

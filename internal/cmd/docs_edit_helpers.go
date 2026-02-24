@@ -24,4 +24,3 @@ func docsAppendIndex(doc *docs.Document) int64 {
 	}
 	return last.EndIndex - 1
 }
-

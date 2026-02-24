@@ -20,22 +20,22 @@ import (
 
 // SlidesEditCmd provides edit operations for Google Slides with agentic safety.
 type SlidesEditCmd struct {
-	Batch        SlidesEditBatchCmd        `cmd:"" name:"batch" help:"Apply multiple Slides API batch operations from JSON"`
-	ReplaceText  SlidesEditReplaceTextCmd  `cmd:"" name:"replace-text" help:"Find and replace text across all slides"`
-	ReplaceImage SlidesEditReplaceImageCmd `cmd:"" name:"replace-image" help:"Replace an image in a presentation preserving position/size"`
-	CreateSlide  SlidesEditCreateSlideCmd  `cmd:"" name:"create-slide" help:"Add a new slide to a presentation"`
+	Batch          SlidesEditBatchCmd          `cmd:"" name:"batch" help:"Apply multiple Slides API batch operations from JSON"`
+	ReplaceText    SlidesEditReplaceTextCmd    `cmd:"" name:"replace-text" help:"Find and replace text across all slides"`
+	ReplaceImage   SlidesEditReplaceImageCmd   `cmd:"" name:"replace-image" help:"Replace an image in a presentation preserving position/size"`
+	CreateSlide    SlidesEditCreateSlideCmd    `cmd:"" name:"create-slide" help:"Add a new slide to a presentation"`
 	DuplicateSlide SlidesEditDuplicateSlideCmd `cmd:"" name:"duplicate-slide" help:"Duplicate an existing slide"`
-	RefreshCharts SlidesEditRefreshChartsCmd `cmd:"" name:"refresh-charts" help:"Refresh embedded Google Sheets charts"`
-	UpdateNotes  SlidesEditUpdateNotesCmd  `cmd:"" name:"update-notes" help:"Update speaker notes on a slide"`
-	DeleteSlide  SlidesEditDeleteSlideCmd  `cmd:"" name:"delete-slide" help:"Delete a slide by object ID"`
-	InsertTable  SlidesEditInsertTableCmd  `cmd:"" name:"insert-table" help:"Insert a data table into a slide"`
-	MergeData    SlidesEditMergeDataCmd    `cmd:"" name:"merge-data" help:"Generate presentations from template using JSON data (mail-merge)"`
+	RefreshCharts  SlidesEditRefreshChartsCmd  `cmd:"" name:"refresh-charts" help:"Refresh embedded Google Sheets charts"`
+	UpdateNotes    SlidesEditUpdateNotesCmd    `cmd:"" name:"update-notes" help:"Update speaker notes on a slide"`
+	DeleteSlide    SlidesEditDeleteSlideCmd    `cmd:"" name:"delete-slide" help:"Delete a slide by object ID"`
+	InsertTable    SlidesEditInsertTableCmd    `cmd:"" name:"insert-table" help:"Insert a data table into a slide"`
+	MergeData      SlidesEditMergeDataCmd      `cmd:"" name:"merge-data" help:"Generate presentations from template using JSON data (mail-merge)"`
 }
 
 // SlidesEditBatchCmd applies multiple batch operations to a presentation.
 type SlidesEditBatchCmd struct {
-	PresentationID string              `arg:"" name:"presentationId" help:"Presentation ID"`
-	RequestsFile   string              `name:"requests-file" help:"Path to JSON request body, or '-' for stdin" default:"-"`
+	PresentationID string                 `arg:"" name:"presentationId" help:"Presentation ID"`
+	RequestsFile   string                 `name:"requests-file" help:"Path to JSON request body, or '-' for stdin" default:"-"`
 	Safety         AgenticEditSafetyFlags `embed:""`
 }
 
@@ -111,12 +111,12 @@ func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if c.Safety.ValidateOnly {
 		payload := map[string]any{
-			"validateOnly":     true,
-			"valid":            true,
-			"presentationId":   presentationID,
-			"operations":       len(req.Requests),
-			"requestKinds":     requestKinds,
-			"requestHash":      requestHash,
+			"validateOnly":   true,
+			"valid":          true,
+			"presentationId": presentationID,
+			"operations":     len(req.Requests),
+			"requestKinds":   requestKinds,
+			"requestHash":    requestHash,
 		}
 		if normalizedForJSON != "" || c.Safety.Pretty {
 			if norm, err := NormalizedRequestString(&req); err == nil {
@@ -184,10 +184,10 @@ func SlidesDryRunOutput(ctx context.Context, u *ui.UI, presentationID string, re
 
 // SlidesEditReplaceTextCmd finds and replaces text across all slides.
 type SlidesEditReplaceTextCmd struct {
-	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
-	Find           string `name:"find" help:"Text to find"`
-	Replace        string `name:"replace" help:"Replacement text"`
-	MatchCase      bool   `name:"match-case" help:"Case-sensitive matching"`
+	PresentationID string                 `arg:"" name:"presentationId" help:"Presentation ID"`
+	Find           string                 `name:"find" help:"Text to find"`
+	Replace        string                 `name:"replace" help:"Replacement text"`
+	MatchCase      bool                   `name:"match-case" help:"Case-sensitive matching"`
 	Safety         AgenticEditSafetyFlags `embed:""`
 }
 
@@ -316,12 +316,12 @@ func (c *SlidesEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 
 // SlidesEditMergeDataCmd generates presentations from a template using JSON data.
 type SlidesEditMergeDataCmd struct {
-	TemplateID       string `arg:"" name:"templateId" help:"Template presentation ID"`
-	DataFile         string `name:"data-file" help:"Path to JSON array of data objects"`
-	OutputFolderID   string `name:"output-folder-id" help:"Drive folder ID for output (default: same as template)"`
-	FilenameFormat   string `name:"filename-format" help:"Format for output filenames using {{placeholder}} syntax (default: 'Generated - {{name}}')"`
-	ExportAsPDF      bool   `name:"export-pdf" help:"Export as PDF instead of creating Google Slides"`
-	IncludeTimestamp bool   `name:"include-timestamp" help:"Append timestamp to filename for uniqueness"`
+	TemplateID       string                 `arg:"" name:"templateId" help:"Template presentation ID"`
+	DataFile         string                 `name:"data-file" help:"Path to JSON array of data objects"`
+	OutputFolderID   string                 `name:"output-folder-id" help:"Drive folder ID for output (default: same as template)"`
+	FilenameFormat   string                 `name:"filename-format" help:"Format for output filenames using {{placeholder}} syntax (default: 'Generated - {{name}}')"`
+	ExportAsPDF      bool                   `name:"export-pdf" help:"Export as PDF instead of creating Google Slides"`
+	IncludeTimestamp bool                   `name:"include-timestamp" help:"Append timestamp to filename for uniqueness"`
 	Safety           AgenticEditSafetyFlags `embed:""`
 }
 
@@ -410,13 +410,13 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 
 	if isEditDryRun(flags, c.Safety) {
 		dryRunPayload := map[string]any{
-			"dryRun":       true,
-			"service":      "slides",
-			"templateId":   templateID,
-			"recordCount":  len(dataRecords),
-			"requestHash":  requestHash,
-			"exportAsPDF":  c.ExportAsPDF,
-			"operations":   operations,
+			"dryRun":      true,
+			"service":     "slides",
+			"templateId":  templateID,
+			"recordCount": len(dataRecords),
+			"requestHash": requestHash,
+			"exportAsPDF": c.ExportAsPDF,
+			"operations":  operations,
 		}
 
 		// Add full preview if --pretty
@@ -475,10 +475,10 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 		newPres, err := svc.Presentations.Create(copyReq).Do()
 		if err != nil {
 			results = append(results, map[string]any{
-				"index":   i,
-				"status":  "failed",
-				"error":   err.Error(),
-				"stage":   "create",
+				"index":  i,
+				"status": "failed",
+				"error":  err.Error(),
+				"stage":  "create",
 			})
 			failedCount++
 			continue
@@ -502,10 +502,10 @@ func (c *SlidesEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 		_, err = svc.Presentations.BatchUpdate(newPres.PresentationId, batchReq).Do()
 		if err != nil {
 			results = append(results, map[string]any{
-				"index":         i,
-				"status":        "failed",
-				"error":         err.Error(),
-				"stage":         "batch-update",
+				"index":          i,
+				"status":         "failed",
+				"error":          err.Error(),
+				"stage":          "batch-update",
 				"presentationId": newPres.PresentationId,
 			})
 			failedCount++
@@ -667,9 +667,9 @@ func formatMergeFilename(format string, data map[string]any, includeTimestamp bo
 
 // SlidesEditReplaceImageCmd replaces an image in a presentation while preserving position and size.
 type SlidesEditReplaceImageCmd struct {
-	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
-	ObjectID       string `name:"object-id" help:"ID of the image object to replace (e.g., 'image1')"`
-	SourceURL      string `name:"source-url" help:"URL of replacement image (publicly accessible)"`
+	PresentationID string                 `arg:"" name:"presentationId" help:"Presentation ID"`
+	ObjectID       string                 `name:"object-id" help:"ID of the image object to replace (e.g., 'image1')"`
+	SourceURL      string                 `name:"source-url" help:"URL of replacement image (publicly accessible)"`
 	Safety         AgenticEditSafetyFlags `embed:""`
 }
 
@@ -694,9 +694,9 @@ func (c *SlidesEditReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) e
 		Requests: []*slides.Request{
 			{
 				ReplaceImage: &slides.ReplaceImageRequest{
-					ImageObjectId:              objectID,
-					ImageReplaceMethod:         "CENTER_INSIDE",
-					Url:                        sourceURL,
+					ImageObjectId:      objectID,
+					ImageReplaceMethod: "CENTER_INSIDE",
+					Url:                sourceURL,
 				},
 			},
 		},
@@ -785,9 +785,9 @@ func (c *SlidesEditReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) e
 
 // SlidesEditCreateSlideCmd adds a new slide to a presentation.
 type SlidesEditCreateSlideCmd struct {
-	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
-	Layout         string `name:"layout" help:"Slide layout type (BLANK, CAPTION_ONLY, TITLE, TITLE_AND_BODY, etc.)" default:"BLANK"`
-	Index          int    `name:"index" help:"Insert position (0-based, -1 for end)" default:"-1"`
+	PresentationID string                 `arg:"" name:"presentationId" help:"Presentation ID"`
+	Layout         string                 `name:"layout" help:"Slide layout type (BLANK, CAPTION_ONLY, TITLE, TITLE_AND_BODY, etc.)" default:"BLANK"`
+	Index          int                    `name:"index" help:"Insert position (0-based, -1 for end)" default:"-1"`
 	Safety         AgenticEditSafetyFlags `embed:""`
 }
 
@@ -908,9 +908,9 @@ func (c *SlidesEditCreateSlideCmd) Run(ctx context.Context, flags *RootFlags) er
 
 // SlidesEditDuplicateSlideCmd duplicates an existing slide.
 type SlidesEditDuplicateSlideCmd struct {
-	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
-	SlideID        string `name:"slide-id" help:"ID of slide to duplicate"`
-	Count          int    `name:"count" help:"Number of copies (default 1)" default:"1"`
+	PresentationID string                 `arg:"" name:"presentationId" help:"Presentation ID"`
+	SlideID        string                 `name:"slide-id" help:"ID of slide to duplicate"`
+	Count          int                    `name:"count" help:"Number of copies (default 1)" default:"1"`
 	Safety         AgenticEditSafetyFlags `embed:""`
 }
 
@@ -1035,9 +1035,9 @@ func (c *SlidesEditDuplicateSlideCmd) Run(ctx context.Context, flags *RootFlags)
 
 // SlidesEditRefreshChartsCmd refreshes embedded Google Sheets charts.
 type SlidesEditRefreshChartsCmd struct {
-	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
-	ChartID        string `name:"chart-id" help:"Specific chart object ID to refresh"`
-	All            bool   `name:"all" help:"Refresh all linked charts in presentation"`
+	PresentationID string                 `arg:"" name:"presentationId" help:"Presentation ID"`
+	ChartID        string                 `name:"chart-id" help:"Specific chart object ID to refresh"`
+	All            bool                   `name:"all" help:"Refresh all linked charts in presentation"`
 	Safety         AgenticEditSafetyFlags `embed:""`
 }
 
@@ -1175,10 +1175,10 @@ func (c *SlidesEditRefreshChartsCmd) Run(ctx context.Context, flags *RootFlags) 
 }
 
 type SlidesEditUpdateNotesCmd struct {
-	PresentationID string  `arg:"" name:"presentationId" help:"Presentation ID"`
-	SlideID        string  `arg:"" name:"slideId" help:"Slide object ID"`
-	Notes          *string `name:"notes" help:"Speaker notes text (use --notes '' to clear notes)"`
-	NotesFile      string  `name:"notes-file" help:"Path to file containing speaker notes"`
+	PresentationID string                 `arg:"" name:"presentationId" help:"Presentation ID"`
+	SlideID        string                 `arg:"" name:"slideId" help:"Slide object ID"`
+	Notes          *string                `name:"notes" help:"Speaker notes text (use --notes '' to clear notes)"`
+	NotesFile      string                 `name:"notes-file" help:"Path to file containing speaker notes"`
 	Safety         AgenticEditSafetyFlags `embed:""`
 }
 
@@ -1330,8 +1330,8 @@ func (c *SlidesEditUpdateNotesCmd) Run(ctx context.Context, flags *RootFlags) er
 }
 
 type SlidesEditDeleteSlideCmd struct {
-	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
-	SlideID        string `arg:"" name:"slideId" help:"Slide object ID to delete"`
+	PresentationID string                 `arg:"" name:"presentationId" help:"Presentation ID"`
+	SlideID        string                 `arg:"" name:"slideId" help:"Slide object ID to delete"`
 	Safety         AgenticEditSafetyFlags `embed:""`
 }
 
@@ -1422,11 +1422,11 @@ func (c *SlidesEditDeleteSlideCmd) Run(ctx context.Context, flags *RootFlags) er
 
 // SlidesEditInsertTableCmd inserts a data table into a slide.
 type SlidesEditInsertTableCmd struct {
-	PresentationID string `arg:"" name:"presentationId" help:"Presentation ID"`
-	SlideID        string `name:"slide-id" help:"Slide ID to insert table into"`
-	Rows           int    `name:"rows" help:"Number of rows" default:"3"`
-	Columns        int    `name:"columns" help:"Number of columns" default:"3"`
-	DataFile       string `name:"data-file" help:"Path to JSON array for table data (optional)"`
+	PresentationID string                 `arg:"" name:"presentationId" help:"Presentation ID"`
+	SlideID        string                 `name:"slide-id" help:"Slide ID to insert table into"`
+	Rows           int                    `name:"rows" help:"Number of rows" default:"3"`
+	Columns        int                    `name:"columns" help:"Number of columns" default:"3"`
+	DataFile       string                 `name:"data-file" help:"Path to JSON array for table data (optional)"`
 	Safety         AgenticEditSafetyFlags `embed:""`
 }
 
