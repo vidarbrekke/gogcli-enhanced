@@ -47,3 +47,24 @@ This repo now includes a minimal internal operations layer in `internal/ops` to 
 - **CLI:** Root flags `--request-timeout`, `--retries`, `--retry-backoff` apply to Google API calls inside each `gog` invocation. MCP does not set them; the client can pass them in the args if the executor is extended to accept optional timeout/retry from the tool input.
 - **MCP layer:** No per-request timeout in `ServeStdio` or `ExecuteTool`; context is passed through but not cancelled by the server. For long-running tools, consider context timeout in the transport or in the executor wrapper (e.g. `context.WithTimeout(ctx, 5*time.Minute)` before calling the CLI).
 - **Current state:** Relies on client or process-level timeout; no change required unless timeouts are observed in practice.
+
+## Reviewer notes (internal/mcp and entrypoint)
+
+### File paths (on main)
+
+- **Entrypoint:** `internal/cmd/mcp.go` — MCP serve command; builds server with executor closure that uses `ExecuteWithIO(args, outBuf, errBuf)` only (no globals, no pipes).
+- **Server:** `internal/mcp/server/server.go`, `internal/mcp/server/types.go` — tool registry, `ExecuteTool`, envelope normalization.
+- **Transport:** `internal/mcp/transport_stdio.go` — stdio JSON-RPC; line-by-line; `handleRPC` → `s.ExecuteTool(ctx, name, args)`.
+- **Google tools:** `internal/mcp/providers/google/tools.go` — tool specs, handlers, `runCLI`; `Register(s, executor)` sets the executor used by all tools.
+- **Wire-up:** `internal/mcp/default.go` — `NewGoogleServer(executor)` creates server and calls `google.Register(s, executor)`.
+
+### gofmt and formatting
+
+- `internal/cmd/mcp.go` is multi-line (~28 lines), not minified; `make fmt` leaves it unchanged. If a reviewer sees a minified version, it may be from an older branch.
+
+### Mutable global state
+
+- **Only package-level mutable:** `internal/mcp/providers/google/tools.go` has `var execCommand Executor`. It is set once in `Register(s, executor)` at server startup and never written again; all tool handlers only read it. No mutex, no per-request shared mutable state.
+- **Server:** `Server.tools` map is populated at startup and not modified during request handling. Safe for concurrent read if the transport ever runs tool calls in parallel (currently it does not).
+
+You can point external reviewers to this section and the listed paths for tool registration, schemas, error envelopes, and plan/execute readiness.
