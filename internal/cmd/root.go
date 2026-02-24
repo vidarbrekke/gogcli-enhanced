@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"golang.org/x/term"
@@ -16,6 +17,7 @@ import (
 	"github.com/steipete/gogcli/internal/authclient"
 	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/errfmt"
+	"github.com/steipete/gogcli/internal/googleapi"
 	"github.com/steipete/gogcli/internal/googleauth"
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/secrets"
@@ -41,6 +43,10 @@ type RootFlags struct {
 	Force          bool   `help:"Skip confirmations for destructive commands" aliases:"yes,assume-yes" short:"y"`
 	NoInput        bool   `help:"Never prompt; fail instead (useful for CI)" aliases:"non-interactive,noninteractive"`
 	Verbose        bool   `help:"Enable verbose logging" short:"v"`
+	OpID           string `name:"op-id" help:"Operation ID for agent correlation (echoed in JSON success/error output)"`
+	Timeout        string `name:"request-timeout" help:"Global command timeout (e.g. 30s, 2m)"`
+	Retries        int    `name:"retries" help:"Override HTTP retry count for 429/5xx responses" default:"-1"`
+	RetryBackoff   string `name:"retry-backoff" help:"Override base backoff duration for retryable responses (e.g. 500ms, 2s)"`
 }
 
 type CLI struct {
@@ -152,6 +158,30 @@ func Execute(args []string) (err error) {
 	}
 
 	ctx := context.Background()
+	opID := strings.TrimSpace(cli.OpID)
+	if opID == "" {
+		opID = strings.TrimSpace(os.Getenv("GOG_OP_ID"))
+	}
+	setCurrentOperationID(opID)
+	defer setCurrentOperationID("")
+
+	if timeout := strings.TrimSpace(cli.Timeout); timeout != "" {
+		d, parseErr := time.ParseDuration(timeout)
+		if parseErr != nil {
+			return newUsageError(fmt.Errorf("invalid --timeout: %w", parseErr))
+		}
+		if d <= 0 {
+			return newUsageError(errors.New("--timeout must be > 0"))
+		}
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d)
+		defer cancel()
+	}
+
+	if cfgErr := googleapi.ConfigureRetryPolicy(cli.Retries, cli.RetryBackoff); cfgErr != nil {
+		return newUsageError(fmt.Errorf("invalid retry settings: %w", cfgErr))
+	}
+
 	ctx = outfmt.WithMode(ctx, mode)
 	ctx = outfmt.WithJSONTransform(ctx, outfmt.JSONTransform{
 		ResultsOnly: cli.ResultsOnly,
@@ -230,6 +260,9 @@ func formatJSONErrorEnvelopeWithCode(err error, fallbackCode string) string {
 	}
 	if _, ok := errObj["error_code"]; !ok && strings.TrimSpace(fallbackCode) != "" {
 		errObj["error_code"] = fallbackCode
+	}
+	if opID := getCurrentOperationID(); opID != "" {
+		errObj["opId"] = opID
 	}
 
 	b, marshalErr := json.Marshal(envelope)

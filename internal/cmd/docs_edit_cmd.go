@@ -99,7 +99,7 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			payload["requiredRevisionId"] = req.WriteControl.RequiredRevisionId
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return writeAgentJSON(ctx, payload, req)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -222,7 +222,7 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return writeAgentJSON(ctx, payload, req)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -269,7 +269,7 @@ func (c *DocsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return writeAgentJSON(ctx, payload, req)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("deleted\t%d", deletedChars)
@@ -338,7 +338,7 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return writeAgentJSON(ctx, payload, req)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -386,7 +386,7 @@ func (c *DocsInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return writeAgentJSON(ctx, payload, req)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("inserted\t%d", len(text))
@@ -516,6 +516,184 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("appended\t%d", len(text))
 	u.Out().Printf("index\t%d", index)
+	return nil
+}
+
+// DocsLocatorEditCmd performs safer edits based on anchor text or marker ranges.
+type DocsLocatorEditCmd struct {
+	DocID        string                 `arg:"" name:"docId" help:"Doc ID"`
+	After        string                 `name:"after" help:"Insert after first occurrence of this anchor text"`
+	InsertText   string                 `name:"insert" help:"Text to insert when using --after"`
+	BetweenStart string                 `name:"between-start" help:"Start marker for replace-between mode"`
+	BetweenEnd   string                 `name:"between-end" help:"End marker for replace-between mode"`
+	ReplaceText  string                 `name:"replace" help:"Replacement text for between markers"`
+	Safety       AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *DocsLocatorEditCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	docID := strings.TrimSpace(c.DocID)
+	if docID == "" {
+		return NewEditError("docs", "locator", docID, "invalid_argument", "empty docId", nil)
+	}
+	after := strings.TrimSpace(c.After)
+	insertText := c.InsertText
+	startMarker := strings.TrimSpace(c.BetweenStart)
+	endMarker := strings.TrimSpace(c.BetweenEnd)
+
+	modeAfter := after != ""
+	modeBetween := startMarker != "" || endMarker != ""
+	if modeAfter == modeBetween {
+		return NewEditError("docs", "locator", docID, "invalid_argument", "choose either --after+--insert or --between-start+--between-end+--replace", nil)
+	}
+
+	if modeAfter && strings.TrimSpace(insertText) == "" {
+		return NewEditError("docs", "locator", docID, "invalid_argument", "empty --insert text", nil)
+	}
+	if modeBetween {
+		if startMarker == "" || endMarker == "" {
+			return NewEditError("docs", "locator", docID, "invalid_argument", "both --between-start and --between-end are required", nil)
+		}
+	}
+
+	// Validation/dry-run can proceed with a deterministic preview request.
+	req := &docs.BatchUpdateDocumentRequest{Requests: []*docs.Request{}}
+	operation := map[string]any{"mode": "unknown"}
+	switch {
+	case modeAfter:
+		req.Requests = append(req.Requests, &docs.Request{
+			InsertText: &docs.InsertTextRequest{
+				Location: &docs.Location{Index: 1},
+				Text:     insertText,
+			},
+		})
+		operation = map[string]any{"mode": "after", "anchor": after, "insertChars": len(insertText)}
+	case modeBetween:
+		req.Requests = append(req.Requests, &docs.Request{
+			DeleteContentRange: &docs.DeleteContentRangeRequest{
+				Range: &docs.Range{StartIndex: 1, EndIndex: 1},
+			},
+		})
+		if strings.TrimSpace(c.ReplaceText) != "" {
+			req.Requests = append(req.Requests, &docs.Request{
+				InsertText: &docs.InsertTextRequest{
+					Location: &docs.Location{Index: 1},
+					Text:     c.ReplaceText,
+				},
+			})
+		}
+		operation = map[string]any{"mode": "between", "startMarker": startMarker, "endMarker": endMarker}
+	}
+	applyDocsEditSafety(req, c.Safety)
+	requestHash, hashErr := RequestHash(req)
+	if hashErr != nil {
+		return NewEditError("docs", "locator", docID, "invalid_request", "failed to hash request", hashErr)
+	}
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, req)
+	if normErr != nil {
+		return NewEditError("docs", "locator", docID, "output_write_failed", "write normalized request failed", normErr)
+	}
+
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly": true,
+			"valid":        true,
+			"documentId":   docID,
+			"operation":    operation,
+			"requestHash":  requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, err := NormalizedRequestString(req); err == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return writeAgentJSON(ctx, payload, req)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", docID)
+		return nil
+	}
+	if isEditDryRun(flags, c.Safety) {
+		return DryRunOutput(ctx, u, "docs", docID, req, map[string]any{
+			"operation":         operation,
+			"normalizedRequest": normalizedForJSON,
+			"requestHash":       requestHash,
+		}, c.Safety.Pretty)
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := newDocsService(ctx, account)
+	if err != nil {
+		return NewEditError("docs", "locator", docID, "service_init_failed", "create docs service failed", err)
+	}
+	doc, err := svc.Documents.Get(docID).Context(ctx).Do()
+	if err != nil {
+		if isDocsNotFound(err) {
+			return NewEditError("docs", "locator", docID, "doc_not_found", fmt.Sprintf("doc not found or not a Google Doc (id=%s)", docID), err)
+		}
+		return NewEditError("docs", "locator", docID, "api_error", "fetch document failed", err)
+	}
+
+	switch {
+	case modeAfter:
+		matches := docsFindAllTextMatches(doc, after)
+		if len(matches) == 0 {
+			return NewEditError("docs", "locator", docID, "not_found", "anchor text not found", nil)
+		}
+		if len(matches) > 1 {
+			return NewEditError("docs", "locator", docID, "ambiguous_match", "anchor text matched multiple regions", nil)
+		}
+		req.Requests = []*docs.Request{{
+			InsertText: &docs.InsertTextRequest{
+				Location: &docs.Location{Index: matches[0].End - 1},
+				Text:     insertText,
+			},
+		}}
+	case modeBetween:
+		startMatches := docsFindAllTextMatches(doc, startMarker)
+		endMatches := docsFindAllTextMatches(doc, endMarker)
+		if len(startMatches) != 1 || len(endMatches) != 1 {
+			return NewEditError("docs", "locator", docID, "ambiguous_match", "marker boundaries must resolve to exactly one start and one end", nil)
+		}
+		start := startMatches[0].End - 1
+		end := endMatches[0].Start
+		if end < start {
+			return NewEditError("docs", "locator", docID, "invalid_argument", "end marker appears before start marker", nil)
+		}
+		req.Requests = []*docs.Request{{
+			DeleteContentRange: &docs.DeleteContentRangeRequest{
+				Range: &docs.Range{StartIndex: start, EndIndex: end},
+			},
+		}}
+		if strings.TrimSpace(c.ReplaceText) != "" {
+			req.Requests = append(req.Requests, &docs.Request{
+				InsertText: &docs.InsertTextRequest{
+					Location: &docs.Location{Index: start},
+					Text:     c.ReplaceText,
+				},
+			})
+		}
+	}
+	applyDocsEditSafety(req, c.Safety)
+	if _, err := svc.Documents.BatchUpdate(docID, req).Context(ctx).Do(); err != nil {
+		return NewEditError("docs", "locator", docID, "api_error", "locator edit failed", err)
+	}
+
+	payload := map[string]any{
+		"documentId": docID,
+		"applied":    true,
+		"operation":  operation,
+	}
+	if outfmt.IsJSON(ctx) {
+		return writeAgentJSON(ctx, payload, req)
+	}
+	u.Out().Printf("id\t%s", docID)
+	u.Out().Printf("applied\ttrue")
 	return nil
 }
 

@@ -1436,3 +1436,89 @@ func TestExecute_DocsEditMergeData_BatchUpdateFailure_JSON(t *testing.T) {
 		t.Fatalf("result=%#v", row)
 	}
 }
+
+func TestExecute_DocsEditLocator_After_ValidateOnly_JSON(t *testing.T) {
+	out := captureStdout(t, func() {
+		if err := Execute([]string{
+			"--json", "--op-id", "op-locator-v",
+			"docs", "edit", "locator", "d1",
+			"--after", "Anchor",
+			"--insert", " Tail",
+			"--validate-only",
+		}); err != nil {
+			t.Fatalf("Execute: %v", err)
+		}
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q", err, out)
+	}
+	if parsed["validateOnly"] != true || parsed["opId"] != "op-locator-v" {
+		t.Fatalf("unexpected payload: %#v", parsed)
+	}
+}
+
+func TestExecute_DocsEditLocator_After_NotFound_JSONError(t *testing.T) {
+	origDocs := newDocsService
+	t.Cleanup(func() { newDocsService = origDocs })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/v1/documents/d1" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"documentId": "d1",
+				"body": map[string]any{
+					"content": []any{
+						map[string]any{
+							"paragraph": map[string]any{
+								"elements": []any{
+									map[string]any{
+										"startIndex": 1,
+										"endIndex":   10,
+										"textRun":    map[string]any{"content": "No anchor\n"},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	docSvc, err := docs.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewDocsService: %v", err)
+	}
+	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
+
+	stderr := captureStderr(t, func() {
+		err := Execute([]string{
+			"--json", "--account", "a@b.com", "--op-id", "op-locator-e",
+			"docs", "edit", "locator", "d1",
+			"--after", "Anchor",
+			"--insert", " Tail",
+		})
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &parsed); err != nil {
+		t.Fatalf("parse stderr json: %v; stderr=%q", err, stderr)
+	}
+	errorObj, ok := parsed["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing error object: %#v", parsed)
+	}
+	if errorObj["error_code"] != "not_found" || errorObj["opId"] != "op-locator-e" {
+		t.Fatalf("unexpected error payload: %#v", errorObj)
+	}
+}

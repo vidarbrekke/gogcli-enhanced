@@ -120,3 +120,23 @@ func TestEnableCommandsBlocks_JSONEnvelope(t *testing.T) {
 		t.Fatalf("error_code=%v", errorObj["error_code"])
 	}
 }
+
+func TestExecute_InvalidTimeout(t *testing.T) {
+	err := Execute([]string{"--request-timeout", "notaduration", "version"})
+	if err == nil {
+		t.Fatal("expected invalid timeout error")
+	}
+	if !strings.Contains(err.Error(), "invalid --timeout") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestExecute_InvalidRetryBackoff(t *testing.T) {
+	err := Execute([]string{"--retry-backoff", "bogus", "version"})
+	if err == nil {
+		t.Fatal("expected invalid retry setting error")
+	}
+	if !strings.Contains(err.Error(), "invalid retry settings") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

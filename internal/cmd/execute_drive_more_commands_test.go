@@ -138,6 +138,11 @@ func TestExecute_DriveMoreCommands_JSON(t *testing.T) {
 			}
 		})
 		_ = captureStdout(t, func() {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "drive", "ensure-folder", "Folder/Sub", "--parent", "np"}); err != nil {
+				t.Fatalf("ensure-folder: %v", err)
+			}
+		})
+		_ = captureStdout(t, func() {
 			if err := Execute([]string{"--json", "--account", "a@b.com", "drive", "rename", "id1", "New"}); err != nil {
 				t.Fatalf("rename: %v", err)
 			}
@@ -158,6 +163,11 @@ func TestExecute_DriveMoreCommands_JSON(t *testing.T) {
 			}
 		})
 		_ = captureStdout(t, func() {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "drive", "permission", "id1", "p1"}); err != nil {
+				t.Fatalf("permission get: %v", err)
+			}
+		})
+		_ = captureStdout(t, func() {
 			if err := Execute([]string{"--json", "--force", "--account", "a@b.com", "drive", "unshare", "id1", "p1"}); err != nil {
 				t.Fatalf("unshare: %v", err)
 			}
@@ -165,6 +175,11 @@ func TestExecute_DriveMoreCommands_JSON(t *testing.T) {
 		_ = captureStdout(t, func() {
 			if err := Execute([]string{"--json", "--force", "--account", "a@b.com", "drive", "delete", "id1"}); err != nil {
 				t.Fatalf("delete: %v", err)
+			}
+		})
+		_ = captureStdout(t, func() {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "drive", "untrash", "id1"}); err != nil {
+				t.Fatalf("untrash: %v", err)
 			}
 		})
 	})

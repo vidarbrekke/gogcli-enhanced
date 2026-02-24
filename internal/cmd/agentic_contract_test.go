@@ -138,21 +138,21 @@ func TestCrossServiceValidateOnlyAndDryRunContract(t *testing.T) {
 	}{
 		{
 			name:      "docs_insert_validate_only",
-			args:      []string{"--json", "docs", "edit", "insert", "d1", "x", "--validate-only"},
+			args:      []string{"--json", "--op-id", "op-docs-v", "docs", "edit", "insert", "d1", "x", "--validate-only"},
 			idField:   "documentId",
 			idValue:   "d1",
 			operation: "insert",
 		},
 		{
 			name:      "sheets_values_validate_only",
-			args:      []string{"--json", "sheets", "edit", "values", "s1", "A1", "x", "--validate-only"},
+			args:      []string{"--json", "--op-id", "op-sheets-v", "sheets", "edit", "values", "s1", "A1", "x", "--validate-only"},
 			idField:   "spreadsheetId",
 			idValue:   "s1",
 			operation: "values",
 		},
 		{
 			name:      "slides_replace_text_validate_only",
-			args:      []string{"--json", "slides", "edit", "replace-text", "p1", "--find", "a", "--replace", "b", "--validate-only"},
+			args:      []string{"--json", "--op-id", "op-slides-v", "slides", "edit", "replace-text", "p1", "--find", "a", "--replace", "b", "--validate-only"},
 			idField:   "presentationId",
 			idValue:   "p1",
 			operation: "replace-text",
@@ -174,6 +174,7 @@ func TestCrossServiceValidateOnlyAndDryRunContract(t *testing.T) {
 			assert.Equal(t, true, parsed["validateOnly"])
 			assert.Equal(t, true, parsed["valid"])
 			assert.Equal(t, tc.idValue, parsed[tc.idField])
+			assert.NotEmpty(t, parsed["opId"])
 
 			hash, ok := parsed["requestHash"].(string)
 			if !ok || len(hash) != 64 {
@@ -189,17 +190,17 @@ func TestCrossServiceValidateOnlyAndDryRunContract(t *testing.T) {
 	}{
 		{
 			name:    "docs_insert_dry_run",
-			args:    []string{"--json", "docs", "edit", "insert", "d1", "x", "--dry-run"},
+			args:    []string{"--json", "--op-id", "op-docs-d", "docs", "edit", "insert", "d1", "x", "--dry-run"},
 			service: "docs",
 		},
 		{
 			name:    "sheets_values_dry_run",
-			args:    []string{"--json", "sheets", "edit", "values", "s1", "A1", "x", "--dry-run"},
+			args:    []string{"--json", "--op-id", "op-sheets-d", "sheets", "edit", "values", "s1", "A1", "x", "--dry-run"},
 			service: "sheets",
 		},
 		{
 			name:    "slides_replace_text_dry_run",
-			args:    []string{"--json", "slides", "edit", "replace-text", "p1", "--find", "a", "--replace", "b", "--dry-run"},
+			args:    []string{"--json", "--op-id", "op-slides-d", "slides", "edit", "replace-text", "p1", "--find", "a", "--replace", "b", "--dry-run"},
 			service: "slides",
 		},
 	}
@@ -218,6 +219,7 @@ func TestCrossServiceValidateOnlyAndDryRunContract(t *testing.T) {
 			require.NoError(t, json.Unmarshal([]byte(out), &parsed))
 			assert.Equal(t, true, parsed["dryRun"])
 			assert.Equal(t, tc.service, parsed["service"])
+			assert.NotEmpty(t, parsed["opId"], "opId should be present")
 			assert.NotEmpty(t, parsed["resourceId"], "resourceId should be present")
 			_, hasRequest := parsed["request"]
 			assert.True(t, hasRequest, "dry-run payload should include request")
@@ -235,21 +237,21 @@ func TestCrossServiceErrorEnvelopeContract(t *testing.T) {
 	}{
 		{
 			name:      "docs_insert_missing_text",
-			args:      []string{"--json", "docs", "edit", "insert", "d1", "   "},
+			args:      []string{"--json", "--op-id", "op-docs-e", "docs", "edit", "insert", "d1", "   "},
 			service:   "docs",
 			operation: "insert",
 			code:      "invalid_argument",
 		},
 		{
 			name:      "sheets_values_missing_range",
-			args:      []string{"--json", "sheets", "edit", "values", "s1", "   ", "x"},
+			args:      []string{"--json", "--op-id", "op-sheets-e", "sheets", "edit", "values", "s1", "   ", "x"},
 			service:   "sheets",
 			operation: "values",
 			code:      "invalid_argument",
 		},
 		{
 			name:      "slides_replace_text_missing_find",
-			args:      []string{"--json", "slides", "edit", "replace-text", "p1", "--replace", "x"},
+			args:      []string{"--json", "--op-id", "op-slides-e", "slides", "edit", "replace-text", "p1", "--replace", "x"},
 			service:   "slides",
 			operation: "replace-text",
 			code:      "invalid_argument",
@@ -270,6 +272,7 @@ func TestCrossServiceErrorEnvelopeContract(t *testing.T) {
 			assert.Equal(t, tc.code, errObj["error_code"])
 			assert.Equal(t, tc.service, errObj["service"])
 			assert.Equal(t, tc.operation, errObj["operation"])
+			assert.NotEmpty(t, errObj["opId"])
 			assert.NotEmpty(t, errObj["message"])
 		})
 	}

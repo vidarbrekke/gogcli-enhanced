@@ -31,6 +31,7 @@ type DocsEditCmd struct {
 	Insert       DocsInsertCmd        `cmd:"" name:"insert" help:"Insert text at a specific index in a Google Doc"`
 	InsertTable  DocsInsertTableCmd   `cmd:"" name:"insert-table" help:"Insert a table at a specific location in a Google Doc"`
 	InsertImage  DocsInsertImageCmd   `cmd:"" name:"insert-image" help:"Insert an image at a specific index in a Google Doc"`
+	Locator      DocsLocatorEditCmd   `cmd:"" name:"locator" help:"Apply anchor/marker-based edits in a Google Doc"`
 	MergeData    DocsEditMergeDataCmd `cmd:"" name:"merge-data" help:"Generate docs from template using JSON data (mail-merge)"`
 	Replace      DocsReplaceCmd       `cmd:"" name:"replace" help:"Replace text throughout a Google Doc"`
 	ReplaceImage DocsReplaceImageCmd  `cmd:"" name:"replace-image" help:"Replace an image in a Google Doc with a new image"`

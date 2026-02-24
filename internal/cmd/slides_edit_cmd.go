@@ -125,7 +125,7 @@ func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return writeAgentJSON(ctx, payload, &req)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -170,7 +170,7 @@ func (c *SlidesEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return writeAgentJSON(ctx, payload, &req)
 	}
 	u.Out().Printf("id\t%s", presentationID)
 	u.Out().Printf("operations\t%d", len(req.Requests))
@@ -250,7 +250,7 @@ func (c *SlidesEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return writeAgentJSON(ctx, payload, req)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -306,7 +306,7 @@ func (c *SlidesEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return writeAgentJSON(ctx, payload, req)
 	}
 	u.Out().Printf("id\t%s", presentationID)
 	u.Out().Printf("find\t%s", find)

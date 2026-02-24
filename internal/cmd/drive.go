@@ -61,22 +61,25 @@ const (
 )
 
 type DriveCmd struct {
-	Ls          DriveLsCmd          `cmd:"" name:"ls" help:"List files in a folder (default: root)"`
-	Search      DriveSearchCmd      `cmd:"" name:"search" help:"Full-text search across Drive"`
-	Get         DriveGetCmd         `cmd:"" name:"get" help:"Get file metadata"`
-	Download    DriveDownloadCmd    `cmd:"" name:"download" help:"Download a file (exports Google Docs formats)"`
-	Copy        DriveCopyCmd        `cmd:"" name:"copy" help:"Copy a file"`
-	Upload      DriveUploadCmd      `cmd:"" name:"upload" help:"Upload a file"`
-	Mkdir       DriveMkdirCmd       `cmd:"" name:"mkdir" help:"Create a folder"`
-	Delete      DriveDeleteCmd      `cmd:"" name:"delete" help:"Move a file to trash (use --permanent to delete forever)" aliases:"rm,del"`
-	Move        DriveMoveCmd        `cmd:"" name:"move" help:"Move a file to a different folder"`
-	Rename      DriveRenameCmd      `cmd:"" name:"rename" help:"Rename a file or folder"`
-	Share       DriveShareCmd       `cmd:"" name:"share" help:"Share a file or folder"`
-	Unshare     DriveUnshareCmd     `cmd:"" name:"unshare" help:"Remove a permission from a file"`
-	Permissions DrivePermissionsCmd `cmd:"" name:"permissions" help:"List permissions on a file"`
-	URL         DriveURLCmd         `cmd:"" name:"url" help:"Print web URLs for files"`
-	Comments    DriveCommentsCmd    `cmd:"" name:"comments" help:"Manage comments on files"`
-	Drives      DriveDrivesCmd      `cmd:"" name:"drives" help:"List shared drives (Team Drives)"`
+	Ls           DriveLsCmd            `cmd:"" name:"ls" help:"List files in a folder (default: root)"`
+	Search       DriveSearchCmd        `cmd:"" name:"search" help:"Full-text search across Drive"`
+	Get          DriveGetCmd           `cmd:"" name:"get" help:"Get file metadata"`
+	Download     DriveDownloadCmd      `cmd:"" name:"download" help:"Download a file (exports Google Docs formats)"`
+	Copy         DriveCopyCmd          `cmd:"" name:"copy" help:"Copy a file"`
+	Upload       DriveUploadCmd        `cmd:"" name:"upload" help:"Upload a file"`
+	Mkdir        DriveMkdirCmd         `cmd:"" name:"mkdir" help:"Create a folder"`
+	EnsureFolder DriveEnsureFolderCmd  `cmd:"" name:"ensure-folder" help:"Create folder path if missing (idempotent)"`
+	Delete       DriveDeleteCmd        `cmd:"" name:"delete" help:"Move a file to trash (use --permanent to delete forever)" aliases:"rm,del"`
+	Untrash      DriveUntrashCmd       `cmd:"" name:"untrash" help:"Restore a trashed file"`
+	Move         DriveMoveCmd          `cmd:"" name:"move" help:"Move a file to a different folder"`
+	Rename       DriveRenameCmd        `cmd:"" name:"rename" help:"Rename a file or folder"`
+	Share        DriveShareCmd         `cmd:"" name:"share" help:"Share a file or folder"`
+	Unshare      DriveUnshareCmd       `cmd:"" name:"unshare" help:"Remove a permission from a file"`
+	Permissions  DrivePermissionsCmd   `cmd:"" name:"permissions" help:"List permissions on a file"`
+	Permission   DrivePermissionGetCmd `cmd:"" name:"permission" help:"Get a single permission on a file"`
+	URL          DriveURLCmd           `cmd:"" name:"url" help:"Print web URLs for files"`
+	Comments     DriveCommentsCmd      `cmd:"" name:"comments" help:"Manage comments on files"`
+	Drives       DriveDrivesCmd        `cmd:"" name:"drives" help:"List shared drives (Team Drives)"`
 }
 
 type DriveLsCmd struct {
@@ -552,9 +555,91 @@ func (c *DriveMkdirCmd) Run(ctx context.Context, flags *RootFlags) error {
 	return nil
 }
 
+type DriveEnsureFolderCmd struct {
+	Path   string `arg:"" name:"path" help:"Folder path (e.g. Projects/2026/Q1)"`
+	Parent string `name:"parent" help:"Parent folder ID (default: root)"`
+}
+
+func (c *DriveEnsureFolderCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	path := strings.TrimSpace(c.Path)
+	if path == "" {
+		return usage("empty path")
+	}
+	if dryErr := dryRunExit(ctx, flags, "drive.ensure-folder", map[string]any{
+		"path":   path,
+		"parent": strings.TrimSpace(c.Parent),
+	}); dryErr != nil {
+		return dryErr
+	}
+
+	svc, err := newDriveService(ctx, account)
+	if err != nil {
+		return err
+	}
+
+	folder, created, err := ensureDrivePath(ctx, svc, c.Parent, path)
+	if err != nil {
+		return err
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+			"folderId": folder.Id,
+			"name":     folder.Name,
+			"created":  created,
+			"path":     path,
+		})
+	}
+	u.Out().Printf("folder-id\t%s", folder.Id)
+	u.Out().Printf("name\t%s", folder.Name)
+	u.Out().Printf("created\t%t", created)
+	return nil
+}
+
 type DriveDeleteCmd struct {
 	FileID    string `arg:"" name:"fileId" help:"File ID"`
 	Permanent bool   `name:"permanent" help:"Permanently delete instead of moving to trash" default:"false"`
+}
+
+type DriveUntrashCmd struct {
+	FileID string `arg:"" name:"fileId" help:"File ID"`
+}
+
+func (c *DriveUntrashCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	fileID := strings.TrimSpace(c.FileID)
+	if fileID == "" {
+		return usage("empty fileId")
+	}
+	if dryErr := dryRunExit(ctx, flags, "drive.untrash", map[string]any{
+		"file_id": fileID,
+	}); dryErr != nil {
+		return dryErr
+	}
+	svc, err := newDriveService(ctx, account)
+	if err != nil {
+		return err
+	}
+	_, err = svc.Files.Update(fileID, &drive.File{Trashed: false}).
+		SupportsAllDrives(true).
+		Fields("id,trashed").
+		Context(ctx).
+		Do()
+	if err != nil {
+		return err
+	}
+	return writeResult(ctx, u,
+		kv("untrashed", true),
+		kv("id", fileID),
+	)
 }
 
 func (c *DriveDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -871,6 +956,54 @@ type DrivePermissionsCmd struct {
 	FileID string `arg:"" name:"fileId" help:"File ID"`
 	Max    int64  `name:"max" aliases:"limit" help:"Max results" default:"100"`
 	Page   string `name:"page" aliases:"cursor" help:"Page token"`
+}
+
+type DrivePermissionGetCmd struct {
+	FileID       string `arg:"" name:"fileId" help:"File ID"`
+	PermissionID string `arg:"" name:"permissionId" help:"Permission ID"`
+}
+
+func (c *DrivePermissionGetCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	fileID := strings.TrimSpace(c.FileID)
+	if fileID == "" {
+		return usage("empty fileId")
+	}
+	permissionID := strings.TrimSpace(c.PermissionID)
+	if permissionID == "" {
+		return usage("empty permissionId")
+	}
+	svc, err := newDriveService(ctx, account)
+	if err != nil {
+		return err
+	}
+	perm, err := svc.Permissions.Get(fileID, permissionID).
+		SupportsAllDrives(true).
+		Fields("id,type,role,emailAddress,domain,allowFileDiscovery").
+		Context(ctx).
+		Do()
+	if err != nil {
+		return err
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+			"fileId":       fileID,
+			"permissionId": permissionID,
+			"permission":   perm,
+		})
+	}
+	u.Out().Printf("file-id\t%s", fileID)
+	u.Out().Printf("permission-id\t%s", perm.Id)
+	u.Out().Printf("type\t%s", perm.Type)
+	u.Out().Printf("role\t%s", perm.Role)
+	if perm.EmailAddress != "" {
+		u.Out().Printf("email\t%s", perm.EmailAddress)
+	}
+	return nil
 }
 
 func (c *DrivePermissionsCmd) Run(ctx context.Context, flags *RootFlags) error {

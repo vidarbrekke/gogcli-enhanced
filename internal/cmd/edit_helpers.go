@@ -11,6 +11,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"google.golang.org/api/docs/v1"
@@ -21,6 +22,42 @@ import (
 )
 
 const docsService = "docs"
+
+var currentOperationID atomic.Value
+
+func setCurrentOperationID(opID string) {
+	currentOperationID.Store(strings.TrimSpace(opID))
+}
+
+func getCurrentOperationID() string {
+	if v := currentOperationID.Load(); v != nil {
+		if s, ok := v.(string); ok {
+			return strings.TrimSpace(s)
+		}
+	}
+	return ""
+}
+
+func addAgentMetadata(payload map[string]any, req any) map[string]any {
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	if opID := getCurrentOperationID(); opID != "" {
+		payload["opId"] = opID
+	}
+	if req != nil {
+		if _, exists := payload["requestHash"]; !exists {
+			if hash, hashErr := RequestHash(req); hashErr == nil {
+				payload["requestHash"] = hash
+			}
+		}
+	}
+	return payload
+}
+
+func writeAgentJSON(ctx context.Context, payload map[string]any, req any) error {
+	return outfmt.WriteJSON(ctx, os.Stdout, addAgentMetadata(payload, req))
+}
 
 // AgenticEditSafetyFlags provides common safety flags across all edit commands.
 // Docs, Sheets, and Slides edit commands embed this struct.
@@ -319,6 +356,7 @@ func DryRunOutput(ctx context.Context, u *ui.UI, service, resourceID string, req
 			payload["normalizedRequest"] = norm
 		}
 	}
+	payload = addAgentMetadata(payload, req)
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}

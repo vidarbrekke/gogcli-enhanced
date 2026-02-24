@@ -29,9 +29,9 @@ func NewRetryTransport(base http.RoundTripper) *RetryTransport {
 
 	return &RetryTransport{
 		Base:           base,
-		MaxRetries429:  MaxRateLimitRetries,
-		MaxRetries5xx:  Max5xxRetries,
-		BaseDelay:      RateLimitBaseDelay,
+		MaxRetries429:  runtimeRetryConfig.MaxRetries429,
+		MaxRetries5xx:  runtimeRetryConfig.MaxRetries5xx,
+		BaseDelay:      runtimeRetryConfig.BaseDelay,
 		CircuitBreaker: NewCircuitBreaker(),
 	}
 }

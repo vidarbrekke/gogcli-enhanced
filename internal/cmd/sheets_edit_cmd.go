@@ -105,7 +105,7 @@ func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return writeAgentJSON(ctx, payload, req)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -164,7 +164,7 @@ func (c *SheetsEditValuesCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return writeAgentJSON(ctx, payload, req)
 	}
 	u.Out().Printf("Updated %d cells in %s", resp.UpdatedCells, resp.UpdatedRange)
 	return nil
