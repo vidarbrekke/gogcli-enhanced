@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strconv"
@@ -97,10 +98,14 @@ type CLI struct {
 type exitPanic struct{ code int }
 
 func Execute(args []string) (err error) {
+	return ExecuteWithIO(args, os.Stdout, os.Stderr)
+}
+
+func ExecuteWithIO(args []string, stdout io.Writer, stderr io.Writer) (err error) {
 	args = rewriteDesirePathArgs(args)
 	jsonRequested := wantsJSONFromArgsOrEnv(args)
 
-	parser, cli, err := newParser(helpDescription())
+	parser, cli, err := newParser(helpDescription(), stdout, stderr)
 	if err != nil {
 		return err
 	}
@@ -123,18 +128,18 @@ func Execute(args []string) (err error) {
 	if err != nil {
 		parsedErr := wrapParseError(err)
 		if jsonRequested {
-			_, _ = fmt.Fprintln(os.Stderr, formatJSONErrorEnvelopeWithCode(parsedErr, "parse_error"))
+			_, _ = fmt.Fprintln(stderr, formatJSONErrorEnvelopeWithCode(parsedErr, "parse_error"))
 		} else {
-			_, _ = fmt.Fprintln(os.Stderr, errfmt.Format(parsedErr))
+			_, _ = fmt.Fprintln(stderr, errfmt.Format(parsedErr))
 		}
 		return parsedErr
 	}
 
 	if err = enforceEnabledCommands(kctx, cli.EnableCommands); err != nil {
 		if cli.JSON || jsonRequested {
-			_, _ = fmt.Fprintln(os.Stderr, formatJSONErrorEnvelopeWithCode(err, "command_not_enabled"))
+			_, _ = fmt.Fprintln(stderr, formatJSONErrorEnvelopeWithCode(err, "command_not_enabled"))
 		} else {
-			_, _ = fmt.Fprintln(os.Stderr, errfmt.Format(err))
+			_, _ = fmt.Fprintln(stderr, errfmt.Format(err))
 		}
 		return err
 	}
@@ -143,13 +148,13 @@ func Execute(args []string) (err error) {
 	if cli.Verbose {
 		logLevel = slog.LevelDebug
 	}
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+	slog.SetDefault(slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{
 		Level: logLevel,
 	})))
 
 	// Opt-in "agent mode": default to JSON when stdout is piped/non-TTY.
 	// We intentionally do this after parsing so `--plain` can override it.
-	if envBool("GOG_AUTO_JSON") && !cli.JSON && !cli.Plain && !term.IsTerminal(int(os.Stdout.Fd())) {
+	if envBool("GOG_AUTO_JSON") && !cli.JSON && !cli.Plain && !isTerminalWriter(stdout) {
 		cli.JSON = true
 	}
 
@@ -196,8 +201,8 @@ func Execute(args []string) (err error) {
 	}
 
 	u, err := ui.New(ui.Options{
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
+		Stdout: stdout,
+		Stderr: stderr,
 		Color:  uiColor,
 	})
 	if err != nil {
@@ -219,7 +224,7 @@ func Execute(args []string) (err error) {
 	err = stableExitCode(err)
 
 	if outfmt.IsJSON(ctx) {
-		_, _ = fmt.Fprintln(os.Stderr, formatJSONErrorEnvelope(err))
+		_, _ = fmt.Fprintln(stderr, formatJSONErrorEnvelope(err))
 		return err
 	}
 
@@ -232,9 +237,17 @@ func Execute(args []string) (err error) {
 	}
 	msg := strings.TrimSpace(errfmt.Format(err))
 	if msg != "" {
-		_, _ = fmt.Fprintln(os.Stderr, msg)
+		_, _ = fmt.Fprintln(stderr, msg)
 	}
 	return err
+}
+
+func isTerminalWriter(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok || f == nil {
+		return false
+	}
+	return term.IsTerminal(int(f.Fd()))
 }
 
 type jsonErrorFieldsProvider interface {
@@ -386,7 +399,7 @@ func boolString(v bool) string {
 	return strconv.FormatBool(v)
 }
 
-func newParser(description string) (*kong.Kong, *CLI, error) {
+func newParser(description string, stdout io.Writer, stderr io.Writer) (*kong.Kong, *CLI, error) {
 	envMode := outfmt.FromEnv()
 	vars := kong.Vars{
 		"auth_services":    googleauth.UserServiceCSV(),
@@ -407,7 +420,7 @@ func newParser(description string) (*kong.Kong, *CLI, error) {
 		kong.ConfigureHelp(helpOptions()),
 		kong.Help(helpPrinter),
 		kong.Vars(vars),
-		kong.Writers(os.Stdout, os.Stderr),
+		kong.Writers(stdout, stderr),
 		kong.Exit(func(code int) { panic(exitPanic{code: code}) }),
 	)
 	if err != nil {

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"io"
 	"reflect"
 	"strings"
 	"testing"
@@ -82,7 +83,7 @@ func TestDesirePaths_DryRunAlias_ExitsBeforeAuth(t *testing.T) {
 }
 
 func TestDesirePaths_CursorAlias_Parses(t *testing.T) {
-	parser, _, err := newParser("test parser")
+	parser, _, err := newParser("test parser", io.Discard, io.Discard)
 	if err != nil {
 		t.Fatalf("newParser: %v", err)
 	}

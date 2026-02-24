@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -138,5 +139,20 @@ func TestExecute_InvalidRetryBackoff(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "invalid retry settings") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestExecuteWithIO_WritesToProvidedWriters(t *testing.T) {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	err := ExecuteWithIO([]string{"--json", "--no-such-flag"}, &out, &errOut)
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+	if strings.TrimSpace(out.String()) != "" {
+		t.Fatalf("expected no stdout, got %q", out.String())
+	}
+	if strings.TrimSpace(errOut.String()) == "" {
+		t.Fatal("expected stderr output")
 	}
 }

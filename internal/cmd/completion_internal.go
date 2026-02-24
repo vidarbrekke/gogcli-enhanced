@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"io"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -72,7 +73,7 @@ func completeWords(cword int, words []string) ([]string, error) {
 
 func completionRootNode() (*completionNode, error) {
 	completionRootOnce.Do(func() {
-		parser, _, err := newParser(baseDescription())
+		parser, _, err := newParser(baseDescription(), io.Discard, io.Discard)
 		if err != nil {
 			completionRootErr = err
 			return
