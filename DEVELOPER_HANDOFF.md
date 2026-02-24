@@ -99,6 +99,7 @@ Unified helpers for agent-safe editing across Docs/Sheets/Slides:
 - **VID-107** — Docs Edit Agentic Refactor (NEW) — Replace, Insert, Delete, InsertTable
 - **VID-111** — Sheets Edit DeleteRange
 - **VID-112** — Docs Edit InsertImage
+- **VID-113** — Sheets DeleteRange code review (agentic compliance, error handling, tests)
 - **VID-114** — Phase 3 MergeData design doc (Docs/Sheets)
 
 ### 📋 Pending
