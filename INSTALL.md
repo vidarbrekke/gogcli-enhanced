@@ -6,7 +6,7 @@ Step-by-step guide to install **gog** (gogcli) and start using it.
 
 - **Google account** (Gmail, Workspace, or both).
 - **OAuth 2.0 credentials** from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (Desktop app type). You’ll create these in the setup steps below.
-- For **build from source**: Go 1.21+ (`go version`).
+- For **build from source**: Go 1.21+ (`go version`). If Go is not installed, the install script will download it for you.
 
 ---
 
@@ -56,13 +56,13 @@ gog --help
    cd gogcli-enhanced
    ```
 
-2. Build the binary:
+2. Run the install script (checks for Go and downloads it if missing, then builds):
 
    ```bash
-   make
+   ./scripts/install.sh
    ```
 
-   This produces `./bin/gog`.
+   This produces `./bin/gog`. If you already have Go 1.24+ installed, you can instead run `make` directly.
 
 3. Run the CLI (from the repo root):
 
@@ -216,7 +216,7 @@ For more on auth, keyring, service accounts, and scopes, see **README.md** → A
 | Step | Command |
 |------|--------|
 | Install (Homebrew) | `brew install steipete/tap/gogcli` |
-| Install (source) | `git clone ... && make` |
+| Install (source) | `git clone ... && ./scripts/install.sh` (or `make` if Go is installed) |
 | Store OAuth client | `gog auth credentials <path-to-json>` |
 | Add account | `gog auth add you@gmail.com` |
 | List accounts | `gog auth list` |
