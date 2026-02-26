@@ -34,6 +34,8 @@ Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Sli
 
 ## Installation
 
+For a step-by-step install and first-time setup guide, see **[INSTALL.md](INSTALL.md)**.
+
 ### Homebrew
 
 ```bash
