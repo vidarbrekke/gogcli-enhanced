@@ -560,13 +560,13 @@ print_completion_summary() {
   fi
 
   echo
-  echo "What this tool does:"
-  echo "gog is a Google Workspace CLI + optional MCP server."
-  echo "It lets you script Gmail, Calendar, Drive, Docs, Sheets, Slides, Tasks, Contacts, and more from terminal or agents."
-  echo
-  echo "How to use it:"
-  echo "- CLI: run commands like '${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} gmail labels list' or '${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} drive ls'"
-  echo "- MCP: run '${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} mcp serve' and point your MCP client to that command"
+  echo "OpenClaw-ready summary:"
+  echo "gogcli-enhanced is a Google Workspace MCP server, and is ready for use."
+  echo ""
+  echo "How to use with OpenClaw:"
+  echo "- In OpenClaw chat, ask for Google Workspace actions directly (Gmail, Calendar, Drive, Docs, Sheets, Slides, Tasks, Contacts)."
+  echo "- You usually do not need to provide CLI commands; OpenClaw can route through the MCP server."
+  echo "- If auth/account setup was skipped above, complete it first so OpenClaw can access your Google data."
 }
 
 require_repo_layout
