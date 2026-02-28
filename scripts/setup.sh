@@ -46,7 +46,6 @@ prompt_line() {
   local default="${3:-}"
   local val=""
 
-  clear_screen
   if ! read -r -p "$prompt" val; then
     warn "No input received (EOF). Using default: ${default:-<empty>}"
     val="$default"
@@ -60,7 +59,6 @@ prompt_secret() {
   local prompt="$2"
   local val=""
 
-  clear_screen
   if ! read -r -s -p "$prompt" val; then
     echo
     warn "No secret input received (EOF)."
@@ -137,12 +135,13 @@ print_state() {
 main_menu() {
   while true; do
     clear_screen
-    echo -e "${BOLD}Select setup mode${RESET}"
-    echo "1) Fresh install (auto defaults)"
-    echo "2) Reinstall (preserve existing config)"
-    echo "3) Reinstall (backup config + reset config)"
-    echo "4) Reinstall (clean reset: remove config + installed binary)"
-    prompt_line MODE "Choice [1-4]: "
+    echo -e "${BOLD}Setup mode${RESET}"
+    echo "Choose how you want to run installation:"
+    echo "1) Fresh install (auto defaults, least questions)"
+    echo "2) Reinstall (keep existing config)"
+    echo "3) Reinstall (backup then reset config)"
+    echo "4) Reinstall (clean reset: remove config + binary)"
+    prompt_line MODE "Select an option [1-4]: "
     case "$MODE" in
       1|2|3|4) return 0 ;;
       *) echo "Please choose 1, 2, 3, or 4." ;;
@@ -170,10 +169,11 @@ decide_install_target() {
 
   while true; do
     clear_screen
-    echo -e "${BOLD}Install target${RESET}"
+    echo -e "${BOLD}Install location${RESET}"
+    echo "Where should the gog binary be installed?"
     echo "1) ~/.local/bin/gog (recommended, no sudo)"
     echo "2) /usr/local/bin/gog (system-wide, may require sudo)"
-    prompt_line choice "Choose install target [1/2] (default 1): " "1"
+    prompt_line choice "Select install location [1/2] (default 1): " "1"
     choice="${choice:-1}"
     case "$choice" in
       1) INSTALL_TARGET="$HOME/.local/bin/gog"; INSTALL_COMMAND_HINT="$HOME/.local/bin/gog"; return 0 ;;
@@ -298,7 +298,7 @@ copy_binary_to_target() {
 
 persist_keyring_env_optional() {
   local pass="$1"
-  if ask_yes_no "Persist keyring env vars to ~/.bashrc for future shells?" n; then
+  if ask_yes_no "Save keyring env vars to ~/.bashrc for future shells?" n; then
     grep -Fq 'export GOG_KEYRING_BACKEND=file' "$HOME/.bashrc" 2>/dev/null || \
       echo 'export GOG_KEYRING_BACKEND=file' >> "$HOME/.bashrc"
 
@@ -355,7 +355,7 @@ setup_auth_optional() {
   [[ -x "$gog_cmd" ]] || gog_cmd="$(command -v gog 2>/dev/null || true)"
   [[ -x "$gog_cmd" ]] || gog_cmd="$BIN_IN_REPO"
 
-  if ! ask_yes_no "Do you want to configure auth now (recommended)?" y; then
+  if ! ask_yes_no "Configure Google auth now (recommended for immediate OpenClaw use)?" y; then
     return 0
   fi
   DID_CONFIGURE_AUTH=1
@@ -368,11 +368,11 @@ setup_auth_optional() {
   echo
 
   # 1) credentials: simplified, ID+secret first.
-  if ask_yes_no "Add or replace OAuth credentials now?" y; then
+  if ask_yes_no "Add OAuth app credentials now?" y; then
     clear_screen
-    prompt_line oauth_client_id "OAuth Client ID: "
+    prompt_line oauth_client_id "Paste OAuth Client ID (ends with apps.googleusercontent.com): "
     clear_screen
-    prompt_secret oauth_client_secret "OAuth Client Secret (input hidden): " || oauth_client_secret=""
+    prompt_secret oauth_client_secret "Paste OAuth Client Secret (input hidden): " || oauth_client_secret=""
     echo
 
     if [[ -n "${oauth_client_id:-}" && -n "${oauth_client_secret:-}" ]]; then
@@ -419,7 +419,7 @@ EOF
 
   if ask_yes_no "Authorize a Google account now?" y; then
     clear_screen
-    prompt_line account_email "Account email: "
+    prompt_line account_email "Google account email to authorize: "
     if [[ -n "${account_email:-}" ]]; then
       if is_cloud_context; then
         log "Cloud/headless detected: using manual auth flow."
@@ -537,7 +537,7 @@ print_completion_summary() {
   echo "- CLI help: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} --help"
 
   if [[ "$DID_CONFIGURE_AUTH" -eq 0 ]]; then
-    echo "- Auth not configured in this run. Rerun setup and follow: credentials -> token storage -> account auth"
+    echo "- Auth not configured in this run. Rerun setup and complete: credentials -> token storage -> account auth"
   else
     [[ "$DID_STORE_CREDENTIALS" -eq 0 ]] && \
       echo "- OAuth credentials not added in this run. Add with: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} auth credentials <path-to-json>"
