@@ -303,7 +303,7 @@ copy_binary_to_target() {
 
 persist_keyring_env_optional() {
   local pass="$1"
-  if ask_yes_no "Save keyring env vars to ~/.bashrc for future shells?" n; then
+  if ask_yes_no "Save keyring password in ~/.bashrc for auto-unlock in future shells? (less secure: stored as plaintext)" n; then
     grep -Fq 'export GOG_KEYRING_BACKEND=file' "$HOME/.bashrc" 2>/dev/null || \
       echo 'export GOG_KEYRING_BACKEND=file' >> "$HOME/.bashrc"
 
@@ -338,8 +338,12 @@ setup_file_keyring_password() {
   clear_screen
   echo "No existing keyring password found."
   echo "Create a new keyring password now."
-  echo "This password encrypts your stored Google tokens on disk ($CONFIG_DIR/keyring)."
-  echo "You will use it to unlock token storage in future sessions unless you persist env vars."
+  echo "What this password is for:"
+  echo "- It encrypts your stored Google refresh tokens at $CONFIG_DIR/keyring"
+  echo "- gog/OpenClaw must unlock this keyring before using Google APIs"
+  echo "How it is used later:"
+  echo "- If saved to ~/.bashrc as GOG_KEYRING_PASSWORD, unlock is automatic"
+  echo "- If not saved, you must provide it in each new shell/session"
   clear_screen
   prompt_secret p1 "New keyring password: " || return 0
   echo
@@ -424,7 +428,10 @@ EOF
 
   # 3) authorize account: proceed directly; fallback is leaving email empty.
   clear_screen
-  prompt_line account_email "Google account email to authorize (leave empty to skip): "
+  echo "Google account authorization"
+  echo "- Required if you want OpenClaw to actually access Gmail/Drive/Docs/etc now"
+  echo "- If skipped, MCP is installed/active but Google requests will fail until you authorize later"
+  prompt_line account_email "Google account email to authorize (leave empty to skip for now): "
   if [[ -n "${account_email:-}" ]]; then
     if is_cloud_context; then
       log "Cloud/headless detected: using manual auth flow."
