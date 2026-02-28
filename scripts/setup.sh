@@ -139,11 +139,11 @@ infer_install_target() {
 
 print_plan() {
   clear_screen
-  echo -e "${BOLD}gogcli-enhanced quick setup${RESET}"
-  echo "This will automatically:"
-  echo "1) Build/install gog"
-  echo "2) Configure/verify MCP server (gog-agentic)"
-  echo "3) Reuse Google auth if found, otherwise guide you"
+  echo -e "${BOLD}gogcli-enhanced easy setup${RESET}"
+  echo "This setup will automatically:"
+  echo "1) Install/update gogcli-enhanced"
+  echo "2) Activate and verify the OpenClaw MCP server (gog-agentic)"
+  echo "3) Reuse your Google auth if available, or guide you step-by-step"
   echo
   echo "Detected context: $(is_cloud_context && echo 'cloud/headless' || echo 'local')"
   echo "Install target: $INSTALL_TARGET"
@@ -299,10 +299,10 @@ configure_keyring_file() {
   fi
 
   clear_screen
-  echo "No existing keyring file found."
-  echo "Create a NEW keyring password now."
-  echo "- This encrypts your Google tokens on disk ($CONFIG_DIR/keyring)"
-  echo "- OpenClaw needs this password to unlock Google access in future sessions"
+  echo "No existing secure token lock was found."
+  echo "Create a new password now to protect your Google connection."
+  echo "- This encrypts your Google sign-in tokens on disk ($CONFIG_DIR/keyring)"
+  echo "- OpenClaw uses this to access Google on future sessions"
 
   local p1 p2
   prompt_secret p1 "New keyring password: " || return 0
@@ -320,7 +320,7 @@ configure_auth() {
   local gog_cmd="$INSTALL_TARGET"
   [[ -x "$gog_cmd" ]] || gog_cmd="$BIN_IN_REPO"
 
-  log "Configuring Google auth..."
+  log "Setting up Google connection..."
 
   # Credentials reuse first
   local creds=""
@@ -370,7 +370,7 @@ EOF
   fi
 
   clear_screen
-  echo "Google account authorization is still needed for live Gmail/Drive/Docs access."
+  echo "One final step: connect your Google account for live Gmail/Drive/Docs access."
   local email
   prompt_line email "Google account email to authorize now (leave empty to skip): "
   if [[ -z "$email" ]]; then
@@ -477,9 +477,9 @@ print_final() {
   echo -e "${GREEN}Setup complete.${RESET}"
 
   if [[ "$AUTH_ACCOUNT_OK" -eq 1 ]]; then
-    echo "Status: ✅ MCP active + Google account authorized"
+    echo "Status: ✅ Ready — MCP is active and your Google account is connected"
   else
-    echo "Status: ⚠️ MCP active, but Google account authorization is still needed"
+    echo "Status: ⚠️ Almost ready — MCP is active, but your Google account is not connected yet"
     if is_cloud_context; then
       echo "Run: ${INSTALL_CMD_HINT:-$INSTALL_TARGET} auth add <you@gmail.com> --services user --manual"
     else
@@ -490,7 +490,7 @@ print_final() {
   echo
   echo "OpenClaw-ready summary:"
   echo "gogcli-enhanced is a Google Workspace MCP server, and is ready for use."
-  echo "Ask naturally in OpenClaw, for example:"
+  echo "Use plain language in OpenClaw. Example:"
   echo "- Create a new Google Doc called Test1 in a new Drive folder called testing123"
 }
 
