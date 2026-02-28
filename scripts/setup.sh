@@ -388,16 +388,29 @@ setup_auth_optional() {
   echo "3) Account authorization"
   echo
 
-  # 1) credentials: user asked to configure auth, so proceed directly.
-  clear_screen
-  prompt_line oauth_client_id "Paste OAuth Client ID (ends with apps.googleusercontent.com): "
-  clear_screen
-  prompt_secret oauth_client_secret "Paste OAuth Client Secret (input hidden): " || oauth_client_secret=""
-  echo
-  if [[ -n "${oauth_client_id:-}" && -n "${oauth_client_secret:-}" ]]; then
-    local generated_json
-    generated_json="$(mktemp)"
-    cat > "$generated_json" <<EOF
+  # 1) credentials: detect/reuse existing by default.
+  local creds_path="${XDG_CONFIG_HOME:-$HOME/.config}/gogcli/credentials.json"
+  local creds_reuse=0
+  if [[ -f "$creds_path" ]]; then
+    clear_screen
+    echo "Found existing OAuth app credentials at: $creds_path"
+    if ask_yes_no "Reuse existing OAuth credentials?" y; then
+      DID_STORE_CREDENTIALS=1
+      creds_reuse=1
+      log "Reusing existing OAuth credentials."
+    fi
+  fi
+
+  if [[ "$creds_reuse" -eq 0 ]]; then
+    clear_screen
+    prompt_line oauth_client_id "Paste OAuth Client ID (ends with apps.googleusercontent.com): "
+    clear_screen
+    prompt_secret oauth_client_secret "Paste OAuth Client Secret (input hidden): " || oauth_client_secret=""
+    echo
+    if [[ -n "${oauth_client_id:-}" && -n "${oauth_client_secret:-}" ]]; then
+      local generated_json
+      generated_json="$(mktemp)"
+      cat > "$generated_json" <<EOF
 {
   "installed": {
     "client_id": "$oauth_client_id",
@@ -407,12 +420,13 @@ setup_auth_optional() {
   }
 }
 EOF
-    "$gog_cmd" auth credentials "$generated_json"
-    rm -f "$generated_json"
-    DID_STORE_CREDENTIALS=1
-    log "Stored OAuth credentials."
-  else
-    warn "Client ID/secret missing; credentials not stored."
+      "$gog_cmd" auth credentials "$generated_json"
+      rm -f "$generated_json"
+      DID_STORE_CREDENTIALS=1
+      log "Stored OAuth credentials."
+    else
+      warn "Client ID/secret missing; credentials not stored."
+    fi
   fi
 
   # 2) token storage: infer and apply file backend by default for reliability.
@@ -421,14 +435,23 @@ EOF
   setup_file_keyring_password
 
   # 3) account authorization with smart flow by context.
-  local existing_accounts
+  local existing_accounts list_check_ok
   existing_accounts="$($gog_cmd auth list 2>/dev/null | grep -Eo '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+' | sort -u | tr '\n' ' ' || true)"
+  list_check_ok=0
+  if $gog_cmd auth list --check >/tmp/gog-auth-check.out 2>/tmp/gog-auth-check.err; then
+    list_check_ok=1
+  fi
 
   if [[ -n "${existing_accounts// }" ]]; then
     clear_screen
     echo "Found existing authorized account(s): $existing_accounts"
-    if ask_yes_no "Keep existing account(s) and skip adding a new one?" y; then
-      log "Keeping existing account setup."
+    if [[ "$list_check_ok" -eq 1 ]]; then
+      echo "Credential check: existing account tokens look valid."
+    else
+      echo "Credential check: could not verify existing tokens (may still work)."
+    fi
+    if ask_yes_no "Reuse existing authorized account(s) and skip adding a new one?" y; then
+      log "Reusing existing account setup."
       DID_AUTHORIZE_ACCOUNT=1
       return 0
     fi
