@@ -487,49 +487,72 @@ EOF
   fi
 }
 
-write_mcp_template_optional() {
+configure_openclaw_mcp_auto() {
   local gog_cmd="$INSTALL_TARGET"
-  [[ -x "$gog_cmd" ]] || gog_cmd="gog"
+  [[ -x "$gog_cmd" ]] || gog_cmd="$BIN_IN_REPO"
 
-  if ! ask_yes_no "Create a minimal MCP client config template now?" y; then
-    return 0
+  local workspace_dir=""
+  if [[ -n "${OPENCLAW_WORKSPACE:-}" ]]; then
+    workspace_dir="$OPENCLAW_WORKSPACE"
+  elif [[ "$ROOT_DIR" == *"/repositories/"* ]]; then
+    workspace_dir="${ROOT_DIR%/repositories/*}"
+  else
+    workspace_dir="$ROOT_DIR"
   fi
 
-  local default_template="$CONFIG_DIR/mcp-client-template.json"
+  local mcp_config_path="$workspace_dir/config/mcporter.json"
+  local server_name="gog-agentic"
 
-  while true; do
-    clear_screen
-    echo "This creates a starter JSON file your MCP client can import/copy from."
-    echo "- Press Enter to use default path"
-    echo "- Or enter a full custom path ending in .json"
-    echo "- Existing file at that path will be overwritten"
-    read -r -p "Template file path [$default_template]: " template_path
-    template_path="${template_path:-$default_template}"
+  mkdir -p "$(dirname "$mcp_config_path")"
 
-    if [[ "$template_path" =~ ^[0-9]+$ ]]; then
-      warn "That looks like a menu choice, not a file path. Try again."
-      continue
-    fi
-    if [[ "$template_path" != *.json ]]; then
-      warn "Template path should end with .json"
-      continue
-    fi
-    break
-  done
-
-  mkdir -p "$(dirname "$template_path")"
-  cat > "$template_path" <<EOF
-{
-  "mcpServers": {
-    "gog": {
-      "command": "$gog_cmd",
-      "args": ["mcp", "serve"]
-    }
-  }
+  python3 - <<PY
+import json, os
+p = os.path.abspath(${mcp_config_path@Q})
+os.makedirs(os.path.dirname(p), exist_ok=True)
+if os.path.exists(p):
+    with open(p, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+else:
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+mcp = data.get('mcpServers')
+if not isinstance(mcp, dict):
+    mcp = {}
+mcp[${server_name@Q}] = {
+    'command': ${gog_cmd@Q},
+    'args': ['mcp', 'serve']
 }
-EOF
+data['mcpServers'] = mcp
+if 'imports' not in data or not isinstance(data.get('imports'), list):
+    data['imports'] = []
+with open(p, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+print(p)
+PY
 
-  log "Wrote MCP template: $template_path"
+  log "Activated MCP server entry '${server_name}' in: $mcp_config_path"
+
+  echo "Running verification check. Stay tuned."
+  local verify_ok=1
+  python3 - <<PY || verify_ok=0
+import json
+p = ${mcp_config_path@Q}
+with open(p, 'r', encoding='utf-8') as f:
+    d = json.load(f)
+entry = d.get('mcpServers', {}).get(${server_name@Q}, {})
+assert entry.get('command') == ${gog_cmd@Q}
+assert entry.get('args') == ['mcp', 'serve']
+print('config_ok')
+PY
+
+  if [[ "$verify_ok" -eq 1 ]]; then
+    log "Verification passed: MCP config entry is active and correct."
+  else
+    err "Verification failed: MCP config entry is missing or invalid."
+    exit 1
+  fi
 }
 
 verify_install() {
@@ -564,8 +587,8 @@ print_completion_summary() {
   echo "gogcli-enhanced is a Google Workspace MCP server, and is ready for use."
   echo ""
   echo "How to use with OpenClaw:"
-  echo "- In OpenClaw chat, ask for Google Workspace actions directly (Gmail, Calendar, Drive, Docs, Sheets, Slides, Tasks, Contacts)."
-  echo "- You usually do not need to provide CLI commands; OpenClaw can route through the MCP server."
+  echo "- Ask naturally in chat (example: Create a new Google Doc called Test1 in a new Drive folder called testing123)."
+  echo "- OpenClaw can route these requests through the gog-agentic MCP server automatically."
   echo "- If auth/account setup was skipped above, complete it first so OpenClaw can access your Google data."
 }
 
@@ -579,6 +602,6 @@ run_build
 copy_binary_to_target
 ensure_path_hint
 setup_auth_optional
-write_mcp_template_optional
+configure_openclaw_mcp_auto
 verify_install
 print_completion_summary
