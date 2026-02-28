@@ -252,7 +252,10 @@ remove_installed_binary() {
     fi
   done
 
-  [[ "$removed" == false ]] && log "No installed gog binary found to remove."
+  if [[ "$removed" == false ]]; then
+    log "No installed gog binary found to remove."
+  fi
+  return 0
 }
 
 reset_config() {
