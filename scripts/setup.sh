@@ -327,11 +327,33 @@ persist_keyring_env_optional() {
 
 setup_file_keyring_password() {
   local keyring_file="$CONFIG_DIR/keyring"
+  local keyring_found=""
+  local keyring_candidates=()
 
-  if [[ -f "$keyring_file" ]]; then
+  keyring_candidates+=("$keyring_file")
+  keyring_candidates+=("/root/.config/gogcli/keyring")
+  keyring_candidates+=("/root/openclaw-stock-home/.config/gogcli/keyring")
+  mapfile -t keyring_candidates < <(printf "%s\n" "${keyring_candidates[@]}" | awk '!seen[$0]++')
+
+  for kp in "${keyring_candidates[@]}"; do
+    if [[ -f "$kp" ]]; then
+      keyring_found="$kp"
+      break
+    fi
+  done
+
+  if [[ -n "$keyring_found" ]]; then
+    # If keyring exists in an alternate config root, copy it into active config dir.
+    if [[ "$keyring_found" != "$keyring_file" && ! -f "$keyring_file" ]]; then
+      mkdir -p "$CONFIG_DIR"
+      cp -a "$keyring_found" "$keyring_file"
+      keyring_found="$keyring_file"
+      log "Imported existing keyring into active config: $keyring_file"
+    fi
+
     clear_screen
-    warn "Detected existing encrypted keyring at $keyring_file"
-    echo "I can reuse it. If you want to rotate/reset instead, say no and rerun mode 4 (clean reset)."
+    warn "Detected existing encrypted keyring at $keyring_found"
+    echo "Default is to reuse existing keyring password."
     if ask_yes_no "Enter existing keyring password now?" y; then
       clear_screen
       prompt_secret p1 "Existing keyring password: " || return 0
@@ -340,8 +362,13 @@ setup_file_keyring_password() {
       export GOG_KEYRING_PASSWORD="$p1"
       log "Keyring password set for this setup session."
       persist_keyring_env_optional "$p1"
+      return 0
     fi
-    return 0
+
+    if ! ask_yes_no "Create/reset to a NEW keyring password instead?" n; then
+      warn "Skipped keyring password entry. You can retry later if unlock fails."
+      return 0
+    fi
   fi
 
   clear_screen
