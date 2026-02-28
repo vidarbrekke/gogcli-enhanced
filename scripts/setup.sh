@@ -233,15 +233,14 @@ setup_auth_optional() {
   [[ -x "$gog_cmd" ]] || gog_cmd="$(command -v gog 2>/dev/null || true)"
   [[ -x "$gog_cmd" ]] || gog_cmd="$BIN_IN_REPO"
 
-  if ! ask_yes_no "Do you want to configure auth now (credentials/account/keyring)?" n; then
+  if ! ask_yes_no "Do you want to configure auth now (credentials, keyring, account)?" n; then
     return 0
   fi
 
   echo
   echo "Auth setup tips:"
-  echo "- Preferred: paste Client ID + Client Secret (this wizard will generate JSON for you)."
-  echo "- Alternative: provide path to an existing OAuth client JSON file."
-  echo "- Existing credentials can be replaced any time with: gog auth credentials <path>"
+  echo "- Press Enter to accept defaults shown in brackets."
+  echo "- Recommended order on servers: credentials -> keyring -> account auth."
   echo "- For cloud/headless environments, use manual or remote auth flow (not local callback)."
 
   if ask_yes_no "Add or replace OAuth credentials now?" n; then
@@ -293,7 +292,58 @@ EOF
     esac
   fi
 
-  if ask_yes_no "Add/authorize a Google account now (gog auth add ...)?" n; then
+  if ask_yes_no "Configure keyring backend now (recommended before account auth)?" y; then
+    echo
+    echo "Keyring backend options:"
+    echo "- file     : encrypted file at $CONFIG_DIR/keyring (best for servers/headless)"
+    echo "- auto     : choose best available backend"
+    echo "- keychain : OS keychain backend (if supported)"
+    read -r -p "Backend [file]: " backend
+    backend="${backend:-file}"
+    case "$backend" in
+      auto|file|keychain)
+        "$gog_cmd" auth keyring "$backend"
+        ;;
+      *)
+        warn "Invalid backend; defaulting to file."
+        backend="file"
+        "$gog_cmd" auth keyring "$backend"
+        ;;
+    esac
+
+    if [[ "$backend" == "file" ]]; then
+      echo
+      if ask_yes_no "Set keyring password now to avoid unlock surprises during auth?" y; then
+        read -r -s -p "Keyring password (input hidden): " kr_pass_1
+        echo
+        read -r -s -p "Confirm keyring password: " kr_pass_2
+        echo
+        if [[ -z "${kr_pass_1:-}" ]]; then
+          warn "Empty password; skipping env setup."
+        elif [[ "$kr_pass_1" != "$kr_pass_2" ]]; then
+          warn "Passwords did not match; skipping env setup."
+        else
+          export GOG_KEYRING_BACKEND=file
+          export GOG_KEYRING_PASSWORD="$kr_pass_1"
+          log "Keyring password set for this setup session."
+
+          if ask_yes_no "Persist these env vars to ~/.bashrc for future shells?" n; then
+            grep -Fq 'export GOG_KEYRING_BACKEND=file' "$HOME/.bashrc" 2>/dev/null || \
+              echo 'export GOG_KEYRING_BACKEND=file' >> "$HOME/.bashrc"
+            # replace existing password line if present
+            if grep -Fq 'export GOG_KEYRING_PASSWORD=' "$HOME/.bashrc" 2>/dev/null; then
+              sed -i "s|^export GOG_KEYRING_PASSWORD=.*$|export GOG_KEYRING_PASSWORD='${kr_pass_1//\'/\'\"\'\"\'}'|" "$HOME/.bashrc"
+            else
+              echo "export GOG_KEYRING_PASSWORD='${kr_pass_1//\'/\'\"\'\"\'}'" >> "$HOME/.bashrc"
+            fi
+            log "Saved keyring env vars to ~/.bashrc"
+          fi
+        fi
+      fi
+    fi
+  fi
+
+  if ask_yes_no "Add/authorize a Google account now?" n; then
     read -r -p "Account email: " account_email
     if [[ -n "${account_email:-}" ]]; then
       echo
@@ -329,20 +379,6 @@ EOF
           ;;
       esac
     fi
-  fi
-
-  if ask_yes_no "Configure keyring backend now?" n; then
-    echo "Choose backend: auto | file | keychain"
-    read -r -p "Backend [auto]: " backend
-    backend="${backend:-auto}"
-    case "$backend" in
-      auto|file|keychain)
-        "$gog_cmd" auth keyring "$backend"
-        ;;
-      *)
-        warn "Invalid backend; skipping keyring config."
-        ;;
-    esac
   fi
 }
 
@@ -441,5 +477,5 @@ echo
 echo -e "${GREEN}Setup complete.${RESET}"
 echo "Next steps:"
 echo "- Run: gog --help"
-echo "- If auth not configured: rerun setup and paste OAuth Client ID + Secret (or use gog auth credentials <path>)"
-echo "- Then authorize account: gog auth add <you@gmail.com>"
+echo "- If auth not configured: rerun setup and follow credentials -> keyring -> account auth"
+echo "- For headless/server auth, choose Manual flow"
