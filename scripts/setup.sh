@@ -34,6 +34,15 @@ for arg in "$@"; do
   esac
 done
 
+# Self-check: validate script syntax before doing any work.
+if ! bash -n "$0" 2>/tmp/gog-setup-syntax.err; then
+  echo "Setup script failed syntax self-check."
+  echo "Please update to latest version and retry."
+  echo "Details:"
+  tail -n 5 /tmp/gog-setup-syntax.err || true
+  exit 2
+fi
+
 clear_screen() {
   if [[ "$CLEAR_PROMPTS" -eq 1 ]]; then
     clear 2>/dev/null || printf '\033c'
