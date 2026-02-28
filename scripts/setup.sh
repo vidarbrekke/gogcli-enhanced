@@ -55,8 +55,8 @@ choose_install_target() {
     read -r -p "Choose install target [1/2] (default 1): " choice
     choice="${choice:-1}"
     case "$choice" in
-      1) INSTALL_TARGET="$HOME/.local/bin/gog"; return 0 ;;
-      2) INSTALL_TARGET="/usr/local/bin/gog"; return 0 ;;
+      1) INSTALL_TARGET="$HOME/.local/bin/gog"; INSTALL_COMMAND_HINT="$HOME/.local/bin/gog"; return 0 ;;
+      2) INSTALL_TARGET="/usr/local/bin/gog"; INSTALL_COMMAND_HINT="gog"; return 0 ;;
       *) echo "Please choose 1 or 2." ;;
     esac
   done
@@ -82,6 +82,10 @@ TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
 CURRENT_GOG="$(command -v gog 2>/dev/null || true)"
 BIN_IN_REPO="$ROOT_DIR/bin/gog"
+
+DID_CONFIGURE_AUTH=0
+DID_STORE_CREDENTIALS=0
+DID_AUTHORIZE_ACCOUNT=0
 
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
@@ -236,6 +240,7 @@ setup_auth_optional() {
   if ! ask_yes_no "Do you want to configure auth now (credentials, keyring, account)?" n; then
     return 0
   fi
+  DID_CONFIGURE_AUTH=1
 
   echo
   echo "Auth setup tips:"
@@ -272,6 +277,7 @@ setup_auth_optional() {
 EOF
           "$gog_cmd" auth credentials "$generated_json"
           rm -f "$generated_json"
+          DID_STORE_CREDENTIALS=1
           log "Stored OAuth credentials (generated from pasted ID/secret)."
         else
           warn "Skipped: client ID/secret missing."
@@ -281,6 +287,7 @@ EOF
         read -r -p "Path to OAuth client JSON: " cred_path
         if [[ -n "${cred_path:-}" && -f "$cred_path" ]]; then
           "$gog_cmd" auth credentials "$cred_path"
+          DID_STORE_CREDENTIALS=1
           log "Stored OAuth credentials."
         else
           warn "Skipped: file not found."
@@ -292,24 +299,22 @@ EOF
     esac
   fi
 
-  if ask_yes_no "Configure keyring backend now (recommended before account auth)?" y; then
+  if ask_yes_no "Configure secure token storage now (recommended before account auth)?" y; then
     echo
-    echo "Keyring backend options:"
-    echo "- file     : encrypted file at $CONFIG_DIR/keyring (best for servers/headless)"
-    echo "- auto     : choose best available backend"
-    echo "- keychain : OS keychain backend (if supported)"
-    read -r -p "Backend [file]: " backend
-    backend="${backend:-file}"
-    case "$backend" in
-      auto|file|keychain)
-        "$gog_cmd" auth keyring "$backend"
-        ;;
+    echo "Where should gog store encrypted tokens?"
+    echo "1) file (recommended on servers): encrypted file at $CONFIG_DIR/keyring"
+    echo "2) keychain (OS keyring, if supported)"
+    read -r -p "Choose storage [1/2] (default 1): " backend_choice
+    backend_choice="${backend_choice:-1}"
+    case "$backend_choice" in
+      1) backend="file" ;;
+      2) backend="keychain" ;;
       *)
-        warn "Invalid backend; defaulting to file."
+        warn "Invalid choice; defaulting to file."
         backend="file"
-        "$gog_cmd" auth keyring "$backend"
         ;;
     esac
+    "$gog_cmd" auth keyring "$backend"
 
     if [[ "$backend" == "file" ]]; then
       echo
@@ -417,6 +422,7 @@ EOF
       case "$auth_flow" in
         1)
           "$gog_cmd" auth add "$account_email" --services user --manual
+          DID_AUTHORIZE_ACCOUNT=1
           ;;
         2)
           log "Starting remote auth step 1 (URL generation)."
@@ -426,16 +432,19 @@ EOF
           read -r -p "Full redirect URL: " auth_url
           if [[ -n "${auth_url:-}" ]]; then
             "$gog_cmd" auth add "$account_email" --services user --remote --step 2 --auth-url "$auth_url"
+            DID_AUTHORIZE_ACCOUNT=1
           else
             warn "No auth URL provided; skipped remote step 2."
           fi
           ;;
         3)
           "$gog_cmd" auth add "$account_email"
+          DID_AUTHORIZE_ACCOUNT=1
           ;;
         *)
           warn "Invalid auth flow choice; defaulting to manual flow."
           "$gog_cmd" auth add "$account_email" --services user --manual
+          DID_AUTHORIZE_ACCOUNT=1
           ;;
       esac
     fi
@@ -451,7 +460,10 @@ write_mcp_template_optional() {
   fi
 
   local default_template="$CONFIG_DIR/mcp-client-template.json"
-  read -r -p "Template path [$default_template]: " template_path
+  echo "This writes a starter JSON file your MCP client can import or copy from."
+  echo "Press Enter to accept default, or provide a custom full path."
+  echo "Tip: this file is safe to overwrite; it is only a template."
+  read -r -p "Template file path [$default_template]: " template_path
   template_path="${template_path:-$default_template}"
   mkdir -p "$(dirname "$template_path")"
 
@@ -536,6 +548,14 @@ verify_install
 echo
 echo -e "${GREEN}Setup complete.${RESET}"
 echo "Next steps:"
-echo "- Run: gog --help"
-echo "- If auth not configured: rerun setup and follow credentials -> keyring -> account auth"
-echo "- For headless/server auth, choose Manual flow"
+echo "- CLI command: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} --help"
+if [[ "$DID_CONFIGURE_AUTH" -eq 0 ]]; then
+  echo "- Auth is not configured yet. Rerun setup and follow: credentials -> secure token storage -> account auth"
+else
+  if [[ "$DID_STORE_CREDENTIALS" -eq 0 ]]; then
+    echo "- Credentials were not added in this run. Add with: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} auth credentials <path>"
+  fi
+  if [[ "$DID_AUTHORIZE_ACCOUNT" -eq 0 ]]; then
+    echo "- Account authorization was not completed in this run. Recommended command on server: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} auth add <you@gmail.com> --services user --manual"
+  fi
+fi
