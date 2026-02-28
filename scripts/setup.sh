@@ -376,10 +376,8 @@ setup_auth_optional() {
   [[ -x "$gog_cmd" ]] || gog_cmd="$(command -v gog 2>/dev/null || true)"
   [[ -x "$gog_cmd" ]] || gog_cmd="$BIN_IN_REPO"
 
-  if ! ask_yes_no "Configure Google auth now (recommended for immediate OpenClaw use)?" y; then
-    return 0
-  fi
   DID_CONFIGURE_AUTH=1
+  log "Configuring Google auth now (automatic)."
 
   clear_screen
   echo "Auth setup plan:"
