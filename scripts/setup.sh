@@ -21,7 +21,24 @@ RESET="\033[0m"
 log() { echo -e "${GREEN}==>${RESET} $*"; }
 warn() { echo -e "${YELLOW}Warning:${RESET} $*"; }
 err() { echo -e "${RED}Error:${RESET} $*"; }
-clear_screen() { clear 2>/dev/null || printf '\033c'; }
+
+CLEAR_PROMPTS=1
+for arg in "$@"; do
+  case "$arg" in
+    --no-clear) CLEAR_PROMPTS=0 ;;
+    --help|-h)
+      echo "Usage: ./scripts/setup.sh [--no-clear]"
+      echo "  --no-clear   Keep terminal scrollback; do not clear between prompts"
+      exit 0
+      ;;
+  esac
+done
+
+clear_screen() {
+  if [[ "$CLEAR_PROMPTS" -eq 1 ]]; then
+    clear 2>/dev/null || printf '\033c'
+  fi
+}
 
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/gogcli"
 BACKUP_BASE="${XDG_CONFIG_HOME:-$HOME/.config}/gogcli-backups"
