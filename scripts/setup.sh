@@ -386,17 +386,28 @@ setup_auth_optional() {
   echo "3) Account authorization"
   echo
 
-  # 1) credentials: detect/reuse existing by default.
-  local creds_path="${XDG_CONFIG_HOME:-$HOME/.config}/gogcli/credentials.json"
+  # 1) credentials: auto-detect and auto-reuse existing credentials.
   local creds_reuse=0
-  if [[ -f "$creds_path" ]]; then
+  local creds_candidates=()
+  local creds_path=""
+  creds_candidates+=("${XDG_CONFIG_HOME:-$HOME/.config}/gogcli/credentials.json")
+  creds_candidates+=("/root/.config/gogcli/credentials.json")
+  creds_candidates+=("/root/openclaw-stock-home/.config/gogcli/credentials.json")
+  mapfile -t creds_candidates < <(printf "%s\n" "${creds_candidates[@]}" | awk '!seen[$0]++')
+
+  for p in "${creds_candidates[@]}"; do
+    if [[ -f "$p" ]]; then
+      creds_path="$p"
+      break
+    fi
+  done
+
+  if [[ -n "$creds_path" ]]; then
     clear_screen
     echo "Found existing OAuth app credentials at: $creds_path"
-    if ask_yes_no "Reuse existing OAuth credentials?" y; then
-      DID_STORE_CREDENTIALS=1
-      creds_reuse=1
-      log "Reusing existing OAuth credentials."
-    fi
+    DID_STORE_CREDENTIALS=1
+    creds_reuse=1
+    log "Reusing existing OAuth credentials (automatic)."
   fi
 
   if [[ "$creds_reuse" -eq 0 ]]; then
