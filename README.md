@@ -36,6 +36,14 @@ Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Sli
 
 For a step-by-step install and first-time setup guide, see **[INSTALL.md](INSTALL.md)**.
 
+### Interactive setup wizard (Linux, recommended)
+
+```bash
+./scripts/setup.sh
+```
+
+The wizard provides interactive install/reinstall flows, dependency checks with permission prompts, optional auth/keyring setup, and optional MCP config template generation.
+
 ### Homebrew
 
 ```bash

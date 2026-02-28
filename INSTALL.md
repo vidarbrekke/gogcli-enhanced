@@ -40,7 +40,27 @@ gog --version
 gog --help
 ```
 
-### Option C: Build from source
+### Option C (recommended on Linux): Interactive setup wizard
+
+From the repository root:
+
+```bash
+./scripts/setup.sh
+```
+
+What it does:
+
+- Linux-only interactive install/reinstall flow
+- Lets user choose install target (`~/.local/bin` recommended, or `/usr/local/bin`)
+- Detects dependencies and asks permission before apt installs
+- Supports reinstall modes:
+  - preserve config
+  - backup + reset config
+  - clean reset (remove config + installed binary)
+- Optional auth/keyring bootstrap
+- Optional minimal MCP client template generation
+
+### Option D: Build from source (manual)
 
 1. Clone the repository:
 
