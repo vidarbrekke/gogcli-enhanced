@@ -239,17 +239,57 @@ setup_auth_optional() {
 
   echo
   echo "Auth setup tips:"
-  echo "- You need a Desktop OAuth client JSON from Google Cloud Console."
-  echo "- Existing credentials can be replaced by running: gog auth credentials <path>"
+  echo "- Preferred: paste Client ID + Client Secret (this wizard will generate JSON for you)."
+  echo "- Alternative: provide path to an existing OAuth client JSON file."
+  echo "- Existing credentials can be replaced any time with: gog auth credentials <path>"
 
   if ask_yes_no "Add or replace OAuth credentials now?" n; then
-    read -r -p "Path to OAuth client JSON: " cred_path
-    if [[ -n "${cred_path:-}" && -f "$cred_path" ]]; then
-      "$gog_cmd" auth credentials "$cred_path"
-      log "Stored OAuth credentials."
-    else
-      warn "Skipped: file not found."
-    fi
+    echo
+    echo "Credential input method:"
+    echo "1) Paste Client ID + Client Secret (recommended)"
+    echo "2) Use existing OAuth client JSON file path"
+    read -r -p "Choose [1/2] (default 1): " cred_mode
+    cred_mode="${cred_mode:-1}"
+
+    case "$cred_mode" in
+      1)
+        read -r -p "OAuth Client ID: " oauth_client_id
+        read -r -s -p "OAuth Client Secret (input hidden): " oauth_client_secret
+        echo
+
+        if [[ -n "${oauth_client_id:-}" && -n "${oauth_client_secret:-}" ]]; then
+          local generated_json
+          generated_json="$(mktemp)"
+          cat > "$generated_json" <<EOF
+{
+  "installed": {
+    "client_id": "$oauth_client_id",
+    "client_secret": "$oauth_client_secret",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token"
+  }
+}
+EOF
+          "$gog_cmd" auth credentials "$generated_json"
+          rm -f "$generated_json"
+          log "Stored OAuth credentials (generated from pasted ID/secret)."
+        else
+          warn "Skipped: client ID/secret missing."
+        fi
+        ;;
+      2)
+        read -r -p "Path to OAuth client JSON: " cred_path
+        if [[ -n "${cred_path:-}" && -f "$cred_path" ]]; then
+          "$gog_cmd" auth credentials "$cred_path"
+          log "Stored OAuth credentials."
+        else
+          warn "Skipped: file not found."
+        fi
+        ;;
+      *)
+        warn "Invalid choice; skipped credential setup."
+        ;;
+    esac
   fi
 
   if ask_yes_no "Add/authorize a Google account now (gog auth add ...)?" n; then
@@ -369,4 +409,5 @@ echo
 echo -e "${GREEN}Setup complete.${RESET}"
 echo "Next steps:"
 echo "- Run: gog --help"
-echo "- If auth not configured: gog auth credentials <path-to-client.json> && gog auth add <you@gmail.com>"
+echo "- If auth not configured: rerun setup and paste OAuth Client ID + Secret (or use gog auth credentials <path>)"
+echo "- Then authorize account: gog auth add <you@gmail.com>"
