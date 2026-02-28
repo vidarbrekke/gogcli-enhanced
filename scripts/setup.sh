@@ -313,30 +313,90 @@ EOF
 
     if [[ "$backend" == "file" ]]; then
       echo
-      if ask_yes_no "Set keyring password now to avoid unlock surprises during auth?" y; then
-        read -r -s -p "Keyring password (input hidden): " kr_pass_1
-        echo
-        read -r -s -p "Confirm keyring password: " kr_pass_2
-        echo
-        if [[ -z "${kr_pass_1:-}" ]]; then
-          warn "Empty password; skipping env setup."
-        elif [[ "$kr_pass_1" != "$kr_pass_2" ]]; then
-          warn "Passwords did not match; skipping env setup."
-        else
-          export GOG_KEYRING_BACKEND=file
-          export GOG_KEYRING_PASSWORD="$kr_pass_1"
-          log "Keyring password set for this setup session."
+      if [[ -f "$CONFIG_DIR/keyring" ]]; then
+        warn "Detected existing encrypted keyring at $CONFIG_DIR/keyring"
+        echo "1) Reuse existing keyring password"
+        echo "2) Rotate/reset keyring (backup + remove existing keyring file)"
+        echo "3) Skip password setup for now"
+        read -r -p "Choose [1/2/3] (default 1): " kr_mode
+        kr_mode="${kr_mode:-1}"
 
-          if ask_yes_no "Persist these env vars to ~/.bashrc for future shells?" n; then
-            grep -Fq 'export GOG_KEYRING_BACKEND=file' "$HOME/.bashrc" 2>/dev/null || \
-              echo 'export GOG_KEYRING_BACKEND=file' >> "$HOME/.bashrc"
-            # replace existing password line if present
-            if grep -Fq 'export GOG_KEYRING_PASSWORD=' "$HOME/.bashrc" 2>/dev/null; then
-              sed -i "s|^export GOG_KEYRING_PASSWORD=.*$|export GOG_KEYRING_PASSWORD='${kr_pass_1//\'/\'\"\'\"\'}'|" "$HOME/.bashrc"
+        case "$kr_mode" in
+          1)
+            :
+            ;;
+          2)
+            local backup_dir="$BACKUP_BASE/$TIMESTAMP-keyring"
+            mkdir -p "$backup_dir"
+            cp -a "$CONFIG_DIR/keyring" "$backup_dir/" || true
+            rm -f "$CONFIG_DIR/keyring"
+            log "Backed up old keyring to $backup_dir and removed current keyring file."
+            ;;
+          3)
+            warn "Skipped keyring password setup. You may be prompted later."
+            ;;
+          *)
+            warn "Invalid choice; defaulting to reuse existing password."
+            ;;
+        esac
+
+        if [[ "$kr_mode" == "3" ]]; then
+          :
+        else
+          if ask_yes_no "Enter keyring password now?" y; then
+            read -r -s -p "Keyring password (input hidden): " kr_pass_1
+            echo
+            read -r -s -p "Confirm keyring password: " kr_pass_2
+            echo
+            if [[ -z "${kr_pass_1:-}" ]]; then
+              warn "Empty password; skipping env setup."
+            elif [[ "$kr_pass_1" != "$kr_pass_2" ]]; then
+              warn "Passwords did not match; skipping env setup."
             else
-              echo "export GOG_KEYRING_PASSWORD='${kr_pass_1//\'/\'\"\'\"\'}'" >> "$HOME/.bashrc"
+              export GOG_KEYRING_BACKEND=file
+              export GOG_KEYRING_PASSWORD="$kr_pass_1"
+              log "Keyring password set for this setup session."
+
+              if ask_yes_no "Persist these env vars to ~/.bashrc for future shells?" n; then
+                grep -Fq 'export GOG_KEYRING_BACKEND=file' "$HOME/.bashrc" 2>/dev/null || \
+                  echo 'export GOG_KEYRING_BACKEND=file' >> "$HOME/.bashrc"
+                # replace existing password line if present
+                if grep -Fq 'export GOG_KEYRING_PASSWORD=' "$HOME/.bashrc" 2>/dev/null; then
+                  sed -i "s|^export GOG_KEYRING_PASSWORD=.*$|export GOG_KEYRING_PASSWORD='${kr_pass_1//\'/\'\"\'\"\'}'|" "$HOME/.bashrc"
+                else
+                  echo "export GOG_KEYRING_PASSWORD='${kr_pass_1//\'/\'\"\'\"\'}'" >> "$HOME/.bashrc"
+                fi
+                log "Saved keyring env vars to ~/.bashrc"
+              fi
             fi
-            log "Saved keyring env vars to ~/.bashrc"
+          fi
+        fi
+      else
+        if ask_yes_no "Set keyring password now to avoid unlock surprises during auth?" y; then
+          read -r -s -p "Keyring password (input hidden): " kr_pass_1
+          echo
+          read -r -s -p "Confirm keyring password: " kr_pass_2
+          echo
+          if [[ -z "${kr_pass_1:-}" ]]; then
+            warn "Empty password; skipping env setup."
+          elif [[ "$kr_pass_1" != "$kr_pass_2" ]]; then
+            warn "Passwords did not match; skipping env setup."
+          else
+            export GOG_KEYRING_BACKEND=file
+            export GOG_KEYRING_PASSWORD="$kr_pass_1"
+            log "Keyring password set for this setup session."
+
+            if ask_yes_no "Persist these env vars to ~/.bashrc for future shells?" n; then
+              grep -Fq 'export GOG_KEYRING_BACKEND=file' "$HOME/.bashrc" 2>/dev/null || \
+                echo 'export GOG_KEYRING_BACKEND=file' >> "$HOME/.bashrc"
+              # replace existing password line if present
+              if grep -Fq 'export GOG_KEYRING_PASSWORD=' "$HOME/.bashrc" 2>/dev/null; then
+                sed -i "s|^export GOG_KEYRING_PASSWORD=.*$|export GOG_KEYRING_PASSWORD='${kr_pass_1//\'/\'\"\'\"\'}'|" "$HOME/.bashrc"
+              else
+                echo "export GOG_KEYRING_PASSWORD='${kr_pass_1//\'/\'\"\'\"\'}'" >> "$HOME/.bashrc"
+              fi
+              log "Saved keyring env vars to ~/.bashrc"
+            fi
           fi
         fi
       fi
