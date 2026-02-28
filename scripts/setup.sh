@@ -76,6 +76,7 @@ ask_yes_no() {
   [[ "$default" == "y" ]] && suffix="[Y/n]"
   while true; do
     local ans
+    clear_screen
     prompt_line ans "$prompt $suffix " "$default"
     case "${ans,,}" in
       y|yes) return 0 ;;
@@ -335,6 +336,7 @@ setup_file_keyring_password() {
 
   clear_screen
   echo "No existing keyring password found. Create one now."
+  clear_screen
   prompt_secret p1 "New keyring password: " || return 0
   echo
   clear_screen
