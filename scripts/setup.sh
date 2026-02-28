@@ -353,34 +353,57 @@ setup_file_keyring_password() {
 
     clear_screen
     warn "Detected existing encrypted keyring at $keyring_found"
-    echo "Default is to reuse existing keyring password."
-    if ask_yes_no "Enter existing keyring password now?" y; then
-      clear_screen
-      prompt_secret p1 "Existing keyring password: " || return 0
-      echo
-      export GOG_KEYRING_BACKEND=file
-      export GOG_KEYRING_PASSWORD="$p1"
-      log "Keyring password set for this setup session."
-      persist_keyring_env_optional "$p1"
-      return 0
-    fi
+    echo "Choose how to proceed:"
+    echo "1) Reuse existing keyring password (recommended)"
+    echo "2) Create/reset to a NEW keyring password"
+    echo "3) Skip keyring password setup for now"
+    prompt_line kr_choice "Select [1/2/3] (default 1): " "1"
 
-    if ! ask_yes_no "Create/reset to a NEW keyring password instead?" n; then
-      warn "Skipped keyring password entry. You can retry later if unlock fails."
-      return 0
-    fi
+    case "$kr_choice" in
+      1)
+        clear_screen
+        echo "Enter your EXISTING keyring password to unlock stored Google tokens."
+        prompt_secret p1 "Existing keyring password: " || return 0
+        echo
+        export GOG_KEYRING_BACKEND=file
+        export GOG_KEYRING_PASSWORD="$p1"
+        log "Keyring password set for this setup session."
+        persist_keyring_env_optional "$p1"
+        return 0
+        ;;
+      3)
+        warn "Skipped keyring password entry. You can retry later if unlock fails."
+        return 0
+        ;;
+      2)
+        ;;
+      *)
+        warn "Invalid choice; defaulting to reuse existing keyring password."
+        clear_screen
+        prompt_secret p1 "Existing keyring password: " || return 0
+        echo
+        export GOG_KEYRING_BACKEND=file
+        export GOG_KEYRING_PASSWORD="$p1"
+        log "Keyring password set for this setup session."
+        persist_keyring_env_optional "$p1"
+        return 0
+        ;;
+    esac
   fi
 
   clear_screen
-  echo "No existing keyring password found."
-  echo "Create a new keyring password now."
+  echo "No existing keyring file was found, so reuse is not available."
+  echo "Paths checked:"
+  for kp in "${keyring_candidates[@]}"; do
+    echo "- $kp"
+  done
+  echo "Create a NEW keyring password now."
   echo "What this password is for:"
   echo "- It encrypts your stored Google refresh tokens at $CONFIG_DIR/keyring"
   echo "- gog/OpenClaw must unlock this keyring before using Google APIs"
   echo "How it is used later:"
   echo "- If saved to ~/.bashrc as GOG_KEYRING_PASSWORD, unlock is automatic"
   echo "- If not saved, you must provide it in each new shell/session"
-  clear_screen
   prompt_secret p1 "New keyring password: " || return 0
   echo
   clear_screen
