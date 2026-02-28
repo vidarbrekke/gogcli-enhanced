@@ -346,7 +346,6 @@ setup_file_keyring_password() {
   clear_screen
   prompt_secret p2 "Confirm keyring password: " || return 0
   echo
-
   if [[ -z "${p1:-}" ]]; then
     warn "Empty password; skipped keyring env setup."
   elif [[ "$p1" != "$p2" ]]; then
@@ -382,7 +381,6 @@ setup_auth_optional() {
   clear_screen
   prompt_secret oauth_client_secret "Paste OAuth Client Secret (input hidden): " || oauth_client_secret=""
   echo
-
   if [[ -n "${oauth_client_id:-}" && -n "${oauth_client_secret:-}" ]]; then
     local generated_json
     generated_json="$(mktemp)"
@@ -433,12 +431,21 @@ EOF
       echo "When prompted with 'Visit this URL to authorize', open it in your browser."
       echo "If your terminal supports links, the URL is clickable."
       echo "Fallback: copy/paste the URL into browser manually."
-      "$gog_cmd" auth add "$account_email" --services user --manual
+      if "$gog_cmd" auth add "$account_email" --services user --manual; then
+        DID_AUTHORIZE_ACCOUNT=1
+      else
+        warn "Authorization did not complete in this run."
+        warn "You can retry later with: $gog_cmd auth add $account_email --services user --manual"
+      fi
     else
       log "Local environment detected: using local browser callback flow."
-      "$gog_cmd" auth add "$account_email"
+      if "$gog_cmd" auth add "$account_email"; then
+        DID_AUTHORIZE_ACCOUNT=1
+      else
+        warn "Authorization did not complete in this run."
+        warn "You can retry later with: $gog_cmd auth add $account_email"
+      fi
     fi
-    DID_AUTHORIZE_ACCOUNT=1
   fi
 }
 
