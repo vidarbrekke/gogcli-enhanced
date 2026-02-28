@@ -40,15 +40,45 @@ clear_screen() {
   fi
 }
 
+prompt_line() {
+  local __var_name="$1"
+  local prompt="$2"
+  local default="${3:-}"
+  local val=""
+
+  clear_screen
+  if ! read -r -p "$prompt" val; then
+    warn "No input received (EOF). Using default: ${default:-<empty>}"
+    val="$default"
+  fi
+  [[ -z "$val" ]] && val="$default"
+  printf -v "$__var_name" '%s' "$val"
+}
+
+prompt_secret() {
+  local __var_name="$1"
+  local prompt="$2"
+  local val=""
+
+  clear_screen
+  if ! read -r -s -p "$prompt" val; then
+    echo
+    warn "No secret input received (EOF)."
+    return 1
+  fi
+  echo
+  printf -v "$__var_name" '%s' "$val"
+  return 0
+}
+
 ask_yes_no() {
   local prompt="$1"
   local default="${2:-y}"
   local suffix="[y/N]"
   [[ "$default" == "y" ]] && suffix="[Y/n]"
   while true; do
-    clear_screen
-    read -r -p "$prompt $suffix " ans
-    ans="${ans:-$default}"
+    local ans
+    prompt_line ans "$prompt $suffix " "$default"
     case "${ans,,}" in
       y|yes) return 0 ;;
       n|no) return 1 ;;
@@ -112,7 +142,7 @@ main_menu() {
     echo "2) Reinstall (preserve existing config)"
     echo "3) Reinstall (backup config + reset config)"
     echo "4) Reinstall (clean reset: remove config + installed binary)"
-    read -r -p "Choice [1-4]: " MODE
+    prompt_line MODE "Choice [1-4]: "
     case "$MODE" in
       1|2|3|4) return 0 ;;
       *) echo "Please choose 1, 2, 3, or 4." ;;
@@ -143,7 +173,7 @@ decide_install_target() {
     echo -e "${BOLD}Install target${RESET}"
     echo "1) ~/.local/bin/gog (recommended, no sudo)"
     echo "2) /usr/local/bin/gog (system-wide, may require sudo)"
-    read -r -p "Choose install target [1/2] (default 1): " choice
+    prompt_line choice "Choose install target [1/2] (default 1): " "1"
     choice="${choice:-1}"
     case "$choice" in
       1) INSTALL_TARGET="$HOME/.local/bin/gog"; INSTALL_COMMAND_HINT="$HOME/.local/bin/gog"; return 0 ;;
@@ -290,7 +320,7 @@ setup_file_keyring_password() {
     echo "I can reuse it. If you want to rotate/reset instead, say no and rerun mode 4 (clean reset)."
     if ask_yes_no "Enter existing keyring password now?" y; then
       clear_screen
-      read -r -s -p "Existing keyring password: " p1
+      prompt_secret p1 "Existing keyring password: " || return 0
       echo
       export GOG_KEYRING_BACKEND=file
       export GOG_KEYRING_PASSWORD="$p1"
@@ -302,10 +332,10 @@ setup_file_keyring_password() {
 
   clear_screen
   echo "No existing keyring password found. Create one now."
-  read -r -s -p "New keyring password: " p1
+  prompt_secret p1 "New keyring password: " || return 0
   echo
   clear_screen
-  read -r -s -p "Confirm keyring password: " p2
+  prompt_secret p2 "Confirm keyring password: " || return 0
   echo
 
   if [[ -z "${p1:-}" ]]; then
@@ -340,9 +370,9 @@ setup_auth_optional() {
   # 1) credentials: simplified, ID+secret first.
   if ask_yes_no "Add or replace OAuth credentials now?" y; then
     clear_screen
-    read -r -p "OAuth Client ID: " oauth_client_id
+    prompt_line oauth_client_id "OAuth Client ID: "
     clear_screen
-    read -r -s -p "OAuth Client Secret (input hidden): " oauth_client_secret
+    prompt_secret oauth_client_secret "OAuth Client Secret (input hidden): " || oauth_client_secret=""
     echo
 
     if [[ -n "${oauth_client_id:-}" && -n "${oauth_client_secret:-}" ]]; then
@@ -389,7 +419,7 @@ EOF
 
   if ask_yes_no "Authorize a Google account now?" y; then
     clear_screen
-    read -r -p "Account email: " account_email
+    prompt_line account_email "Account email: "
     if [[ -n "${account_email:-}" ]]; then
       if is_cloud_context; then
         log "Cloud/headless detected: using manual auth flow."
