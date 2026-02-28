@@ -561,11 +561,22 @@ print_completion_summary() {
 
   if [[ "$DID_CONFIGURE_AUTH" -eq 0 ]]; then
     echo "- Auth not configured in this run. Rerun setup and complete: credentials -> token storage -> account auth"
+    if is_cloud_context; then
+      echo "  Retry command: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} auth add <you@gmail.com> --services user --manual"
+    else
+      echo "  Retry command: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} auth add <you@gmail.com>"
+    fi
   else
     [[ "$DID_STORE_CREDENTIALS" -eq 0 ]] && \
       echo "- OAuth credentials not added in this run. Add with: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} auth credentials <path-to-json>"
-    [[ "$DID_AUTHORIZE_ACCOUNT" -eq 0 ]] && \
+    if [[ "$DID_AUTHORIZE_ACCOUNT" -eq 0 ]]; then
       echo "- Account authorization not completed in this run."
+      if is_cloud_context; then
+        echo "  Retry command: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} auth add <you@gmail.com> --services user --manual"
+      else
+        echo "  Retry command: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} auth add <you@gmail.com>"
+      fi
+    fi
   fi
 
   echo
