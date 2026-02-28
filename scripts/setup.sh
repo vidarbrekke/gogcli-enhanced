@@ -553,6 +553,23 @@ PY
     err "Verification failed: MCP config entry is missing or invalid."
     exit 1
   fi
+
+  echo "Running MCP discoverability check (mcporter list). Stay tuned."
+  if has_cmd mcporter; then
+    if mcporter --config "$mcp_config_path" list >/tmp/gog-agentic-mcporter-list.out 2>/tmp/gog-agentic-mcporter-list.err; then
+      if grep -q "gog-agentic" /tmp/gog-agentic-mcporter-list.out; then
+        log "Discoverability passed: mcporter lists gog-agentic."
+      else
+        warn "mcporter ran, but gog-agentic was not listed."
+        warn "Check output: /tmp/gog-agentic-mcporter-list.out"
+      fi
+    else
+      warn "mcporter list failed."
+      warn "stderr: $(tail -n 3 /tmp/gog-agentic-mcporter-list.err 2>/dev/null || true)"
+    fi
+  else
+    warn "mcporter CLI not found; skipping discoverability check."
+  fi
 }
 
 verify_install() {
