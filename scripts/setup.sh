@@ -188,13 +188,11 @@ ensure_path_hint() {
   local bindir
   bindir="$(dirname "$INSTALL_TARGET")"
   if [[ ":$PATH:" != *":$bindir:"* ]]; then
-    warn "$bindir is not in PATH for this shell."
-    if ask_yes_no "Append PATH export to ~/.bashrc?" y; then
-      grep -Fq "export PATH=\"$bindir:\$PATH\"" "$HOME/.bashrc" 2>/dev/null || \
-        echo "export PATH=\"$bindir:\$PATH\"" >> "$HOME/.bashrc"
-      log "Updated ~/.bashrc"
-      echo "Open a new shell (or run: source ~/.bashrc)."
-    fi
+    warn "$bindir is not in PATH for this shell. Adding it to ~/.bashrc automatically."
+    grep -Fq "export PATH=\"$bindir:\$PATH\"" "$HOME/.bashrc" 2>/dev/null || \
+      echo "export PATH=\"$bindir:\$PATH\"" >> "$HOME/.bashrc"
+    log "Updated ~/.bashrc"
+    echo "Open a new shell (or run: source ~/.bashrc)."
   fi
 }
 
@@ -284,17 +282,20 @@ run_build() {
 }
 
 copy_binary_to_target() {
-  local target_dir
+  local target_dir tmp_target
   target_dir="$(dirname "$INSTALL_TARGET")"
+  tmp_target="$target_dir/.gog.tmp.$$"
 
   if [[ "$target_dir" == "/usr/local/bin" ]]; then
     sudo mkdir -p "$target_dir"
-    sudo cp "$BIN_IN_REPO" "$INSTALL_TARGET"
-    sudo chmod +x "$INSTALL_TARGET"
+    sudo cp "$BIN_IN_REPO" "$tmp_target"
+    sudo chmod +x "$tmp_target"
+    sudo mv -f "$tmp_target" "$INSTALL_TARGET"
   else
     mkdir -p "$target_dir"
-    cp "$BIN_IN_REPO" "$INSTALL_TARGET"
-    chmod +x "$INSTALL_TARGET"
+    cp "$BIN_IN_REPO" "$tmp_target"
+    chmod +x "$tmp_target"
+    mv -f "$tmp_target" "$INSTALL_TARGET"
   fi
 
   log "Installed binary to $INSTALL_TARGET"
@@ -335,7 +336,10 @@ setup_file_keyring_password() {
   fi
 
   clear_screen
-  echo "No existing keyring password found. Create one now."
+  echo "No existing keyring password found."
+  echo "Create a new keyring password now."
+  echo "This password encrypts your stored Google tokens on disk ($CONFIG_DIR/keyring)."
+  echo "You will use it to unlock token storage in future sessions unless you persist env vars."
   clear_screen
   prompt_secret p1 "New keyring password: " || return 0
   echo
@@ -372,18 +376,17 @@ setup_auth_optional() {
   echo "3) Account authorization"
   echo
 
-  # 1) credentials: simplified, ID+secret first.
-  if ask_yes_no "Add OAuth app credentials now?" y; then
-    clear_screen
-    prompt_line oauth_client_id "Paste OAuth Client ID (ends with apps.googleusercontent.com): "
-    clear_screen
-    prompt_secret oauth_client_secret "Paste OAuth Client Secret (input hidden): " || oauth_client_secret=""
-    echo
+  # 1) credentials: user asked to configure auth, so proceed directly.
+  clear_screen
+  prompt_line oauth_client_id "Paste OAuth Client ID (ends with apps.googleusercontent.com): "
+  clear_screen
+  prompt_secret oauth_client_secret "Paste OAuth Client Secret (input hidden): " || oauth_client_secret=""
+  echo
 
-    if [[ -n "${oauth_client_id:-}" && -n "${oauth_client_secret:-}" ]]; then
-      local generated_json
-      generated_json="$(mktemp)"
-      cat > "$generated_json" <<EOF
+  if [[ -n "${oauth_client_id:-}" && -n "${oauth_client_secret:-}" ]]; then
+    local generated_json
+    generated_json="$(mktemp)"
+    cat > "$generated_json" <<EOF
 {
   "installed": {
     "client_id": "$oauth_client_id",
@@ -393,13 +396,12 @@ setup_auth_optional() {
   }
 }
 EOF
-      "$gog_cmd" auth credentials "$generated_json"
-      rm -f "$generated_json"
-      DID_STORE_CREDENTIALS=1
-      log "Stored OAuth credentials."
-    else
-      warn "Client ID/secret missing; credentials not stored."
-    fi
+    "$gog_cmd" auth credentials "$generated_json"
+    rm -f "$generated_json"
+    DID_STORE_CREDENTIALS=1
+    log "Stored OAuth credentials."
+  else
+    warn "Client ID/secret missing; credentials not stored."
   fi
 
   # 2) token storage: infer and apply file backend by default for reliability.
@@ -422,19 +424,21 @@ EOF
     echo "Okay, we will add another account."
   fi
 
-  if ask_yes_no "Authorize a Google account now?" y; then
-    clear_screen
-    prompt_line account_email "Google account email to authorize: "
-    if [[ -n "${account_email:-}" ]]; then
-      if is_cloud_context; then
-        log "Cloud/headless detected: using manual auth flow."
-        "$gog_cmd" auth add "$account_email" --services user --manual
-      else
-        log "Local environment detected: using local browser callback flow."
-        "$gog_cmd" auth add "$account_email"
-      fi
-      DID_AUTHORIZE_ACCOUNT=1
+  # 3) authorize account: proceed directly; fallback is leaving email empty.
+  clear_screen
+  prompt_line account_email "Google account email to authorize (leave empty to skip): "
+  if [[ -n "${account_email:-}" ]]; then
+    if is_cloud_context; then
+      log "Cloud/headless detected: using manual auth flow."
+      echo "When prompted with 'Visit this URL to authorize', open it in your browser."
+      echo "If your terminal supports links, the URL is clickable."
+      echo "Fallback: copy/paste the URL into browser manually."
+      "$gog_cmd" auth add "$account_email" --services user --manual
+    else
+      log "Local environment detected: using local browser callback flow."
+      "$gog_cmd" auth add "$account_email"
     fi
+    DID_AUTHORIZE_ACCOUNT=1
   fi
 }
 
