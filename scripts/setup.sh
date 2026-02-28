@@ -364,8 +364,27 @@ PY
     fi
 
     if [[ "$use_existing" == "y" ]]; then
+      # Normalize existing credentials to flat schema expected by gog runtime.
+      local norm_tmp
+      norm_tmp="$(mktemp)"
+      python3 - <<PY
+import json
+src=${creds@Q}
+out=${norm_tmp@Q}
+j=json.load(open(src))
+obj=j.get('installed') or j.get('web') or j
+flat={'client_id': obj.get('client_id',''), 'client_secret': obj.get('client_secret','')}
+with open(out,'w',encoding='utf-8') as f:
+    json.dump(flat,f,indent=2)
+    f.write('\n')
+PY
+      mkdir -p /root/.config/gogcli /root/openclaw-stock-home/.config/gogcli
+      cp -f "$norm_tmp" /root/.config/gogcli/credentials.json
+      cp -f "$norm_tmp" /root/openclaw-stock-home/.config/gogcli/credentials.json
+      rm -f "$norm_tmp"
+
       AUTH_CREDENTIALS_OK=1
-      log "Reusing existing OAuth credentials."
+      log "Reusing existing OAuth credentials (normalized for runtime)."
     fi
   fi
 
@@ -390,11 +409,24 @@ PY
 }
 EOF
       "$gog_cmd" auth credentials "$tmp" >/dev/null
-      # Sync to both common config roots to avoid path-mismatch behavior.
+      # Sync raw client-only schema to both common config roots (gog expects flat {client_id,client_secret}).
+      local flat_tmp
+      flat_tmp="$(mktemp)"
+      python3 - <<PY
+import json
+src=${tmp@Q}
+out=${flat_tmp@Q}
+j=json.load(open(src))
+obj=j.get('installed') or j.get('web') or j
+flat={'client_id': obj.get('client_id',''), 'client_secret': obj.get('client_secret','')}
+with open(out,'w',encoding='utf-8') as f:
+    json.dump(flat,f,indent=2)
+    f.write('\n')
+PY
       mkdir -p /root/.config/gogcli /root/openclaw-stock-home/.config/gogcli
-      cp -f "$tmp" /root/.config/gogcli/credentials.json
-      cp -f "$tmp" /root/openclaw-stock-home/.config/gogcli/credentials.json
-      rm -f "$tmp"
+      cp -f "$flat_tmp" /root/.config/gogcli/credentials.json
+      cp -f "$flat_tmp" /root/openclaw-stock-home/.config/gogcli/credentials.json
+      rm -f "$tmp" "$flat_tmp"
       AUTH_CREDENTIALS_OK=1
       log "Stored OAuth credentials (synced across config roots)."
     else
