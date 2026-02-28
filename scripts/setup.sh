@@ -40,6 +40,23 @@ clear_screen() {
   fi
 }
 
+ask_yes_no() {
+  local prompt="$1"
+  local default="${2:-y}"
+  local suffix="[y/N]"
+  [[ "$default" == "y" ]] && suffix="[Y/n]"
+  while true; do
+    clear_screen
+    read -r -p "$prompt $suffix " ans
+    ans="${ans:-$default}"
+    case "${ans,,}" in
+      y|yes) return 0 ;;
+      n|no) return 1 ;;
+      *) echo "Please answer y or n." ;;
+    esac
+  done
+}
+
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/gogcli"
 BACKUP_BASE="${XDG_CONFIG_HOME:-$HOME/.config}/gogcli-backups"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
@@ -55,22 +72,14 @@ DID_AUTHORIZE_ACCOUNT=0
 
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
-ask_yes_no() {
-  local prompt="$1"
-  local default="${2:-y}" # y or n
-  local suffix="[y/N]"
-  [[ "$default" == "y" ]] && suffix="[Y/n]"
-
-  while true; do
-    clear_screen
-    read -r -p "$prompt $suffix " ans
-    ans="${ans:-$default}"
-    case "${ans,,}" in
-      y|yes) return 0 ;;
-      n|no) return 1 ;;
-      *) echo "Please answer y or n." ;;
-    esac
-  done
+is_cloud_context() {
+  if [[ "$ROOT_DIR" == /root/openclaw-stock-home/.openclaw/workspace/repositories/* ]]; then
+    return 0
+  fi
+  if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+    return 0
+  fi
+  return 1
 }
 
 require_repo_layout() {
@@ -86,8 +95,12 @@ print_state() {
   echo -e "${BOLD}Detected state${RESET}"
   echo "- Repo root: $ROOT_DIR"
   echo "- Existing gog on PATH: ${CURRENT_GOG:-<none>}"
-  echo "- Repo binary: $( [[ -x "$BIN_IN_REPO" ]] && echo "$BIN_IN_REPO" || echo "<missing>" )"
   echo "- Config dir: $CONFIG_DIR $( [[ -d "$CONFIG_DIR" ]] && echo "(exists)" || echo "(missing)" )"
+  if is_cloud_context; then
+    echo "- Context: cloud/headless"
+  else
+    echo "- Context: local"
+  fi
   echo
 }
 
@@ -95,7 +108,7 @@ main_menu() {
   while true; do
     clear_screen
     echo -e "${BOLD}Select setup mode${RESET}"
-    echo "1) Fresh install"
+    echo "1) Fresh install (auto defaults)"
     echo "2) Reinstall (preserve existing config)"
     echo "3) Reinstall (backup config + reset config)"
     echo "4) Reinstall (clean reset: remove config + installed binary)"
@@ -107,7 +120,24 @@ main_menu() {
   done
 }
 
-choose_install_target() {
+decide_install_target() {
+  # Mode 1: infer automatically, avoid asking.
+  if [[ "$MODE" == "1" ]]; then
+    if [[ -n "$CURRENT_GOG" ]]; then
+      INSTALL_TARGET="$CURRENT_GOG"
+      if [[ "$CURRENT_GOG" == "/usr/local/bin/gog" ]]; then
+        INSTALL_COMMAND_HINT="gog"
+      else
+        INSTALL_COMMAND_HINT="$CURRENT_GOG"
+      fi
+    else
+      INSTALL_TARGET="$HOME/.local/bin/gog"
+      INSTALL_COMMAND_HINT="$HOME/.local/bin/gog"
+    fi
+    log "Mode 1: inferred install target: $INSTALL_TARGET"
+    return 0
+  fi
+
   while true; do
     clear_screen
     echo -e "${BOLD}Install target${RESET}"
@@ -116,16 +146,8 @@ choose_install_target() {
     read -r -p "Choose install target [1/2] (default 1): " choice
     choice="${choice:-1}"
     case "$choice" in
-      1)
-        INSTALL_TARGET="$HOME/.local/bin/gog"
-        INSTALL_COMMAND_HINT="$HOME/.local/bin/gog"
-        return 0
-        ;;
-      2)
-        INSTALL_TARGET="/usr/local/bin/gog"
-        INSTALL_COMMAND_HINT="gog"
-        return 0
-        ;;
+      1) INSTALL_TARGET="$HOME/.local/bin/gog"; INSTALL_COMMAND_HINT="$HOME/.local/bin/gog"; return 0 ;;
+      2) INSTALL_TARGET="/usr/local/bin/gog"; INSTALL_COMMAND_HINT="gog"; return 0 ;;
       *) echo "Please choose 1 or 2." ;;
     esac
   done
@@ -148,12 +170,11 @@ ensure_path_hint() {
 check_dependencies() {
   local missing=()
   local required=(bash git make tar)
-
   for c in "${required[@]}"; do
     has_cmd "$c" || missing+=("$c")
   done
   if ! has_cmd curl && ! has_cmd wget; then
-    missing+=("curl-or-wget")
+    missing+=("curl")
   fi
 
   if [[ ${#missing[@]} -eq 0 ]]; then
@@ -163,28 +184,13 @@ check_dependencies() {
 
   warn "Missing dependencies: ${missing[*]}"
 
-  if ! has_cmd apt-get; then
-    err "apt-get not found; auto-install unavailable in this script."
-    echo "Install missing packages manually, then rerun setup."
-    exit 1
-  fi
-
-  if ask_yes_no "Install missing dependencies with apt-get now?" y; then
-    local apt_pkgs=()
-    for m in "${missing[@]}"; do
-      case "$m" in
-        bash|git|make|tar) apt_pkgs+=("$m") ;;
-        curl-or-wget) apt_pkgs+=("curl") ;;
-      esac
-    done
-    mapfile -t apt_pkgs < <(printf "%s\n" "${apt_pkgs[@]}" | awk '!seen[$0]++')
-
-    log "Running: sudo apt-get update"
+  if has_cmd apt-get; then
+    log "Auto-installing missing dependencies with apt-get (safe mode)."
     sudo apt-get update
-    log "Running: sudo apt-get install -y ${apt_pkgs[*]}"
-    sudo apt-get install -y "${apt_pkgs[@]}"
+    sudo apt-get install -y "${missing[@]}"
   else
-    echo "Install dependencies manually, then rerun ./scripts/setup.sh"
+    err "apt-get not found; cannot auto-install dependencies on this host."
+    echo "Please install: ${missing[*]} and rerun setup."
     exit 1
   fi
 }
@@ -232,17 +238,8 @@ run_mode_actions() {
   case "$MODE" in
     1) log "Mode: Fresh install" ;;
     2) log "Mode: Reinstall (preserve config)" ;;
-    3)
-      log "Mode: Reinstall (backup + reset config)"
-      backup_config_if_exists
-      reset_config
-      ;;
-    4)
-      log "Mode: Reinstall (clean reset)"
-      backup_config_if_exists
-      reset_config
-      remove_installed_binary
-      ;;
+    3) log "Mode: Reinstall (backup + reset config)"; backup_config_if_exists; reset_config ;;
+    4) log "Mode: Reinstall (clean reset)"; backup_config_if_exists; reset_config; remove_installed_binary ;;
   esac
 }
 
@@ -288,62 +285,38 @@ setup_file_keyring_password() {
   local keyring_file="$CONFIG_DIR/keyring"
 
   if [[ -f "$keyring_file" ]]; then
-    while true; do
+    clear_screen
+    warn "Detected existing encrypted keyring at $keyring_file"
+    echo "I can reuse it. If you want to rotate/reset instead, say no and rerun mode 4 (clean reset)."
+    if ask_yes_no "Enter existing keyring password now?" y; then
       clear_screen
-      warn "Detected existing encrypted keyring at $keyring_file"
-      echo "1) Reuse existing keyring password"
-      echo "2) Rotate/reset keyring (backup + remove keyring file)"
-      echo "3) Skip password setup for now"
-      read -r -p "Choose [1/2/3] (default 1): " kr_mode
-      kr_mode="${kr_mode:-1}"
-      case "$kr_mode" in
-        1)
-          if ask_yes_no "Enter existing keyring password now?" y; then
-            clear_screen
-            read -r -s -p "Existing keyring password: " p1
-            echo
-            export GOG_KEYRING_BACKEND=file
-            export GOG_KEYRING_PASSWORD="$p1"
-            log "Keyring password set for this setup session."
-            persist_keyring_env_optional "$p1"
-          fi
-          return 0
-          ;;
-        2)
-          local backup_dir="$BACKUP_BASE/$TIMESTAMP-keyring"
-          mkdir -p "$backup_dir"
-          cp -a "$keyring_file" "$backup_dir/" || true
-          rm -f "$keyring_file"
-          log "Backed up old keyring to $backup_dir and removed current keyring file."
-          break
-          ;;
-        3)
-          warn "Skipped keyring password setup. You may be prompted later."
-          return 0
-          ;;
-        *) echo "Please choose 1, 2, or 3." ;;
-      esac
-    done
-  fi
-
-  if ask_yes_no "Create new keyring password now?" y; then
-    clear_screen
-    read -r -s -p "New keyring password: " p1
-    echo
-    clear_screen
-    read -r -s -p "Confirm keyring password: " p2
-    echo
-
-    if [[ -z "${p1:-}" ]]; then
-      warn "Empty password; skipped env setup."
-    elif [[ "$p1" != "$p2" ]]; then
-      warn "Passwords did not match; skipped env setup."
-    else
+      read -r -s -p "Existing keyring password: " p1
+      echo
       export GOG_KEYRING_BACKEND=file
       export GOG_KEYRING_PASSWORD="$p1"
       log "Keyring password set for this setup session."
       persist_keyring_env_optional "$p1"
     fi
+    return 0
+  fi
+
+  clear_screen
+  echo "No existing keyring password found. Create one now."
+  read -r -s -p "New keyring password: " p1
+  echo
+  clear_screen
+  read -r -s -p "Confirm keyring password: " p2
+  echo
+
+  if [[ -z "${p1:-}" ]]; then
+    warn "Empty password; skipped keyring env setup."
+  elif [[ "$p1" != "$p2" ]]; then
+    warn "Passwords did not match; skipped keyring env setup."
+  else
+    export GOG_KEYRING_BACKEND=file
+    export GOG_KEYRING_PASSWORD="$p1"
+    log "Keyring password set for this setup session."
+    persist_keyring_env_optional "$p1"
   fi
 }
 
@@ -352,39 +325,30 @@ setup_auth_optional() {
   [[ -x "$gog_cmd" ]] || gog_cmd="$(command -v gog 2>/dev/null || true)"
   [[ -x "$gog_cmd" ]] || gog_cmd="$BIN_IN_REPO"
 
-  if ! ask_yes_no "Do you want to configure auth now (credentials, token storage, account)?" n; then
+  if ! ask_yes_no "Do you want to configure auth now (recommended)?" y; then
     return 0
   fi
   DID_CONFIGURE_AUTH=1
 
   clear_screen
-  echo "Auth setup quick guide:"
-  echo "1) Add OAuth client credentials"
-  echo "2) Configure token storage (recommended before account auth)"
-  echo "3) Authorize account"
+  echo "Auth setup plan:"
+  echo "1) OAuth credentials"
+  echo "2) Secure token storage"
+  echo "3) Account authorization"
   echo
 
-  if ask_yes_no "Add or replace OAuth credentials now?" n; then
-    while true; do
-      clear_screen
-      echo "Credential input method:"
-      echo "1) Paste OAuth Client ID + Client Secret (recommended)"
-      echo "2) Use existing OAuth client JSON file path"
-      read -r -p "Choose [1/2] (default 1): " cred_mode
-      cred_mode="${cred_mode:-1}"
+  # 1) credentials: simplified, ID+secret first.
+  if ask_yes_no "Add or replace OAuth credentials now?" y; then
+    clear_screen
+    read -r -p "OAuth Client ID: " oauth_client_id
+    clear_screen
+    read -r -s -p "OAuth Client Secret (input hidden): " oauth_client_secret
+    echo
 
-      case "$cred_mode" in
-        1)
-          clear_screen
-          read -r -p "OAuth Client ID: " oauth_client_id
-          clear_screen
-          read -r -s -p "OAuth Client Secret (input hidden): " oauth_client_secret
-          echo
-
-          if [[ -n "${oauth_client_id:-}" && -n "${oauth_client_secret:-}" ]]; then
-            local generated_json
-            generated_json="$(mktemp)"
-            cat > "$generated_json" <<EOF
+    if [[ -n "${oauth_client_id:-}" && -n "${oauth_client_secret:-}" ]]; then
+      local generated_json
+      generated_json="$(mktemp)"
+      cat > "$generated_json" <<EOF
 {
   "installed": {
     "client_id": "$oauth_client_id",
@@ -394,95 +358,47 @@ setup_auth_optional() {
   }
 }
 EOF
-            "$gog_cmd" auth credentials "$generated_json"
-            rm -f "$generated_json"
-            DID_STORE_CREDENTIALS=1
-            log "Stored OAuth credentials."
-          else
-            warn "Client ID/secret missing; credentials not stored."
-          fi
-          break
-          ;;
-        2)
-          clear_screen
-          read -r -p "Path to OAuth client JSON: " cred_path
-          if [[ -n "${cred_path:-}" && -f "$cred_path" ]]; then
-            "$gog_cmd" auth credentials "$cred_path"
-            DID_STORE_CREDENTIALS=1
-            log "Stored OAuth credentials."
-          else
-            warn "File not found; credentials not stored."
-          fi
-          break
-          ;;
-        *) echo "Please choose 1 or 2." ;;
-      esac
-    done
+      "$gog_cmd" auth credentials "$generated_json"
+      rm -f "$generated_json"
+      DID_STORE_CREDENTIALS=1
+      log "Stored OAuth credentials."
+    else
+      warn "Client ID/secret missing; credentials not stored."
+    fi
   fi
 
-  if ask_yes_no "Configure secure token storage now (recommended)?" y; then
-    while true; do
-      clear_screen
-      echo "Where should gog store encrypted tokens?"
-      echo "1) file (recommended on servers): encrypted file at $CONFIG_DIR/keyring"
-      echo "2) keychain (OS keyring, if supported)"
-      read -r -p "Choose storage [1/2] (default 1): " storage
-      storage="${storage:-1}"
-      case "$storage" in
-        1)
-          "$gog_cmd" auth keyring file
-          setup_file_keyring_password
-          break
-          ;;
-        2)
-          "$gog_cmd" auth keyring keychain
-          break
-          ;;
-        *) echo "Please choose 1 or 2." ;;
-      esac
-    done
+  # 2) token storage: infer and apply file backend by default for reliability.
+  log "Configuring secure token storage (file backend)."
+  "$gog_cmd" auth keyring file
+  setup_file_keyring_password
+
+  # 3) account authorization with smart flow by context.
+  local existing_accounts
+  existing_accounts="$($gog_cmd auth list 2>/dev/null | grep -Eo '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+' | sort -u | tr '\n' ' ' || true)"
+
+  if [[ -n "${existing_accounts// }" ]]; then
+    clear_screen
+    echo "Found existing authorized account(s): $existing_accounts"
+    if ask_yes_no "Keep existing account(s) and skip adding a new one?" y; then
+      log "Keeping existing account setup."
+      DID_AUTHORIZE_ACCOUNT=1
+      return 0
+    fi
+    echo "Okay, we will add another account."
   fi
 
-  if ask_yes_no "Add/authorize a Google account now?" n; then
+  if ask_yes_no "Authorize a Google account now?" y; then
     clear_screen
     read -r -p "Account email: " account_email
     if [[ -n "${account_email:-}" ]]; then
-      while true; do
-        clear_screen
-        echo "Auth flow mode:"
-        echo "1) Manual (recommended for servers/headless)"
-        echo "2) Remote split (step 1 + step 2)"
-        echo "3) Local browser callback"
-        read -r -p "Choose auth flow [1/2/3] (default 1): " auth_flow
-        auth_flow="${auth_flow:-1}"
-
-        case "$auth_flow" in
-          1)
-            "$gog_cmd" auth add "$account_email" --services user --manual
-            DID_AUTHORIZE_ACCOUNT=1
-            break
-            ;;
-          2)
-            "$gog_cmd" auth add "$account_email" --services user --remote --step 1
-            clear_screen
-            echo "Open the URL printed above in your browser, approve access, then paste full redirect URL below."
-            read -r -p "Full redirect URL: " auth_url
-            if [[ -n "${auth_url:-}" ]]; then
-              "$gog_cmd" auth add "$account_email" --services user --remote --step 2 --auth-url "$auth_url"
-              DID_AUTHORIZE_ACCOUNT=1
-            else
-              warn "No redirect URL provided; remote step 2 skipped."
-            fi
-            break
-            ;;
-          3)
-            "$gog_cmd" auth add "$account_email"
-            DID_AUTHORIZE_ACCOUNT=1
-            break
-            ;;
-          *) echo "Please choose 1, 2, or 3." ;;
-        esac
-      done
+      if is_cloud_context; then
+        log "Cloud/headless detected: using manual auth flow."
+        "$gog_cmd" auth add "$account_email" --services user --manual
+      else
+        log "Local environment detected: using local browser callback flow."
+        "$gog_cmd" auth add "$account_email"
+      fi
+      DID_AUTHORIZE_ACCOUNT=1
     fi
   fi
 }
@@ -596,7 +512,7 @@ print_completion_summary() {
     [[ "$DID_STORE_CREDENTIALS" -eq 0 ]] && \
       echo "- OAuth credentials not added in this run. Add with: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} auth credentials <path-to-json>"
     [[ "$DID_AUTHORIZE_ACCOUNT" -eq 0 ]] && \
-      echo "- Account authorization not completed in this run. Recommended on server: ${INSTALL_COMMAND_HINT:-$INSTALL_TARGET} auth add <you@gmail.com> --services user --manual"
+      echo "- Account authorization not completed in this run."
   fi
 
   echo
@@ -612,7 +528,7 @@ print_completion_summary() {
 require_repo_layout
 print_state
 main_menu
-choose_install_target
+decide_install_target
 check_dependencies
 run_mode_actions
 run_build
