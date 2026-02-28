@@ -322,18 +322,57 @@ configure_auth() {
 
   log "Setting up Google connection..."
 
-  # Credentials reuse first
-  local creds=""
+  # Credentials reuse first, but allow explicit replacement and reject placeholders.
+  local creds="" use_existing="n"
   for p in "${XDG_CONFIG_HOME:-$HOME/.config}/gogcli/credentials.json" "/root/.config/gogcli/credentials.json" "/root/openclaw-stock-home/.config/gogcli/credentials.json"; do
     if [[ -f "$p" ]]; then creds="$p"; break; fi
   done
 
   if [[ -n "$creds" ]]; then
-    log "Reusing existing OAuth credentials: $creds"
-    AUTH_CREDENTIALS_OK=1
-  else
+    local cid csec
+    cid="$(python3 - <<PY
+import json
+p=${creds@Q}
+j=json.load(open(p))
+obj=j.get('installed') or j.get('web') or j
+print((obj.get('client_id') or '').strip())
+PY
+)"
+    csec="$(python3 - <<PY
+import json
+p=${creds@Q}
+j=json.load(open(p))
+obj=j.get('installed') or j.get('web') or j
+print((obj.get('client_secret') or '').strip())
+PY
+)"
+
+    local placeholder=0
+    [[ -z "$cid" || -z "$csec" ]] && placeholder=1
+    [[ "$cid" == "id.apps.googleusercontent.com" || "$csec" == "secret" ]] && placeholder=1
+    [[ "$cid" == *"YOUR_CLIENT_ID"* || "$csec" == *"YOUR_CLIENT_SECRET"* ]] && placeholder=1
+
+    if [[ "$placeholder" -eq 1 ]]; then
+      warn "Existing OAuth credentials look invalid/placeholder."
+      use_existing="n"
+    else
+      clear_screen
+      echo "Found existing OAuth credentials at: $creds"
+      if ask_yes_no "Use existing OAuth credentials?" y; then
+        use_existing="y"
+      fi
+    fi
+
+    if [[ "$use_existing" == "y" ]]; then
+      AUTH_CREDENTIALS_OK=1
+      log "Reusing existing OAuth credentials."
+    fi
+  fi
+
+  if [[ "$AUTH_CREDENTIALS_OK" -eq 0 ]]; then
     clear_screen
-    echo "Google OAuth app credentials are required once per machine."
+    echo "Enter your Google OAuth app credentials."
+    echo "(Desktop app client from Google Cloud Console)"
     local cid csec
     prompt_line cid "Paste OAuth Client ID: "
     prompt_secret csec "Paste OAuth Client Secret (hidden): " || csec=""
@@ -351,9 +390,13 @@ configure_auth() {
 }
 EOF
       "$gog_cmd" auth credentials "$tmp" >/dev/null
+      # Sync to both common config roots to avoid path-mismatch behavior.
+      mkdir -p /root/.config/gogcli /root/openclaw-stock-home/.config/gogcli
+      cp -f "$tmp" /root/.config/gogcli/credentials.json
+      cp -f "$tmp" /root/openclaw-stock-home/.config/gogcli/credentials.json
       rm -f "$tmp"
       AUTH_CREDENTIALS_OK=1
-      log "Stored OAuth credentials."
+      log "Stored OAuth credentials (synced across config roots)."
     else
       warn "Skipped OAuth credential entry."
     fi
