@@ -242,6 +242,7 @@ setup_auth_optional() {
   echo "- Preferred: paste Client ID + Client Secret (this wizard will generate JSON for you)."
   echo "- Alternative: provide path to an existing OAuth client JSON file."
   echo "- Existing credentials can be replaced any time with: gog auth credentials <path>"
+  echo "- For cloud/headless environments, use manual or remote auth flow (not local callback)."
 
   if ask_yes_no "Add or replace OAuth credentials now?" n; then
     echo
@@ -295,7 +296,38 @@ EOF
   if ask_yes_no "Add/authorize a Google account now (gog auth add ...)?" n; then
     read -r -p "Account email: " account_email
     if [[ -n "${account_email:-}" ]]; then
-      "$gog_cmd" auth add "$account_email"
+      echo
+      echo "Auth flow mode:"
+      echo "1) Manual (recommended for servers/headless)"
+      echo "2) Remote split (step 1 + step 2)"
+      echo "3) Local browser callback"
+      read -r -p "Choose auth flow [1/2/3] (default 1): " auth_flow
+      auth_flow="${auth_flow:-1}"
+
+      case "$auth_flow" in
+        1)
+          "$gog_cmd" auth add "$account_email" --services user --manual
+          ;;
+        2)
+          log "Starting remote auth step 1 (URL generation)."
+          "$gog_cmd" auth add "$account_email" --services user --remote --step 1
+          echo
+          echo "Open the URL above in your browser, approve access, then paste full redirect URL below."
+          read -r -p "Full redirect URL: " auth_url
+          if [[ -n "${auth_url:-}" ]]; then
+            "$gog_cmd" auth add "$account_email" --services user --remote --step 2 --auth-url "$auth_url"
+          else
+            warn "No auth URL provided; skipped remote step 2."
+          fi
+          ;;
+        3)
+          "$gog_cmd" auth add "$account_email"
+          ;;
+        *)
+          warn "Invalid auth flow choice; defaulting to manual flow."
+          "$gog_cmd" auth add "$account_email" --services user --manual
+          ;;
+      esac
     fi
   fi
 
