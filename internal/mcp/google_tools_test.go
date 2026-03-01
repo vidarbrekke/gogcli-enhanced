@@ -164,3 +164,102 @@ func TestGoogleTools_SlidesReplaceText_MapsArgs(t *testing.T) {
 		}
 	}
 }
+
+func TestGoogleTools_DocsSed_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"status":"ok","docId":"d1","replaced":1,"engine":"sedmat"}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.sed", map[string]any{
+		"docId":      "d1",
+		"expression": "s/foo/bar/",
+		"dryRun":     false,
+		"opId":       "op-sed-1",
+		"timeoutMs":  float64(5000),
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Service != "docs" || env.Operation != "sed" {
+		t.Fatalf("unexpected service/op: %s %s", env.Service, env.Operation)
+	}
+	wantBits := []string{"--json", "docs", "sed", "d1", "s/foo/bar/"}
+	for _, bit := range wantBits {
+		if !slices.Contains(gotArgs, bit) {
+			t.Fatalf("missing arg %q in %v", bit, gotArgs)
+		}
+	}
+	if env.Result != nil {
+		if e, _ := env.Result["engine"].(string); e != "sedmat" {
+			t.Fatalf("expected result.engine=sedmat, got %v", env.Result["engine"])
+		}
+	}
+}
+
+func TestGoogleTools_DocsSed_InvalidInput(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		return "{}", "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.sed", map[string]any{
+		"expression": "s/foo/bar/",
+	})
+	if env.OK {
+		t.Fatal("expected invalid_argument when docId missing")
+	}
+	if env.Error == nil || env.Error.Code != "invalid_argument" {
+		t.Fatalf("unexpected error: %#v", env.Error)
+	}
+}
+
+func TestGoogleTools_DocsSmartEdit_RoutingAndEnvelope(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		return `{"status":"ok","docId":"d1","replaced":1,"engine":"sedmat"}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.smartEdit", map[string]any{
+		"docId":        "d1",
+		"intentType":   "sed",
+		"expressions":  []any{"s/foo/bar/"},
+		"validateOnly": false,
+		"opId":         "op-smart-1",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Result != nil {
+		if e, _ := env.Result["engineSelected"].(string); e != "sed" && e != "batch" {
+			t.Fatalf("expected result.engineSelected sed or batch, got %v", env.Result["engineSelected"])
+		}
+		if _, ok := env.Result["decisionReason"]; !ok {
+			t.Fatalf("expected result.decisionReason")
+		}
+		if _, ok := env.Result["riskLevel"]; !ok {
+			t.Fatalf("expected result.riskLevel")
+		}
+	}
+}
+
+func TestGoogleTools_DocsSmartEdit_ValidateOnlyHighRisk(t *testing.T) {
+	var executorCalls int
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		executorCalls++
+		return "{}", "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.smartEdit", map[string]any{
+		"docId":        "d1",
+		"intentType":   "sed",
+		"expressions":  []any{"d/delete-me/"},
+		"validateOnly": true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success (assessment), got error: %#v", env.Error)
+	}
+	if env.Result != nil {
+		if r, _ := env.Result["riskLevel"].(string); r != "high" {
+			t.Fatalf("expected riskLevel=high for delete, got %v", env.Result["riskLevel"])
+		}
+		if rc, _ := env.Result["requiresConfirmation"].(bool); !rc {
+			t.Fatalf("expected requiresConfirmation=true for high risk with validateOnly")
+		}
+	}
+}

@@ -88,6 +88,52 @@ func Register(s *server.Server, executor Executor) {
 		},
 		Handler: p.docsExecuteBatch,
 	}, {
+		Name:        "docs.sed",
+		Description: "Run sed-like find-and-replace expressions on a Google Doc (sedmat).",
+		Tier:        "ga",
+		Version:     "v1",
+		PolicyClass: "write-safe",
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"docId"},
+			"properties": map[string]any{
+				"docId":         map[string]any{"type": "string"},
+				"expression":    map[string]any{"type": "string"},
+				"expressions":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				"fileContent":   map[string]any{"type": "string"},
+				"dryRun":        map[string]any{"type": "boolean"},
+				"account":       map[string]any{"type": "string"},
+				"opId":          map[string]any{"type": "string"},
+				"timeoutMs":     map[string]any{"type": "integer"},
+				"retries":       map[string]any{"type": "integer"},
+				"retryBackoffMs": map[string]any{"type": "integer"},
+			},
+		},
+		Handler: p.docsSed,
+	}, {
+		Name:        "docs.smartEdit",
+		Description: "Smart Docs edit: route to batch or sedmat by intent; returns engineSelected, riskLevel, decisionReason.",
+		Tier:        "ga",
+		Version:     "v1",
+		PolicyClass: "write-safe",
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"docId"},
+			"properties": map[string]any{
+				"docId":        map[string]any{"type": "string"},
+				"intentType":   map[string]any{"type": "string"},
+				"request":      map[string]any{"type": "object"},
+				"expressions":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				"riskTolerance": map[string]any{"type": "string"},
+				"validateOnly": map[string]any{"type": "boolean"},
+				"opId":         map[string]any{"type": "string"},
+				"timeoutMs":    map[string]any{"type": "integer"},
+				"retries":      map[string]any{"type": "integer"},
+				"retryBackoffMs": map[string]any{"type": "integer"},
+			},
+		},
+		Handler: p.docsSmartEdit,
+	}, {
 		Name:        "docs.insertText",
 		Description: "Insert text at a specific index in a Google Doc.",
 		Tier:        "ga",
@@ -700,6 +746,138 @@ func (p *provider) docsExecuteBatch(_ context.Context, input map[string]any) (ma
 	args = append(args, maybeOpIDArgs(input)...)
 	args = append(args, "docs", "edit", "batch", docID, "--requests-file", path)
 	return p.runCLI(cleanArgs(args), "docs", "executeBatch")
+}
+
+func (p *provider) docsSed(_ context.Context, input map[string]any) (map[string]any, error) {
+	docID := strings.TrimSpace(asString(input["docId"]))
+	if docID == "" {
+		return map[string]any{"service": "docs", "operation": "sed", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
+	}
+	var exprs []string
+	if e := strings.TrimSpace(asString(input["expression"])); e != "" {
+		exprs = append(exprs, e)
+	}
+	if arr, ok := input["expressions"].([]any); ok {
+		for _, v := range arr {
+			if s := strings.TrimSpace(asString(v)); s != "" {
+				exprs = append(exprs, s)
+			}
+		}
+	}
+	if len(exprs) == 0 {
+		return map[string]any{"service": "docs", "operation": "sed", "error_code": server.ErrorCodeInvalidArgument, "message": "missing expression or expressions"}, errors.New("missing expression or expressions")
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "docs", "sed", docID)
+	if asBool(input["dryRun"]) {
+		args = append(args, "-n")
+	}
+	if len(exprs) == 1 {
+		args = append(args, exprs[0])
+	} else {
+		args = append(args, exprs[0])
+		for _, e := range exprs[1:] {
+			args = append(args, "-e", e)
+		}
+	}
+	result, err := p.runCLI(cleanArgs(args), "docs", "sed")
+	if err != nil {
+		return result, err
+	}
+	if result != nil {
+		result["engine"] = "sedmat"
+	}
+	return result, nil
+}
+
+func (p *provider) docsSmartEdit(ctx context.Context, input map[string]any) (map[string]any, error) {
+	docID := strings.TrimSpace(asString(input["docId"]))
+	if docID == "" {
+		return map[string]any{"service": "docs", "operation": "smartEdit", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
+	}
+	intentType := strings.TrimSpace(strings.ToLower(asString(input["intentType"])))
+	if intentType == "" {
+		intentType = "sed"
+	}
+	validateOnly := asBool(input["validateOnly"])
+
+	var expressions []string
+	if arr, ok := input["expressions"].([]any); ok {
+		for _, v := range arr {
+			if s := strings.TrimSpace(asString(v)); s != "" {
+				expressions = append(expressions, s)
+			}
+		}
+	}
+
+	// Route by intent
+	switch intentType {
+	case "batch":
+		if req, ok := input["request"].(map[string]any); ok {
+			if validateOnly {
+				return p.docsPlanBatch(ctx, map[string]any{"docId": docID, "request": req, "opId": input["opId"], "timeoutMs": input["timeoutMs"], "retries": input["retries"], "retryBackoffMs": input["retryBackoffMs"]})
+			}
+			return p.docsExecuteBatch(ctx, map[string]any{"docId": docID, "request": req, "opId": input["opId"], "timeoutMs": input["timeoutMs"], "retries": input["retries"], "retryBackoffMs": input["retryBackoffMs"]})
+		}
+		return map[string]any{"service": "docs", "operation": "smartEdit", "error_code": server.ErrorCodeInvalidArgument, "message": "intentType batch requires request"}, errMissingRequest
+	case "sed":
+		if len(expressions) == 0 {
+			return map[string]any{"service": "docs", "operation": "smartEdit", "error_code": server.ErrorCodeInvalidArgument, "message": "intentType sed requires expressions"}, errors.New("missing expressions")
+		}
+		riskLevel, decisionReason := ClassifySedRiskFromExpressions(expressions)
+		requiresConfirmation := riskLevel == RiskHigh
+		// If validateOnly or high risk, return assessment without executing write
+		if validateOnly || (riskLevel == RiskHigh) {
+			out := map[string]any{
+				"service":              "docs",
+				"operation":            "smartEdit",
+				"engineSelected":       "sed",
+				"decisionReason":       decisionReason,
+				"riskLevel":            string(riskLevel),
+				"requiresConfirmation": requiresConfirmation,
+				"docId":                docID,
+			}
+			if input["opId"] != nil {
+				out["opId"] = asString(input["opId"])
+			}
+			return out, nil
+		}
+		// Medium/low: execute sed and wrap result with routing envelope
+		sedInput := map[string]any{
+			"docId": docID, "opId": input["opId"],
+			"timeoutMs": input["timeoutMs"], "retries": input["retries"], "retryBackoffMs": input["retryBackoffMs"],
+			"account": input["account"], "dryRun": false,
+		}
+		if len(expressions) == 1 {
+			sedInput["expression"] = expressions[0]
+		} else {
+			sedInput["expressions"] = toAnySlice(expressions)
+		}
+		result, err := p.docsSed(ctx, sedInput)
+		if err != nil {
+			return result, err
+		}
+		if result != nil {
+			result["engineSelected"] = "sed"
+			result["decisionReason"] = decisionReason
+			result["riskLevel"] = string(riskLevel)
+			result["requiresConfirmation"] = false
+		}
+		return result, nil
+	default:
+		return map[string]any{"service": "docs", "operation": "smartEdit", "error_code": server.ErrorCodeInvalidArgument, "message": "intentType must be batch or sed"}, errors.New("invalid intentType")
+	}
+}
+
+func toAnySlice(s []string) []any {
+	out := make([]any, len(s))
+	for i, v := range s {
+		out[i] = v
+	}
+	return out
 }
 
 func (p *provider) docsInsertText(_ context.Context, input map[string]any) (map[string]any, error) {

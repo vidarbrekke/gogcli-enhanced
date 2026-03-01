@@ -59,3 +59,10 @@
 - `gog docs edit delete` requires explicit intent (`--force`) in non-JSON human mode.
 - Parse JSON stderr error envelopes and branch on `error.error_code` (avoid message-string matching where possible).
 - Persist `requestHash`, `doc_id`, and request file path in agent logs for replayability and audit trails.
+
+### When to use batch vs sedmat (MCP / CLI)
+
+- **Batch (`docs.planBatch` / `docs.executeBatch`, or `gog docs edit batch`):** Use for structured, multi-op Docs API requests when you need `requestHash`, revision safety, and a strict validate → approve → execute flow. Best for deterministic agent runs and audit trails.
+- **Sedmat (`docs.sed` or `gog docs sed`):** Use for expression-based find/replace, positional edits (^, $), table/image ops, or when the intent is a small number of sed-like expressions. Prefer `--json` and `-n` (dry-run) before running for real.
+- **Smart edit (`docs.smartEdit`):** Use when the agent should let the stack choose. Low-risk edits (e.g. single plain replace) are auto-executed; high-risk (delete, clear doc, table/image delete, merge/split) returns an assessment with `riskLevel`, `decisionReason`, and `requiresConfirmation: true` and does not write until the caller confirms or uses an explicit tool with dry-run first.
+- **High-impact edits (safe two-step):** For destructive or broad changes (delete commands, clear document, table/image delete, merge/split), always call with `validateOnly: true` first, then branch on `riskLevel` and `requiresConfirmation`; if high, run `docs.sed` with `dryRun: true` or use batch validate → execute flow before performing the write.
