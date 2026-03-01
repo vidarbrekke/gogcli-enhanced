@@ -287,15 +287,17 @@ configure_keyring_file() {
   local keyring_file="$CONFIG_DIR/keyring"
   local found=""
   for p in "$keyring_file" "/root/.config/gogcli/keyring" "/root/openclaw-stock-home/.config/gogcli/keyring"; do
-    if [[ -f "$p" ]]; then found="$p"; break; fi
+    # gog keyring backend uses a path that may be a directory (not a single file).
+    if [[ -e "$p" ]]; then found="$p"; break; fi
   done
 
   if [[ -n "$found" ]]; then
     clear_screen
     echo "Found existing keyring: $found"
     echo "Enter EXISTING keyring password to unlock stored Google tokens."
+    echo "(Characters are hidden; type password and press Enter.)"
     local oldp
-    prompt_secret oldp "Existing keyring password: " || return 0
+    prompt_secret oldp "Existing keyring password + Enter: " || return 0
     export GOG_KEYRING_BACKEND=file
     export GOG_KEYRING_PASSWORD="$oldp"
     persist_keyring_env_auto "$oldp"
@@ -307,10 +309,13 @@ configure_keyring_file() {
   echo "Create a new password now to protect your Google connection."
   echo "- This encrypts your Google sign-in tokens on disk ($CONFIG_DIR/keyring)"
   echo "- OpenClaw uses this to access Google on future sessions"
+  echo
+  echo "Input note: after each prompt, type your password and press Enter."
+  echo "(Characters are hidden while typing.)"
 
   local p1 p2
-  prompt_secret p1 "New keyring password: " || return 0
-  prompt_secret p2 "Confirm keyring password: " || return 0
+  prompt_secret p1 "Type new keyring password + Enter: " || return 0
+  prompt_secret p2 "Confirm keyring password + Enter: " || return 0
   if [[ -z "$p1" || "$p1" != "$p2" ]]; then
     warn "Passwords were empty or mismatched; keyring unlock may fail later."
     return 0
