@@ -106,6 +106,10 @@ is_cloud_context() {
   return 1
 }
 
+# Canonical config root for ALL gog subprocesses to avoid split-brain paths.
+CANON_XDG_CONFIG_HOME="/root/openclaw-stock-home/.config"
+export XDG_CONFIG_HOME="$CANON_XDG_CONFIG_HOME"
+
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/gogcli"
 BACKUP_BASE="${XDG_CONFIG_HOME:-$HOME/.config}/gogcli-backups"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
@@ -322,14 +326,12 @@ configure_auth() {
 
   log "Setting up Google connection..."
 
-  # Credentials reuse first, but allow explicit replacement and reject placeholders.
-  local creds="" use_existing="n"
-  for p in "${XDG_CONFIG_HOME:-$HOME/.config}/gogcli/credentials.json" "/root/.config/gogcli/credentials.json" "/root/openclaw-stock-home/.config/gogcli/credentials.json"; do
-    if [[ -f "$p" ]]; then creds="$p"; break; fi
-  done
+  # Credentials reuse first, with explicit replacement when needed.
+  local creds="$CONFIG_DIR/credentials.json"
+  local use_existing="n"
 
-  if [[ -n "$creds" ]]; then
-    local cid csec
+  if [[ -f "$creds" ]]; then
+    local cid csec placeholder=0
     cid="$(python3 - <<PY
 import json
 p=${creds@Q}
@@ -347,48 +349,37 @@ print((obj.get('client_secret') or '').strip())
 PY
 )"
 
-    local placeholder=0
     [[ -z "$cid" || -z "$csec" ]] && placeholder=1
     [[ "$cid" == "id.apps.googleusercontent.com" || "$csec" == "secret" ]] && placeholder=1
     [[ "$cid" == *"YOUR_CLIENT_ID"* || "$csec" == *"YOUR_CLIENT_SECRET"* ]] && placeholder=1
 
-    if [[ "$placeholder" -eq 1 ]]; then
-      warn "Existing OAuth credentials look invalid/placeholder."
-      use_existing="n"
-    else
+    if [[ "$placeholder" -eq 0 ]]; then
       clear_screen
       echo "Found existing OAuth credentials at: $creds"
       if ask_yes_no "Use existing OAuth credentials?" y; then
         use_existing="y"
       fi
-    fi
-
-    if [[ "$use_existing" == "y" ]]; then
-      # Normalize existing credentials to flat schema expected by gog runtime.
-      local norm_tmp
-      norm_tmp="$(mktemp)"
-      python3 - <<PY
-import json
-src=${creds@Q}
-out=${norm_tmp@Q}
-j=json.load(open(src))
-obj=j.get('installed') or j.get('web') or j
-flat={'client_id': obj.get('client_id',''), 'client_secret': obj.get('client_secret','')}
-with open(out,'w',encoding='utf-8') as f:
-    json.dump(flat,f,indent=2)
-    f.write('\n')
-PY
-      mkdir -p /root/.config/gogcli /root/openclaw-stock-home/.config/gogcli
-      cp -f "$norm_tmp" /root/.config/gogcli/credentials.json
-      cp -f "$norm_tmp" /root/openclaw-stock-home/.config/gogcli/credentials.json
-      rm -f "$norm_tmp"
-
-      AUTH_CREDENTIALS_OK=1
-      log "Reusing existing OAuth credentials (normalized for runtime)."
+    else
+      warn "Existing OAuth credentials look invalid/placeholder."
     fi
   fi
 
-  if [[ "$AUTH_CREDENTIALS_OK" -eq 0 ]]; then
+  if [[ "$use_existing" == "y" ]]; then
+    # Normalize reused credentials into flat schema expected by runtime.
+    python3 - <<PY
+import json, os
+p=${creds@Q}
+j=json.load(open(p))
+obj=j.get('installed') or j.get('web') or j
+flat={'client_id': obj.get('client_id',''), 'client_secret': obj.get('client_secret','')}
+os.makedirs(os.path.dirname(p), exist_ok=True)
+with open(p,'w',encoding='utf-8') as f:
+    json.dump(flat,f,indent=2)
+    f.write('\n')
+PY
+    AUTH_CREDENTIALS_OK=1
+    log "Reusing existing OAuth credentials."
+  else
     clear_screen
     echo "Enter your Google OAuth app credentials."
     echo "(Desktop app client from Google Cloud Console)"
@@ -396,41 +387,21 @@ PY
     prompt_line cid "Paste OAuth Client ID: "
     prompt_secret csec "Paste OAuth Client Secret (hidden): " || csec=""
     if [[ -n "$cid" && -n "$csec" ]]; then
-      local tmp
-      tmp="$(mktemp)"
-      cat > "$tmp" <<EOF
-{
-  "installed": {
-    "client_id": "$cid",
-    "client_secret": "$csec",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token"
-  }
-}
-EOF
-      "$gog_cmd" auth credentials "$tmp" >/dev/null
-      # Sync raw client-only schema to both common config roots (gog expects flat {client_id,client_secret}).
-      local flat_tmp
-      flat_tmp="$(mktemp)"
+      mkdir -p "$CONFIG_DIR"
       python3 - <<PY
-import json
-src=${tmp@Q}
-out=${flat_tmp@Q}
-j=json.load(open(src))
-obj=j.get('installed') or j.get('web') or j
-flat={'client_id': obj.get('client_id',''), 'client_secret': obj.get('client_secret','')}
-with open(out,'w',encoding='utf-8') as f:
+import json, os
+p=${creds@Q}
+flat={'client_id': ${cid@Q}, 'client_secret': ${csec@Q}}
+os.makedirs(os.path.dirname(p), exist_ok=True)
+with open(p,'w',encoding='utf-8') as f:
     json.dump(flat,f,indent=2)
     f.write('\n')
 PY
-      mkdir -p /root/.config/gogcli /root/openclaw-stock-home/.config/gogcli
-      cp -f "$flat_tmp" /root/.config/gogcli/credentials.json
-      cp -f "$flat_tmp" /root/openclaw-stock-home/.config/gogcli/credentials.json
-      rm -f "$tmp" "$flat_tmp"
       AUTH_CREDENTIALS_OK=1
-      log "Stored OAuth credentials (synced across config roots)."
+      log "Stored OAuth credentials."
     else
-      warn "Skipped OAuth credential entry."
+      err "OAuth credentials were not provided. Cannot continue auth setup."
+      return 1
     fi
   fi
 
@@ -445,27 +416,36 @@ PY
   fi
 
   clear_screen
-  echo "One final step: connect your Google account for live Gmail/Drive/Docs access."
+  echo "Final step: connect your Google account now."
   local email
-  prompt_line email "Google account email to authorize now (leave empty to skip): "
+  prompt_line email "Google account email to authorize: "
   if [[ -z "$email" ]]; then
-    warn "Skipped account authorization."
-    return 0
+    err "Email is required for novice setup. Re-run and provide account email."
+    return 1
   fi
 
   if is_cloud_context; then
-    echo "A browser URL will be shown next. Open it, approve, copy redirect URL back here."
+    echo "A browser URL will be shown next. Open it, approve, and paste redirect URL back in this terminal."
     if "$gog_cmd" auth add "$email" --services user --manual; then
       AUTH_ACCOUNT_OK=1
     else
-      warn "Authorization incomplete. Retry later: $gog_cmd auth add $email --services user --manual"
+      err "Authorization did not complete. Retry now with: $gog_cmd auth add $email --services user --manual"
+      return 1
     fi
   else
     if "$gog_cmd" auth add "$email"; then
       AUTH_ACCOUNT_OK=1
     else
-      warn "Authorization incomplete. Retry later: $gog_cmd auth add $email"
+      err "Authorization did not complete. Retry now with: $gog_cmd auth add $email"
+      return 1
     fi
+  fi
+
+  # Hard post-check: token must exist.
+  if ! $gog_cmd auth list --check >/tmp/gog-auth-postcheck.out 2>/tmp/gog-auth-postcheck.err; then
+    err "Post-auth check failed; no valid token found."
+    err "See /tmp/gog-auth-postcheck.err and /tmp/gog-auth-postcheck.out"
+    return 1
   fi
 }
 
