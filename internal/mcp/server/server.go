@@ -56,7 +56,7 @@ func (s *Server) ExecuteTool(ctx context.Context, name string, input map[string]
 		return Envelope{
 			OK: false,
 			Error: &ErrorEnvelope{
-				Code:    "not_found",
+				Code:    ErrorCodeNotFound,
 				Message: fmt.Sprintf("tool %q not found", name),
 			},
 		}
@@ -81,7 +81,7 @@ func str(v any) string {
 }
 
 func normalizeError(result map[string]any, err error) Envelope {
-	code := "api_error"
+	code := ErrorCodeAPI
 	message := err.Error()
 	details := map[string]any{}
 	var service, operation, opID string

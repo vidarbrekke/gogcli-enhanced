@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/steipete/gogcli/internal/mcp/server"
 )
@@ -34,7 +35,26 @@ func ServeStdio(ctx context.Context, r io.Reader, w io.Writer, s *server.Server)
 	scanner := bufio.NewScanner(r)
 	// Raise max token size above default 64KB so large tools/call payloads don't drop the connection.
 	const maxScanTokenSize = 10 * 1024 * 1024
+	const maxInFlight = 8
+	const maxQueue = 256
 	scanner.Buffer(make([]byte, 0, 64*1024), maxScanTokenSize)
+	writeCh := make(chan rpcResponse, maxQueue)
+	sem := make(chan struct{}, maxInFlight)
+	var wg sync.WaitGroup
+	done := make(chan struct{})
+	var writeErr error
+	var writeOnce sync.Once
+
+	go func() {
+		defer close(done)
+		for resp := range writeCh {
+			if err := writeRPC(w, resp); err != nil {
+				writeOnce.Do(func() { writeErr = err })
+				return
+			}
+		}
+	}()
+
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if len(line) == 0 {
@@ -47,13 +67,48 @@ func ServeStdio(ctx context.Context, r io.Reader, w io.Writer, s *server.Server)
 			}
 			continue
 		}
-		resp := handleRPC(ctx, s, req)
 		if req.ID == nil {
 			continue
 		}
-		if err := writeRPC(w, resp); err != nil {
-			return err
+		if req.Method == "tools/call" {
+			select {
+			case sem <- struct{}{}:
+			default:
+				writeCh <- rpcResponse{
+					JSONRPC: "2.0",
+					ID:      req.ID,
+					Result: map[string]any{
+						"isError": true,
+						"structuredContent": server.Envelope{
+							OK:        false,
+							Operation: "tools/call",
+							Error: &server.ErrorEnvelope{
+								Code:    "resource_exhausted",
+								Message: "too many in-flight requests",
+							},
+						},
+						"content": []map[string]any{
+							{"type": "text", "text": "{\"ok\":false,\"error\":{\"code\":\"resource_exhausted\",\"message\":\"too many in-flight requests\"}}"},
+						},
+					},
+				}
+				continue
+			}
+			wg.Add(1)
+			go func(reqCopy rpcRequest) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				writeCh <- handleRPC(ctx, s, reqCopy)
+			}(req)
+			continue
 		}
+		writeCh <- handleRPC(ctx, s, req)
+	}
+	wg.Wait()
+	close(writeCh)
+	<-done
+	if writeErr != nil {
+		return writeErr
 	}
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("scan stdio input: %w", err)
@@ -82,11 +137,21 @@ func handleRPC(ctx context.Context, s *server.Server, req rpcRequest) rpcRespons
 		specs := s.ListToolSpecs()
 		tools := make([]map[string]any, 0, len(specs))
 		for _, spec := range specs {
-			tools = append(tools, map[string]any{
+			tool := map[string]any{
 				"name":        spec.Name,
 				"description": spec.Description,
 				"inputSchema": spec.InputSchema,
-			})
+			}
+			if spec.Tier != "" {
+				tool["tier"] = spec.Tier
+			}
+			if spec.Version != "" {
+				tool["version"] = spec.Version
+			}
+			if spec.PolicyClass != "" {
+				tool["policyClass"] = spec.PolicyClass
+			}
+			tools = append(tools, tool)
 		}
 		return rpcResponse{
 			JSONRPC: "2.0",

@@ -8,6 +8,9 @@ type ToolSpec struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description,omitempty"`
 	InputSchema map[string]any `json:"input_schema,omitempty"`
+	Tier        string         `json:"tier,omitempty"`
+	Version     string         `json:"version,omitempty"`
+	PolicyClass string         `json:"policy_class,omitempty"`
 	Handler     ToolHandler    `json:"-"`
 }
 
