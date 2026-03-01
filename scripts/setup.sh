@@ -80,6 +80,9 @@ prompt_secret() {
     return 1
   fi
   echo
+  if [[ -z "$val" ]]; then
+    warn "No input received (empty)."
+  fi
   printf -v "$__var" '%s' "$val"
   return 0
 }
@@ -189,7 +192,7 @@ backup_and_reset_if_requested() {
     echo "2) Backup + reset config"
     echo "3) Backup + reset config + remove installed binary"
     local opt
-    prompt_line opt "Select [1/2/3] (default 1): " "1"
+    prompt_line opt "Select [1/2/3] then press Enter (default 1): " "1"
     case "$opt" in
       2) RESET_CONFIG=1; do_backup=1 ;;
       3) CLEAN_RESET=1; do_backup=1 ;;
@@ -389,8 +392,8 @@ PY
     echo "Enter your Google OAuth app credentials."
     echo "(Desktop app client from Google Cloud Console)"
     local cid csec
-    prompt_line cid "Paste OAuth Client ID: "
-    prompt_secret csec "Paste OAuth Client Secret (hidden): " || csec=""
+    prompt_line cid "Paste OAuth Client ID then press Enter: "
+    prompt_secret csec "Paste OAuth Client Secret (hidden) then Enter: " || csec=""
     if [[ -n "$cid" && -n "$csec" ]]; then
       mkdir -p "$CONFIG_DIR"
       python3 - <<PY
@@ -423,7 +426,7 @@ PY
   clear_screen
   echo "Final step: connect your Google account now."
   local email
-  prompt_line email "Google account email to authorize: "
+  prompt_line email "Google account email to authorize, then press Enter: "
   if [[ -z "$email" ]]; then
     err "Email is required for novice setup. Re-run and provide account email."
     return 1
