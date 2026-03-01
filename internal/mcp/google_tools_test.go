@@ -61,13 +61,13 @@ func TestGoogleTools_DocsInsertText_MapsArgs(t *testing.T) {
 		return `{"documentId":"d1","insertedChars":5}`, "", nil
 	})
 	env := s.ExecuteTool(context.Background(), "docs.insertText", map[string]any{
-		"docId":      "d1",
-		"text":       "hello",
-		"index":      float64(3),
+		"docId":        "d1",
+		"text":         "hello",
+		"index":        float64(3),
 		"validateOnly": true,
-		"opId":       "op-1",
-		"timeoutMs":  float64(8000),
-		"retries":    float64(2),
+		"opId":         "op-1",
+		"timeoutMs":    float64(8000),
+		"retries":      float64(2),
 	})
 	if !env.OK {
 		t.Fatalf("expected success, got error: %#v", env.Error)
@@ -93,12 +93,12 @@ func TestGoogleTools_DriveSearchFiles_MapsArgs(t *testing.T) {
 		return `{"files":[]}`, "", nil
 	})
 	env := s.ExecuteTool(context.Background(), "drive.searchFiles", map[string]any{
-		"query":       "budget q1",
-		"rawQuery":    true,
-		"allDrives":   false,
-		"max":         float64(50),
-		"page":        "p1",
-		"account":     "a@example.com",
+		"query":          "budget q1",
+		"rawQuery":       true,
+		"allDrives":      false,
+		"max":            float64(50),
+		"page":           "p1",
+		"account":        "a@example.com",
 		"retryBackoffMs": float64(700),
 	})
 	if !env.OK {

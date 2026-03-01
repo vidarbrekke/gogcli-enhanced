@@ -39,4 +39,3 @@ func TestClassifySedRiskFromExpressions(t *testing.T) {
 		})
 	}
 }
-

@@ -47,9 +47,9 @@ func keyringItem(key string, data []byte) keyring.Item {
 }
 
 const (
-	keyringPasswordEnv     = "GOG_KEYRING_PASSWORD"     //nolint:gosec // env var name, not a credential
+	keyringPasswordEnv     = "GOG_KEYRING_PASSWORD"      //nolint:gosec // env var name, not a credential
 	keyringPasswordFileEnv = "GOG_KEYRING_PASSWORD_FILE" //nolint:gosec // path to file containing password
-	keyringBackendEnv      = "GOG_KEYRING_BACKEND"     //nolint:gosec // env var name, not a credential
+	keyringBackendEnv      = "GOG_KEYRING_BACKEND"       //nolint:gosec // env var name, not a credential
 )
 
 var (
