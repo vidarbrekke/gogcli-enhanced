@@ -66,12 +66,18 @@ clear_screen() {
 
 prompt_line() {
   local __var="$1" prompt="$2" default="${3:-}" val=""
+  local tty_available=0
 
-  if [[ -r /dev/tty ]]; then
-    printf "%s" "$prompt" > /dev/tty
-    if ! IFS= read -r val < /dev/tty; then
+  if exec {__tty_fd}<>/dev/tty 2>/dev/null; then
+    tty_available=1
+  fi
+
+  if [[ "$tty_available" -eq 1 ]]; then
+    printf "%s" "$prompt" >&$__tty_fd
+    if ! IFS= read -r -u "$__tty_fd" val; then
       val="$default"
     fi
+    exec {__tty_fd}>&-
   else
     if ! read -r -p "$prompt" val; then
       val="$default"
@@ -85,25 +91,33 @@ prompt_line() {
 
 prompt_secret() {
   local __var="$1" prompt="$2" val=""
+  local tty_available=0
 
-  if [[ -r /dev/tty ]]; then
+  if exec {__tty_fd}<>/dev/tty 2>/dev/null; then
+    tty_available=1
+  fi
+
+  if [[ "$tty_available" -eq 1 ]]; then
     # Hide input when TTY supports it; fall back gracefully if stty fails.
-    printf "%s" "$prompt" > /dev/tty
-    if stty -echo < /dev/tty 2>/dev/null; then
-      if ! IFS= read -r val < /dev/tty; then
-        stty echo < /dev/tty 2>/dev/null || true
-        printf "\n" > /dev/tty
+    printf "%s" "$prompt" >&$__tty_fd
+    if stty -echo <&$__tty_fd 2>/dev/null; then
+      if ! IFS= read -r -u "$__tty_fd" val; then
+        stty echo <&$__tty_fd 2>/dev/null || true
+        printf "\n" >&$__tty_fd
+        exec {__tty_fd}>&-
         return 1
       fi
-      stty echo < /dev/tty 2>/dev/null || true
-      printf "\n" > /dev/tty
+      stty echo <&$__tty_fd 2>/dev/null || true
+      printf "\n" >&$__tty_fd
     else
-      if ! IFS= read -r val < /dev/tty; then
-        printf "\n" > /dev/tty
+      if ! IFS= read -r -u "$__tty_fd" val; then
+        printf "\n" >&$__tty_fd
+        exec {__tty_fd}>&-
         return 1
       fi
-      printf "\n" > /dev/tty
+      printf "\n" >&$__tty_fd
     fi
+    exec {__tty_fd}>&-
   else
     if ! read -r -s -p "$prompt" val; then
       echo
