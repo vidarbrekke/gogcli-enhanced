@@ -14,7 +14,7 @@ Use this when running OpenClaw on a Linode server and want the agent to create/e
   - Else the repo root is used.
 - **Config path:** `$workspace_dir/config/mcporter.json` (e.g. `/root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json`).
 - **Fallback:** If `~/openclaw-stock-home/.openclaw/workspace` or `~/.openclaw/workspace` exists and is different from the detected workspace, the script also merges the same `gog-agentic` entry there, so OpenClaw finds gog even when the repo is cloned elsewhere.
-- **Env:** If `GOG_KEYRING_BACKEND` is set during setup (e.g. file keyring), the script adds `"env": {"GOG_KEYRING_BACKEND": "file"}` to the server entry so the spawned `gog mcp serve` process uses the file keyring. You must still set `GOG_KEYRING_PASSWORD` in the environment that runs OpenClaw (or the process that spawns mcporter).
+- **Env:** If `GOG_KEYRING_BACKEND` is set during setup (e.g. file keyring), the script adds `"env": {"GOG_KEYRING_BACKEND": "file"}` to the server entry so the spawned `gog mcp serve` process uses the file keyring. For headless MCP, the script can also create a keyring password file and add `GOG_KEYRING_PASSWORD_FILE` to that `env`: it will do so automatically when `GOG_KEYRING_PASSWORD` is set, or when you confirm at the prompt “Save keyring password to a file so the MCP server can unlock without a TTY?”. Otherwise add `GOG_KEYRING_PASSWORD_FILE` manually (see §4 and §8.2).
 
 After setup, **restart OpenClaw** (or ensure it is started with the same `mcporter.json` path) so it picks up the new server. No refactor or manual MCP config is needed.
 
@@ -45,6 +45,18 @@ gog must have a valid refresh token for your Google account.
    - `export GOG_KEYRING_PASSWORD=<password used when creating the keyring>`
    - Ensure the same password is used as on the source machine if the keyring is encrypted.
 
+**Option A2 – Password from file (for MCP / headless)**
+
+When OpenClaw (or mcporter) spawns `gog mcp serve`, it only passes the `env` from `mcporter.json` to the child process. It does not pass your shell’s `GOG_KEYRING_PASSWORD`, so the keyring cannot be unlocked and gog suggests “authorize the app”. To fix this without putting the password in the config file:
+
+- **During setup:** When you run `./scripts/setup.sh` with file keyring, the script can create the password file and add `GOG_KEYRING_PASSWORD_FILE` to mcporter.json for you—either automatically if `GOG_KEYRING_PASSWORD` is set, or by answering yes to “Save keyring password to a file so the MCP server can unlock without a TTY?” (see §1).
+- **Manually:** Otherwise:
+  1. Create a file that contains only the keyring password (one line), e.g. `/root/.config/gogcli/keyring.password`.
+  2. Restrict access: `chmod 600 /root/.config/gogcli/keyring.password`
+  3. In `mcporter.json`, in the gog-agentic entry’s `env`, add `GOG_KEYRING_PASSWORD_FILE` pointing at that path. Example (merge into existing `env`):
+     `"GOG_KEYRING_PASSWORD_FILE": "/root/.config/gogcli/keyring.password"`
+  4. Restart OpenClaw. The spawned `gog mcp serve` will read the password from the file and unlock the keyring without a TTY.
+
 **Option B – Run setup wizard once with a tunneled browser (advanced)**
 
 If you can expose a browser to the Linode box (e.g. SSH port-forward + run setup in that session), run `./scripts/setup.sh` and complete OAuth once; then use that keyring for headless runs.
@@ -54,7 +66,9 @@ If you can expose a browser to the Linode box (e.g. SSH port-forward + run setup
 OpenClaw must run the gog MCP server so it can call `drive.*` and `docs.*` tools.
 
 - **Transport command:** `gog mcp serve` (or full path to `gog` plus `mcp serve`).
-- **Environment:** Set `GOG_KEYRING_BACKEND=file` and `GOG_KEYRING_PASSWORD` when running OpenClaw (or the process that spawns `gog mcp serve`) so gog can read the keyring on Linode.
+- **Environment:** The child process needs the keyring password. Either:
+  - Set `GOG_KEYRING_BACKEND=file` and `GOG_KEYRING_PASSWORD` in the environment that runs OpenClaw (if your MCP host passes parent env to children), or
+  - Set `GOG_KEYRING_BACKEND=file` and `GOG_KEYRING_PASSWORD_FILE=/path/to/password-file` in the gog-agentic `env` in mcporter.json (recommended for headless; see §4 Option A2).
 - **Working directory:** Run `gog` from the repo or a directory where the `gog` binary and config/keyring are available.
 
 After that, the agent should see tools such as `drive.ensureFolder`, `docs.create`, `docs.insertText`, etc., in `tools/list`.
@@ -114,9 +128,11 @@ If `command` in the gog-agentic entry is relative (e.g. `gog` or `./bin/gog`), m
 The process that starts OpenClaw (and thus mcporter / gog-agentic) must have:
 
 - `GOG_KEYRING_BACKEND=file` if you use the file keyring on Linode.
-- `GOG_KEYRING_PASSWORD` set to the same password used when creating the keyring (or the one used on the machine you copied the keyring from).
+- A way for the spawned `gog mcp serve` to get the keyring password. MCP hosts often pass only the `env` from mcporter.json to the child, not the parent’s environment, so:
+  - **Recommended:** Put the password in a file (e.g. `/root/.config/gogcli/keyring.password`, `chmod 600`) and add to the gog-agentic `env` in mcporter.json: `"GOG_KEYRING_PASSWORD_FILE": "/root/.config/gogcli/keyring.password"`. Then the child can unlock the keyring without a TTY. See §4 Option A2.
+  - **Alternatively:** If your setup passes the parent process environment to MCP children, set `GOG_KEYRING_PASSWORD` when starting OpenClaw.
 
-Without these, `gog mcp serve` may start then exit when it tries to read credentials, so the agent never sees the tools.
+Without the password (or password file), `gog mcp serve` cannot open the keyring and will prompt for auth or suggest “authorize the app”, which leads to a dead end on headless.
 
 ### 8.3 Run the MCP diagnostic script
 

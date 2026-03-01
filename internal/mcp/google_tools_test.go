@@ -263,3 +263,28 @@ func TestGoogleTools_DocsSmartEdit_ValidateOnlyHighRisk(t *testing.T) {
 		}
 	}
 }
+
+func TestGoogleTools_DocsCreate_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"file":{"id":"newDocId","name":"Test1","mimeType":"application/vnd.google-apps.document"}}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.create", map[string]any{
+		"title":    "Test1",
+		"parentId": "folderIdFromEnsure",
+		"opId":     "op-create-1",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Service != "docs" || env.Operation != "create" {
+		t.Fatalf("unexpected service/op: %s %s", env.Service, env.Operation)
+	}
+	wantBits := []string{"--json", "docs", "create", "Test1", "--parent", "folderIdFromEnsure"}
+	for _, bit := range wantBits {
+		if !slices.Contains(gotArgs, bit) {
+			t.Fatalf("missing arg %q in %v", bit, gotArgs)
+		}
+	}
+}

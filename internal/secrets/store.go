@@ -47,8 +47,9 @@ func keyringItem(key string, data []byte) keyring.Item {
 }
 
 const (
-	keyringPasswordEnv = "GOG_KEYRING_PASSWORD" //nolint:gosec // env var name, not a credential
-	keyringBackendEnv  = "GOG_KEYRING_BACKEND"  //nolint:gosec // env var name, not a credential
+	keyringPasswordEnv     = "GOG_KEYRING_PASSWORD"     //nolint:gosec // env var name, not a credential
+	keyringPasswordFileEnv = "GOG_KEYRING_PASSWORD_FILE" //nolint:gosec // path to file containing password
+	keyringBackendEnv      = "GOG_KEYRING_BACKEND"     //nolint:gosec // env var name, not a credential
 )
 
 var (
@@ -130,12 +131,30 @@ func fileKeyringPasswordFuncFrom(password string, passwordSet bool, isTTY bool) 
 	}
 
 	return func(_ string) (string, error) {
-		return "", fmt.Errorf("%w; set %s", errNoTTY, keyringPasswordEnv)
+		return "", fmt.Errorf("%w; set %s or %s", errNoTTY, keyringPasswordEnv, keyringPasswordFileEnv)
 	}
 }
 
+// resolveKeyringPassword returns the keyring password from GOG_KEYRING_PASSWORD
+// or by reading the file at GOG_KEYRING_PASSWORD_FILE (trimmed). Empty file or
+// missing env is not considered "set".
+func resolveKeyringPassword() (password string, fromEnvOrFile bool) {
+	if v, ok := os.LookupEnv(keyringPasswordEnv); ok {
+		return v, true
+	}
+	path := strings.TrimSpace(os.Getenv(keyringPasswordFileEnv))
+	if path == "" {
+		return "", false
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimSpace(string(data)), true
+}
+
 func fileKeyringPasswordFunc() keyring.PromptFunc {
-	password, passwordSet := os.LookupEnv(keyringPasswordEnv)
+	password, passwordSet := resolveKeyringPassword()
 	return fileKeyringPasswordFuncFrom(password, passwordSet, term.IsTerminal(int(os.Stdin.Fd())))
 }
 

@@ -570,6 +570,33 @@ configure_openclaw_mcp_auto() {
     env_json="{\"GOG_KEYRING_BACKEND\": \"${GOG_KEYRING_BACKEND}\"}"
   fi
 
+  # On headless, MCP child only gets env from mcporter.json. Ensure keyring password is available via a file when using file keyring.
+  local password_file_path=""
+  if [[ -n "${GOG_KEYRING_BACKEND:-}" ]] && [[ "$GOG_KEYRING_BACKEND" == "file" ]]; then
+    if [[ -n "${GOG_KEYRING_PASSWORD_FILE:-}" ]]; then
+      password_file_path="$GOG_KEYRING_PASSWORD_FILE"
+      log "Using existing keyring password file for MCP: $password_file_path"
+    elif [[ -n "${GOG_KEYRING_PASSWORD:-}" ]]; then
+      password_file_path="$CONFIG_DIR/keyring.password"
+      mkdir -p "$CONFIG_DIR"
+      printf '%s' "$GOG_KEYRING_PASSWORD" > "$password_file_path"
+      chmod 600 "$password_file_path"
+      log "Wrote keyring password to $password_file_path for MCP headless use"
+    elif [[ -t 0 ]]; then
+      if ask_yes_no "Save keyring password to a file so the MCP server can unlock without a TTY?" "n"; then
+        local pw=""
+        if prompt_secret pw "Keyring password: "; then
+          password_file_path="$CONFIG_DIR/keyring.password"
+          mkdir -p "$CONFIG_DIR"
+          printf '%s' "$pw" > "$password_file_path"
+          chmod 600 "$password_file_path"
+          log "Wrote keyring password to $password_file_path for MCP headless use"
+        fi
+      fi
+    fi
+  fi
+  export MCP_PASSWORD_FILE_PATH="$password_file_path"
+
   local mcporter_config="$workspace_dir/config/mcporter.json"
   mkdir -p "$(dirname "$mcporter_config")"
 
@@ -577,6 +604,8 @@ configure_openclaw_mcp_auto() {
 import json, os
 p = ${mcporter_config@Q}
 env_obj = json.loads(${env_json@Q})
+if os.environ.get("MCP_PASSWORD_FILE_PATH"):
+    env_obj["GOG_KEYRING_PASSWORD_FILE"] = os.environ.get("MCP_PASSWORD_FILE_PATH")
 if os.path.exists(p):
     with open(p, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -600,6 +629,13 @@ with open(p, 'w', encoding='utf-8') as f:
 PY
 
   log "Activated MCP server entry 'gog-agentic' in $mcporter_config"
+  if [[ -n "${GOG_KEYRING_BACKEND:-}" ]] && [[ "$GOG_KEYRING_BACKEND" == "file" ]]; then
+    if [[ -n "$MCP_PASSWORD_FILE_PATH" ]]; then
+      log "Keyring password file configured for MCP (headless unlock)."
+    else
+      log "On headless: add GOG_KEYRING_PASSWORD_FILE to gog-agentic env in mcporter.json so MCP can unlock the keyring (see docs/openclaw-linode-runbook.md)."
+    fi
+  fi
   MCP_CONFIG_PATH="$mcporter_config"
 
   # Fallback: if a well-known OpenClaw workspace exists elsewhere, register there too so OpenClaw finds gog regardless of repo location
@@ -613,6 +649,8 @@ PY
 import json, os
 p = ${fallback_config@Q}
 env_obj = json.loads(${env_json@Q})
+if os.environ.get("MCP_PASSWORD_FILE_PATH"):
+    env_obj["GOG_KEYRING_PASSWORD_FILE"] = os.environ.get("MCP_PASSWORD_FILE_PATH")
 if os.path.exists(p):
     with open(p, 'r', encoding='utf-8') as f:
         data = json.load(f)

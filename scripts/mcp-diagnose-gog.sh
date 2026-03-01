@@ -30,12 +30,23 @@ if not entry:
 
 cmd = entry.get("command") or "gog"
 args = entry.get("args") or ["mcp", "serve"]
+env_raw = entry.get("env")
+if isinstance(env_raw, dict):
+    env_extra = env_raw
+elif isinstance(env_raw, list):
+    env_extra = {}
+    for item in env_raw:
+        if isinstance(item, str) and "=" in item:
+            k, _, v = item.partition("=")
+            env_extra[k] = v
+else:
+    env_extra = {}
 env = os.environ.copy()
-env.update(entry.get("env") or {})
+env.update(env_extra)
 
 print("command:", cmd)
 print("args:", args)
-print("env keys added:", list(entry.get("env") or {}).keys())
+print("env keys added:", list(env_extra.keys()))
 
 # Send initialize then tools/list (newline-delimited JSON-RPC)
 init_req = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"diagnose","version":"1.0"}}}\n'

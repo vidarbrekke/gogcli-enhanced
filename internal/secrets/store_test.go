@@ -288,3 +288,31 @@ func TestOpenKeyring_ExplicitBackend_IgnoresDBusDetection(t *testing.T) {
 		t.Fatal("expected non-nil store")
 	}
 }
+
+func TestOpenKeyring_FileBackend_PasswordFromFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
+	t.Setenv("GOG_KEYRING_BACKEND", "file")
+	os.Unsetenv("GOG_KEYRING_PASSWORD")
+
+	passwordFile := filepath.Join(t.TempDir(), "keyring.pass")
+	if err := os.WriteFile(passwordFile, []byte("  secret-from-file  \n"), 0o600); err != nil {
+		t.Fatalf("write password file: %v", err)
+	}
+	t.Setenv("GOG_KEYRING_PASSWORD_FILE", passwordFile)
+
+	keyringDir, err := config.EnsureKeyringDir()
+	if err != nil {
+		t.Fatalf("EnsureKeyringDir: %v", err)
+	}
+
+	cfg := keyringConfig(keyringDir)
+	ring, err := keyringOpenFunc(cfg)
+	if err != nil {
+		t.Fatalf("open keyring with password file: %v", err)
+	}
+	if ring == nil {
+		t.Fatal("expected non-nil keyring")
+	}
+}

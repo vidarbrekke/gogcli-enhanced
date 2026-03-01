@@ -134,6 +134,26 @@ func Register(s *server.Server, executor Executor) {
 		},
 		Handler: p.docsSmartEdit,
 	}, {
+		Name:        "docs.create",
+		Description: "Create a new Google Doc. Optionally place it in a Drive folder by parentId (e.g. from drive.ensureFolder).",
+		Tier:        "ga",
+		Version:     "v1",
+		PolicyClass: "write-safe",
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"title"},
+			"properties": map[string]any{
+				"title":   map[string]any{"type": "string"},
+				"parentId": map[string]any{"type": "string"},
+				"account": map[string]any{"type": "string"},
+				"opId":    map[string]any{"type": "string"},
+				"timeoutMs": map[string]any{"type": "integer"},
+				"retries": map[string]any{"type": "integer"},
+				"retryBackoffMs": map[string]any{"type": "integer"},
+			},
+		},
+		Handler: p.docsCreate,
+	}, {
 		Name:        "docs.insertText",
 		Description: "Insert text at a specific index in a Google Doc.",
 		Tier:        "ga",
@@ -878,6 +898,22 @@ func toAnySlice(s []string) []any {
 		out[i] = v
 	}
 	return out
+}
+
+func (p *provider) docsCreate(_ context.Context, input map[string]any) (map[string]any, error) {
+	title := strings.TrimSpace(asString(input["title"]))
+	if title == "" {
+		return map[string]any{"service": "docs", "operation": "create", "error_code": server.ErrorCodeInvalidArgument, "message": "missing title"}, errors.New("missing title")
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "docs", "create", title)
+	if parentID := strings.TrimSpace(asString(input["parentId"])); parentID != "" {
+		args = append(args, "--parent", parentID)
+	}
+	return p.runCLI(cleanArgs(args), "docs", "create")
 }
 
 func (p *provider) docsInsertText(_ context.Context, input map[string]any) (map[string]any, error) {
