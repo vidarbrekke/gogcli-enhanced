@@ -158,9 +158,24 @@ is_cloud_context() {
   return 1
 }
 
-# Canonical config root for ALL gog subprocesses to avoid split-brain paths.
-CANON_XDG_CONFIG_HOME="/root/openclaw-stock-home/.config"
+detect_shell_rc_file() {
+  local sh_name
+  sh_name="$(basename "${SHELL:-}")"
+  case "$sh_name" in
+    zsh) echo "$HOME/.zshrc" ;;
+    bash) echo "$HOME/.bashrc" ;;
+    *) echo "$HOME/.profile" ;;
+  esac
+}
+
+# Use OpenClaw cloud config root only when available/writable; otherwise use user-local config.
+if is_cloud_context && [[ -d "/root/openclaw-stock-home/.config" ]] && [[ -w "/root/openclaw-stock-home/.config" ]]; then
+  CANON_XDG_CONFIG_HOME="/root/openclaw-stock-home/.config"
+else
+  CANON_XDG_CONFIG_HOME="$HOME/.config"
+fi
 export XDG_CONFIG_HOME="$CANON_XDG_CONFIG_HOME"
+SHELL_RC_FILE="$(detect_shell_rc_file)"
 
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/gogcli"
 BACKUP_BASE="${XDG_CONFIG_HOME:-$HOME/.config}/gogcli-backups"
@@ -225,6 +240,10 @@ check_dependencies_auto() {
 
   warn "Missing dependencies: ${missing[*]}"
   has_cmd apt-get || { err "apt-get not available. Install missing deps manually and rerun."; exit 1; }
+  if ! ask_yes_no "Install missing dependencies using apt-get now?" n; then
+    err "Cannot continue without required dependencies. Install them manually and rerun."
+    exit 1
+  fi
   log "Installing missing dependencies automatically..."
   sudo apt-get update
   sudo apt-get install -y "${missing[@]}"
@@ -300,33 +319,30 @@ ensure_path_auto() {
   local bindir
   bindir="$(dirname "$INSTALL_TARGET")"
   if [[ ":$PATH:" != *":$bindir:"* ]]; then
-    grep -Fq "export PATH=\"$bindir:\$PATH\"" "$HOME/.bashrc" 2>/dev/null || \
-      echo "export PATH=\"$bindir:\$PATH\"" >> "$HOME/.bashrc"
-    log "Added $bindir to ~/.bashrc PATH"
+    grep -Fq "export PATH=\"$bindir:\$PATH\"" "$SHELL_RC_FILE" 2>/dev/null || \
+      echo "export PATH=\"$bindir:\$PATH\"" >> "$SHELL_RC_FILE"
+    log "Added $bindir to $SHELL_RC_FILE PATH"
   fi
 }
 
 persist_keyring_env_auto() {
   local pass="$1"
-  # novice mode: default to persistence for reliability unless advanced user opts out.
-  local do_persist=1
-  if [[ "$ADVANCED" -eq 1 ]]; then
-    clear_screen
-    echo "Auto-unlock option"
-    echo "- YES: smoother setup; password stored in ~/.bashrc (plaintext)"
-    echo "- NO: more secure; you'll need to provide password each new session"
-    ask_yes_no "Enable auto-unlock persistence?" y && do_persist=1 || do_persist=0
-  fi
+  local do_persist=0
+  clear_screen
+  echo "Auto-unlock option"
+  echo "- YES: smoother setup; password stored in plaintext in $SHELL_RC_FILE"
+  echo "- NO: more secure; you'll need to provide password each new session"
+  ask_yes_no "Enable auto-unlock persistence?" n && do_persist=1 || do_persist=0
 
   if [[ "$do_persist" -eq 1 ]]; then
-    grep -Fq 'export GOG_KEYRING_BACKEND=file' "$HOME/.bashrc" 2>/dev/null || \
-      echo 'export GOG_KEYRING_BACKEND=file' >> "$HOME/.bashrc"
-    if grep -Fq 'export GOG_KEYRING_PASSWORD=' "$HOME/.bashrc" 2>/dev/null; then
-      sed -i "s|^export GOG_KEYRING_PASSWORD=.*$|export GOG_KEYRING_PASSWORD='${pass//\'/\'\"\'\"\'}'|" "$HOME/.bashrc"
+    grep -Fq 'export GOG_KEYRING_BACKEND=file' "$SHELL_RC_FILE" 2>/dev/null || \
+      echo 'export GOG_KEYRING_BACKEND=file' >> "$SHELL_RC_FILE"
+    if grep -Fq 'export GOG_KEYRING_PASSWORD=' "$SHELL_RC_FILE" 2>/dev/null; then
+      sed -i "s|^export GOG_KEYRING_PASSWORD=.*$|export GOG_KEYRING_PASSWORD='${pass//\'/\'\"\'\"\'}'|" "$SHELL_RC_FILE"
     else
-      echo "export GOG_KEYRING_PASSWORD='${pass//\'/\'\"\'\"\'}'" >> "$HOME/.bashrc"
+      echo "export GOG_KEYRING_PASSWORD='${pass//\'/\'\"\'\"\'}'" >> "$SHELL_RC_FILE"
     fi
-    log "Saved keyring auto-unlock env vars to ~/.bashrc"
+    log "Saved keyring auto-unlock env vars to $SHELL_RC_FILE"
   else
     warn "Auto-unlock disabled; you'll need keyring password in future sessions."
   fi
