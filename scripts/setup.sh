@@ -542,6 +542,18 @@ PY
 configure_openclaw_mcp_auto() {
   local gog_cmd="$INSTALL_TARGET"
   [[ -x "$gog_cmd" ]] || gog_cmd="$BIN_IN_REPO"
+  # Use absolute path so mcporter/OpenClaw can start gog regardless of working directory
+  if [[ "$gog_cmd" != /* ]]; then
+    if command -v realpath >/dev/null 2>&1; then
+      gog_cmd="$(realpath "$gog_cmd" 2>/dev/null)" || true
+    elif command -v readlink >/dev/null 2>&1; then
+      local gog_dir gog_base
+      gog_dir="$(cd "$(dirname "$gog_cmd")" && pwd)"
+      gog_base="$(basename "$gog_cmd")"
+      gog_cmd="$gog_dir/$gog_base"
+    fi
+  fi
+  [[ -z "$gog_cmd" || ! -x "$gog_cmd" ]] && gog_cmd="$INSTALL_TARGET"
 
   local workspace_dir
   if [[ -n "${OPENCLAW_WORKSPACE:-}" ]]; then
@@ -552,12 +564,19 @@ configure_openclaw_mcp_auto() {
     workspace_dir="$ROOT_DIR"
   fi
 
+  # Optional env so the spawned gog process uses file keyring (password must be set by the process that runs OpenClaw)
+  local env_json="{}"
+  if [[ -n "${GOG_KEYRING_BACKEND:-}" ]]; then
+    env_json="{\"GOG_KEYRING_BACKEND\": \"${GOG_KEYRING_BACKEND}\"}"
+  fi
+
   local mcporter_config="$workspace_dir/config/mcporter.json"
   mkdir -p "$(dirname "$mcporter_config")"
 
   python3 - <<PY
 import json, os
 p = ${mcporter_config@Q}
+env_obj = json.loads(${env_json@Q})
 if os.path.exists(p):
     with open(p, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -568,7 +587,10 @@ if not isinstance(data, dict):
 m = data.get('mcpServers')
 if not isinstance(m, dict):
     m = {}
-m['gog-agentic'] = {'command': ${gog_cmd@Q}, 'args': ['mcp', 'serve']}
+entry = {'command': ${gog_cmd@Q}, 'args': ['mcp', 'serve']}
+if env_obj:
+    entry['env'] = env_obj
+m['gog-agentic'] = entry
 data['mcpServers'] = m
 if 'imports' not in data or not isinstance(data.get('imports'), list):
     data['imports'] = []
@@ -578,6 +600,43 @@ with open(p, 'w', encoding='utf-8') as f:
 PY
 
   log "Activated MCP server entry 'gog-agentic' in $mcporter_config"
+  MCP_CONFIG_PATH="$mcporter_config"
+
+  # Fallback: if a well-known OpenClaw workspace exists elsewhere, register there too so OpenClaw finds gog regardless of repo location
+  local fallback_dir
+  for fallback_dir in "$HOME/openclaw-stock-home/.openclaw/workspace" "$HOME/.openclaw/workspace"; do
+    [[ -d "$fallback_dir" ]] || continue
+    [[ "$(cd "$fallback_dir" && pwd)" == "$(cd "$workspace_dir" && pwd)" ]] && continue
+    local fallback_config="$fallback_dir/config/mcporter.json"
+    mkdir -p "$(dirname "$fallback_config")"
+    python3 - <<PY
+import json, os
+p = ${fallback_config@Q}
+env_obj = json.loads(${env_json@Q})
+if os.path.exists(p):
+    with open(p, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+else:
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+m = data.get('mcpServers')
+if not isinstance(m, dict):
+    m = {}
+entry = {'command': ${gog_cmd@Q}, 'args': ['mcp', 'serve']}
+if env_obj:
+    entry['env'] = env_obj
+m['gog-agentic'] = entry
+data['mcpServers'] = m
+if 'imports' not in data or not isinstance(data.get('imports'), list):
+    data['imports'] = []
+with open(p, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+PY
+    log "Also registered 'gog-agentic' in fallback config: $fallback_config"
+  done
+
   echo "Running verification check. Stay tuned."
 
   python3 - <<PY
@@ -635,6 +694,10 @@ print_final() {
   echo
   echo "OpenClaw-ready summary:"
   echo "gogcli-enhanced is a Google Workspace MCP server, and is ready for use."
+  if [[ -n "${MCP_CONFIG_PATH:-}" ]]; then
+    echo "MCP config was written to: $MCP_CONFIG_PATH"
+    echo "Ensure OpenClaw (or mcporter) is started with this config so the agent sees the gog-agentic tools."
+  fi
   echo "Use plain language in OpenClaw. Example:"
   echo "- Create a new Google Doc called Test1 in a new Drive folder called testing123"
 }
