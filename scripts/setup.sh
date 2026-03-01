@@ -69,14 +69,8 @@ prompt_line() {
   if ! read -r -p "$prompt" val; then
     val="$default"
   fi
-  if [[ -z "$val" ]]; then
-    if [[ -n "$default" ]]; then
-      warn "No input received; using default: $default"
-    else
-      warn "No input received (empty)."
-    fi
-    val="$default"
-  fi
+  # Silent defaulting: Enter accepts default without extra warning noise.
+  [[ -z "$val" ]] && val="$default"
   printf -v "$__var" '%s' "$val"
 }
 
