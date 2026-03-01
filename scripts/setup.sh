@@ -646,6 +646,32 @@ PY
   fi
   MCP_CONFIG_PATH="$mcporter_config"
 
+  # Inject directive into OpenClaw bootstrap so the agent always prefers gog-agentic for Drive/Docs (no manual instruction needed).
+  local tools_md="$workspace_dir/TOOLS.md"
+  local directive_marker="gog-agentic MCP (Google Drive and Docs)"
+  python3 - "$tools_md" "$directive_marker" <<'PY'
+import sys, os
+tools_path = sys.argv[1]
+marker = sys.argv[2]
+section = """
+## Google Drive and Docs (gog-agentic MCP)
+
+For Google Drive and Google Docs actions (create folder, create document, edit document, list files, etc.), **always use the gog-agentic MCP tools** when available. Use `drive.ensureFolder` for folders, `docs.create` for new docs (with `parentId` from the folder result), `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not invoke the `gog` CLI or use other Google integrations for these actions unless the required tool does not exist in gog-agentic. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
+"""
+existing = ""
+if os.path.isfile(tools_path):
+    with open(tools_path, "r", encoding="utf-8") as f:
+        existing = f.read()
+if marker in existing:
+    sys.exit(0)
+with open(tools_path, "a" if existing else "w", encoding="utf-8") as f:
+    if existing and not existing.endswith("\n"):
+        f.write("\n")
+    f.write(section.strip())
+    f.write("\n")
+PY
+  log "Ensured gog-agentic directive in $tools_md (OpenClaw bootstrap)"
+
   # Fallback: if a well-known OpenClaw workspace exists elsewhere, register there too so OpenClaw finds gog regardless of repo location
   local fallback_dir
   for fallback_dir in "$HOME/openclaw-stock-home/.openclaw/workspace" "$HOME/.openclaw/workspace"; do
@@ -681,6 +707,30 @@ with open(p, 'w', encoding='utf-8') as f:
     f.write('\n')
 PY
     log "Also registered 'gog-agentic' in fallback config: $fallback_config"
+    # Ensure directive in this workspace bootstrap too
+    tools_md_fb="$fallback_dir/TOOLS.md"
+    python3 - "$tools_md_fb" "gog-agentic MCP (Google Drive and Docs)" <<'PY'
+import sys, os
+tools_path = sys.argv[1]
+marker = sys.argv[2]
+section = """
+## Google Drive and Docs (gog-agentic MCP)
+
+For Google Drive and Google Docs actions (create folder, create document, edit document, list files, etc.), **always use the gog-agentic MCP tools** when available. Use `drive.ensureFolder` for folders, `docs.create` for new docs (with `parentId` from the folder result), `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not invoke the `gog` CLI or use other Google integrations for these actions unless the required tool does not exist in gog-agentic. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
+"""
+existing = ""
+if os.path.isfile(tools_path):
+    with open(tools_path, "r", encoding="utf-8") as f:
+        existing = f.read()
+if marker in existing:
+    sys.exit(0)
+with open(tools_path, "a" if existing else "w", encoding="utf-8") as f:
+    if existing and not existing.endswith("\n"):
+        f.write("\n")
+    f.write(section.strip())
+    f.write("\n")
+PY
+    log "Ensured gog-agentic directive in $tools_md_fb"
   done
 
   echo "Running verification check. Stay tuned."
