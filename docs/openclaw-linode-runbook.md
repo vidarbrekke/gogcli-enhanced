@@ -86,6 +86,16 @@ The intended flow:
 
 So the agent should call `drive.ensureFolder` first, read `folderId` from the result, then call `docs.create` with that `parentId`. With `docs.create` now available in MCP, this flow is supported end-to-end.
 
+### 6.1 Prefer gog-agentic MCP (system/project instruction)
+
+To ensure the agent **always** uses the gog MCP server for Google Drive and Docs (and only falls back to CLI or other methods when an action has no MCP tool), add a system or project instruction in OpenClaw. Example:
+
+**Instruction text (copy into your OpenClaw project/system instructions):**
+
+> For Google Drive and Google Docs actions (create folder, create document, edit document, list files, etc.), **always use the gog-agentic MCP tools** when available. Call `drive.ensureFolder` for folders, `docs.create` for new docs (with `parentId` from the folder result), `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not invoke the `gog` CLI directly or use other Google integrations for these actions unless the required tool does not exist in gog-agentic. If a user asks to create a folder and document, use `drive.ensureFolder` then `docs.create` with the returned `folderId` as `parentId`.
+
+This reduces ambiguity and keeps behavior consistent with the headless setup (keyring, `GOG_CLIENT=default`, etc.).
+
 ## 7. Verify
 
 - From the Linode server (or the same env OpenClaw uses), run:
@@ -147,3 +157,14 @@ This script reads the gog-agentic entry, runs the same `command` and `args` with
 ### 8.4 Confirm OpenClaw uses this config
 
 Ensure OpenClaw (or mcporter) is actually started with `--config /root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json` (or the equivalent path). If OpenClaw uses a different config file or workspace, it will not load gog-agentic. Check how you start OpenClaw and that no other config overrides this one.
+
+## 9. Verifying that OpenClaw used gog-agentic MCP
+
+When the agent creates a folder or document, it is not always obvious whether it used the gog MCP tools or another path (e.g. another Google Workspace integration, or the gog CLI via a shell tool).
+
+**How to tell:**
+
+- **MCP was used** if the conversation or OpenClaw’s tool-call log shows invocations of **gog-agentic** tools such as `drive.ensureFolder`, `docs.create`, `docs.insertText`, etc. Some UIs show “Tool: drive.ensureFolder” or similar in the thread.
+- **Unclear / possibly not MCP** if the agent only says something like “I’ll create it programmatically using the Google Workspace” or “using the API” without naming `drive.ensureFolder` or `docs.create`. That can mean another integration (e.g. another MCP server or a built-in Google API) was used.
+
+**To enforce MCP usage:** Add the system/project instruction from §6.1 so the agent is explicitly told to use gog-agentic tools for Drive and Docs. Then, if your UI exposes tool calls, you can confirm by seeing `drive.ensureFolder` and `docs.create` (or other `drive.*` / `docs.*` tools) in the conversation or logs.
