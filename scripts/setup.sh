@@ -66,9 +66,18 @@ clear_screen() {
 
 prompt_line() {
   local __var="$1" prompt="$2" default="${3:-}" val=""
-  if ! read -r -p "$prompt" val; then
-    val="$default"
+
+  if [[ -r /dev/tty ]]; then
+    printf "%s" "$prompt" > /dev/tty
+    if ! IFS= read -r val < /dev/tty; then
+      val="$default"
+    fi
+  else
+    if ! read -r -p "$prompt" val; then
+      val="$default"
+    fi
   fi
+
   # Silent defaulting: Enter accepts default without extra warning noise.
   [[ -z "$val" ]] && val="$default"
   printf -v "$__var" '%s' "$val"
@@ -76,11 +85,33 @@ prompt_line() {
 
 prompt_secret() {
   local __var="$1" prompt="$2" val=""
-  if ! read -r -s -p "$prompt" val; then
+
+  if [[ -r /dev/tty ]]; then
+    # Hide input when TTY supports it; fall back gracefully if stty fails.
+    printf "%s" "$prompt" > /dev/tty
+    if stty -echo < /dev/tty 2>/dev/null; then
+      if ! IFS= read -r val < /dev/tty; then
+        stty echo < /dev/tty 2>/dev/null || true
+        printf "\n" > /dev/tty
+        return 1
+      fi
+      stty echo < /dev/tty 2>/dev/null || true
+      printf "\n" > /dev/tty
+    else
+      if ! IFS= read -r val < /dev/tty; then
+        printf "\n" > /dev/tty
+        return 1
+      fi
+      printf "\n" > /dev/tty
+    fi
+  else
+    if ! read -r -s -p "$prompt" val; then
+      echo
+      return 1
+    fi
     echo
-    return 1
   fi
-  echo
+
   if [[ -z "$val" ]]; then
     warn "No input received (empty)."
   fi
@@ -366,10 +397,18 @@ PY
     [[ "$cid" == *"YOUR_CLIENT_ID"* || "$csec" == *"YOUR_CLIENT_SECRET"* ]] && placeholder=1
 
     if [[ "$placeholder" -eq 0 ]]; then
-      clear_screen
-      echo "Found existing OAuth credentials at: $creds"
-      if ask_yes_no "Use existing OAuth credentials?" y; then
-        use_existing="y"
+      # Novice default: silently reuse valid credentials to reduce friction.
+      use_existing="y"
+      if [[ "$ADVANCED" -eq 1 ]]; then
+        clear_screen
+        echo "Found existing OAuth credentials at: $creds"
+        if ask_yes_no "Use existing OAuth credentials?" y; then
+          use_existing="y"
+        else
+          use_existing="n"
+        fi
+      else
+        log "Reusing existing OAuth credentials."
       fi
     else
       warn "Existing OAuth credentials look invalid/placeholder."
@@ -429,6 +468,7 @@ PY
 
   clear_screen
   echo "Final step: connect your Google account now."
+  echo "Type your Google email at the prompt below, then press Enter."
   local email
   prompt_line email "Google account email to authorize, then press Enter: "
   if [[ -z "$email" ]]; then
