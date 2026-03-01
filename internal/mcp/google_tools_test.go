@@ -288,3 +288,46 @@ func TestGoogleTools_DocsCreate_MapsArgs(t *testing.T) {
 		}
 	}
 }
+
+func TestGoogleTools_DocsCreateWithBody_NoRequest_ReturnsCreateResult(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		return `{"file":{"id":"doc1","name":"Test1","mimeType":"application/vnd.google-apps.document"}}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.createWithBody", map[string]any{
+		"title": "Test1",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Service != "docs" || env.Operation != "create" {
+		t.Fatalf("unexpected service/op: %s %s", env.Service, env.Operation)
+	}
+	if id := env.Result["documentId"]; id != "doc1" {
+		t.Fatalf("expected documentId doc1, got %v", id)
+	}
+}
+
+func TestGoogleTools_DocsCreateWithBody_WithRequest_CallsCreateThenBatch(t *testing.T) {
+	callCount := 0
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		callCount++
+		if callCount == 1 {
+			return `{"file":{"id":"doc1","name":"Test1"}}`, "", nil
+		}
+		return `{"documentId":"doc1","operations":1,"replies":[]}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.createWithBody", map[string]any{
+		"title": "Test1",
+		"request": map[string]any{
+			"requests": []map[string]any{
+				{"insertText": map[string]any{"location": map[string]any{"index": 1}, "text": "Hi"}},
+			},
+		},
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if callCount != 2 {
+		t.Fatalf("expected 2 executor calls (create + batch), got %d", callCount)
+	}
+}

@@ -99,6 +99,10 @@ Setup **automatically** injects a directive into the OpenClaw workspace bootstra
 
 This reduces ambiguity and keeps behavior consistent with the headless setup (keyring, `GOG_CLIENT=default`, etc.).
 
+### 6.2 Faster flows (fewer round-trips, fewer tokens)
+
+To reduce latency and token usage use: `docs.createWithBody` when creating a doc with initial content (one tool call); `docs.executeBatch` to insert text and apply styling in one batch; `drive.searchFiles` with `query` to get folder ID when the folder may already exist. Setup injects this into `TOOLS.md` (§6.1).
+
 ## 7. Verify
 
 - From the Linode server (or the same env OpenClaw uses), run:

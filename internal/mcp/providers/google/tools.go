@@ -154,6 +154,27 @@ func Register(s *server.Server, executor Executor) {
 		},
 		Handler: p.docsCreate,
 	}, {
+		Name:        "docs.createWithBody",
+		Description: "Create a new Google Doc and optionally apply a batchUpdate in one call (faster than create + insertText). Use for creating a doc with initial content and/or formatting. parentId from drive.ensureFolder or drive.searchFiles.",
+		Tier:        "ga",
+		Version:     "v1",
+		PolicyClass: "write-safe",
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"title"},
+			"properties": map[string]any{
+				"title":    map[string]any{"type": "string"},
+				"parentId": map[string]any{"type": "string"},
+				"request":  map[string]any{"type": "object", "description": "Optional batchUpdate body with 'requests' array (e.g. insertText + updateParagraphStyle)."},
+				"account":  map[string]any{"type": "string"},
+				"opId":     map[string]any{"type": "string"},
+				"timeoutMs": map[string]any{"type": "integer"},
+				"retries":  map[string]any{"type": "integer"},
+				"retryBackoffMs": map[string]any{"type": "integer"},
+			},
+		},
+		Handler: p.docsCreateWithBody,
+	}, {
 		Name:        "docs.insertText",
 		Description: "Insert text at a specific index in a Google Doc.",
 		Tier:        "ga",
@@ -914,6 +935,46 @@ func (p *provider) docsCreate(_ context.Context, input map[string]any) (map[stri
 		args = append(args, "--parent", parentID)
 	}
 	return p.runCLI(cleanArgs(args), "docs", "create")
+}
+
+func (p *provider) docsCreateWithBody(ctx context.Context, input map[string]any) (map[string]any, error) {
+	createResult, err := p.docsCreate(ctx, input)
+	if err != nil {
+		return createResult, err
+	}
+	// Parse docId from create output: gog docs create --json returns {"file": {"id": "...", ...}}
+	var docID string
+	if fileObj, ok := createResult["file"].(map[string]any); ok {
+		docID = asString(fileObj["id"])
+	}
+	if docID != "" {
+		createResult["documentId"] = docID
+	}
+	if docID == "" {
+		return createResult, nil
+	}
+	reqObj, ok := input["request"].(map[string]any)
+	if !ok || reqObj == nil {
+		return createResult, nil
+	}
+	// Apply batchUpdate in same tool call to save a round-trip
+	batchInput := map[string]any{"docId": docID, "request": reqObj}
+	for _, k := range []string{"account", "opId", "timeoutMs", "retries", "retryBackoffMs"} {
+		if v, ok := input[k]; ok {
+			batchInput[k] = v
+		}
+	}
+	batchResult, batchErr := p.docsExecuteBatch(ctx, batchInput)
+	if batchErr != nil {
+		createResult["service"] = "docs"
+		createResult["operation"] = "createWithBody"
+		createResult["documentId"] = docID
+		createResult["batchError"] = batchResult
+		return createResult, batchErr
+	}
+	createResult["documentId"] = docID
+	createResult["batch"] = batchResult
+	return createResult, nil
 }
 
 func (p *provider) docsInsertText(_ context.Context, input map[string]any) (map[string]any, error) {
