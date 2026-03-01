@@ -19,6 +19,7 @@ type DocsCmd struct {
 	Insert      DocsInlineInsertCmd      `cmd:"" name:"insert" help:"Insert text at a specific position"`
 	Delete      DocsInlineDeleteCmd      `cmd:"" name:"delete" help:"Delete text range from document"`
 	FindReplace DocsInlineFindReplaceCmd `cmd:"" name:"find-replace" help:"Find and replace text in document"`
+	Sed         DocsSedCmd               `cmd:"" name:"sed" help:"Sed-like find-and-replace on Google Docs"`
 	Update      DocsUpdateCmd            `cmd:"" name:"update" help:"Update content in a Google Doc"`
 	Edit        DocsEditCmd              `cmd:"" name:"edit" help:"Edit Google Doc content"`
 }
