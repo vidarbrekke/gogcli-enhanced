@@ -566,8 +566,16 @@ configure_openclaw_mcp_auto() {
 
   # Optional env so the spawned gog process uses file keyring (password must be set by the process that runs OpenClaw)
   local env_json="{}"
+  # Ensure MCP child process reads same config/keyring root used during setup.
+  if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then
+    env_json="{\"XDG_CONFIG_HOME\": \"${XDG_CONFIG_HOME}\"}"
+  fi
   if [[ -n "${GOG_KEYRING_BACKEND:-}" ]]; then
-    env_json="{\"GOG_KEYRING_BACKEND\": \"${GOG_KEYRING_BACKEND}\"}"
+    if [[ "$env_json" == "{}" ]]; then
+      env_json="{\"GOG_KEYRING_BACKEND\": \"${GOG_KEYRING_BACKEND}\"}"
+    else
+      env_json="{\"XDG_CONFIG_HOME\": \"${XDG_CONFIG_HOME}\", \"GOG_KEYRING_BACKEND\": \"${GOG_KEYRING_BACKEND}\"}"
+    fi
   fi
 
   # On headless, MCP child only gets env from mcporter.json. Ensure keyring password is available via a file when using file keyring.
