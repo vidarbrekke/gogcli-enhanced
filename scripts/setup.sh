@@ -68,7 +68,7 @@ prompt_line() {
   local __var="$1" prompt="$2" default="${3:-}" val=""
   local tty_available=0
 
-  if exec {__tty_fd}<>/dev/tty 2>/dev/null; then
+  if [[ -t 0 ]] && exec {__tty_fd}<>/dev/tty 2>/dev/null; then
     tty_available=1
   fi
 
@@ -93,7 +93,7 @@ prompt_secret() {
   local __var="$1" prompt="$2" val=""
   local tty_available=0
 
-  if exec {__tty_fd}<>/dev/tty 2>/dev/null; then
+  if [[ -t 0 ]] && exec {__tty_fd}<>/dev/tty 2>/dev/null; then
     tty_available=1
   fi
 
@@ -347,7 +347,11 @@ configure_keyring_file() {
     clear_screen
     echo "Found existing keyring: $found"
     echo "Enter EXISTING keyring password to unlock stored Google tokens."
-    echo "(Characters are hidden; type password and press Enter.)"
+    if [[ -t 0 ]]; then
+      echo "(Characters are hidden; type password and press Enter.)"
+    else
+      echo "(No interactive TTY detected; input visibility depends on your shell.)"
+    fi
     local oldp
     prompt_secret oldp "Existing keyring password + Enter: " || return 0
     export GOG_KEYRING_BACKEND=file
@@ -363,7 +367,11 @@ configure_keyring_file() {
   echo "- OpenClaw uses this to access Google on future sessions"
   echo
   echo "Input note: after each prompt, type your password and press Enter."
-  echo "(Characters are hidden while typing.)"
+  if [[ -t 0 ]]; then
+    echo "(Characters are hidden while typing.)"
+  else
+    echo "(No interactive TTY detected; input visibility depends on your shell.)"
+  fi
 
   local p1 p2
   prompt_secret p1 "Type new keyring password + Enter: " || return 0
