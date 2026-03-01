@@ -69,7 +69,14 @@ prompt_line() {
   if ! read -r -p "$prompt" val; then
     val="$default"
   fi
-  [[ -z "$val" ]] && val="$default"
+  if [[ -z "$val" ]]; then
+    if [[ -n "$default" ]]; then
+      warn "No input received; using default: $default"
+    else
+      warn "No input received (empty)."
+    fi
+    val="$default"
+  fi
   printf -v "$__var" '%s' "$val"
 }
 
@@ -88,15 +95,18 @@ prompt_secret() {
 }
 
 ask_yes_no() {
-  local prompt="$1" default="${2:-y}" suffix="[y/N]"
-  [[ "$default" == "y" ]] && suffix="[Y/n]"
+  local prompt="$1" default="${2:-y}" suffix="[y/N]" default_label="N"
+  if [[ "$default" == "y" ]]; then
+    suffix="[Y/n]"
+    default_label="Y"
+  fi
   while true; do
     local ans
-    prompt_line ans "$prompt $suffix " "$default"
+    prompt_line ans "$prompt $suffix (press Enter for default: $default_label): " "$default"
     case "${ans,,}" in
       y|yes) return 0 ;;
       n|no) return 1 ;;
-      *) echo "Please answer y or n." ;;
+      *) echo "Please answer y or n, then press Enter." ;;
     esac
   done
 }
