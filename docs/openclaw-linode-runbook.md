@@ -363,7 +363,7 @@ mcporter --config /path/to/workspace/config/mcporter.json daemon restart
 
 Or from the repo: `./scripts/ensure-mcp-daemon.sh` (and optionally `RESTART_GATEWAY=1 ./scripts/ensure-mcp-daemon.sh`). Then try “list all folders” again; you should get the full list in one response.
 
-When the user asks for "all folders" only, the agent should use **drive.searchFiles** with `rawQuery: true` and query `mimeType = 'application/vnd.google-apps.folder'` (see TOOLS.md "List only folders" command). That returns only folders, so the response is smaller and less likely to be truncated.
+When the user asks for "all folders" only, the agent should use **drive.searchFiles** with `rawQuery: true` and query `mimeType = 'application/vnd.google-apps.folder'` (see TOOLS.md "List only folders" command). That returns only folders. When using `--all`, the JSON response is capped at **10 items** so gateways that truncate tool output still receive a full batch; the response includes `truncatedAt`, `totalCount`, and a note if more items exist. If the user still sees fewer than 10 folders, the gateway limit may be very low—consider increasing it or using pagination (page token) for more.
 
 ## 9. Verifying that OpenClaw used gog-agentic MCP
 

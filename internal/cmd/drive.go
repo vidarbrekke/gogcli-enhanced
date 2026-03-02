@@ -62,7 +62,7 @@ const (
 	// driveListAllMaxItems caps the number of items returned when --all is used to avoid runaway.
 	driveListAllMaxItems = 10_000
 	// driveListAllMaxOutputItems caps JSON output size so gateways that truncate still see a useful batch.
-	driveListAllMaxOutputItems = 50
+	driveListAllMaxOutputItems = 10
 )
 
 type DriveCmd struct {
@@ -160,7 +160,7 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 				out["files"] = allFiles
 				out["truncatedAt"] = driveListAllMaxOutputItems
 				out["totalCount"] = total
-				out["note"] = "Response limited to 50 items to fit gateway; more items available."
+				out["note"] = "Response limited to 10 items to fit gateway; more items available."
 			}
 			return outfmt.WriteJSON(ctx, os.Stdout, out)
 		}
@@ -291,7 +291,7 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 				out["files"] = allFiles
 				out["truncatedAt"] = driveListAllMaxOutputItems
 				out["totalCount"] = total
-				out["note"] = "Response limited to 50 items to fit gateway; more items available."
+				out["note"] = "Response limited to 10 items to fit gateway; more items available."
 			}
 			return outfmt.WriteJSON(ctx, os.Stdout, out)
 		}
