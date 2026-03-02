@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"os/exec"
 
 	"github.com/steipete/gogcli/internal/mcp"
 )
@@ -15,14 +16,21 @@ type MCPCmd struct {
 type MCPServeCmd struct{}
 
 func (c *MCPServeCmd) Run(ctx context.Context) error {
-	// CLI runs use injected I/O only: each tool call gets fresh buffers and
-	// ExecuteWithIO(args, outBuf, errBuf). No global os.Stdout/os.Stderr swap
-	// and no pipes, so no deadlock or FD leak from concurrent or large output.
+	exePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	// Execute tool calls in a subprocess of the same binary to guarantee
+	// command output is isolated from MCP stdio transport.
 	s := mcp.NewGoogleServer(func(args []string) (string, string, error) {
 		var outBuf bytes.Buffer
 		var errBuf bytes.Buffer
-		execErr := ExecuteWithIO(args, &outBuf, &errBuf)
-		return outBuf.String(), errBuf.String(), execErr
+		cmd := exec.CommandContext(ctx, exePath, args...)
+		cmd.Stdout = &outBuf
+		cmd.Stderr = &errBuf
+		runErr := cmd.Run()
+		return outBuf.String(), errBuf.String(), runErr
 	})
 	return mcp.ServeStdio(ctx, os.Stdin, os.Stdout, s)
 }
