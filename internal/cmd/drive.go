@@ -89,6 +89,7 @@ type DriveLsCmd struct {
 	Max       int64  `name:"max" aliases:"limit" help:"Max results per page" default:"20"`
 	Page      string `name:"page" aliases:"cursor" help:"Page token"`
 	All       bool   `name:"all" help:"Fetch all pages and return combined list (no nextPageToken); ignores page"`
+	Compact   bool   `name:"compact" help:"Return minimal fields (id, name, mimeType) to reduce response size"`
 	Query     string `name:"query" help:"Drive query filter"`
 	Parent    string `name:"parent" help:"Folder ID to list (default: root)"`
 	AllDrives bool   `name:"all-drives" help:"Include shared drives (default: true; use --no-all-drives for My Drive only)" default:"true" negatable:"_"`
@@ -113,6 +114,10 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	q := buildDriveListQuery(folderID, c.Query)
 
+	fields := "nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, webViewLink)"
+	if c.Compact {
+		fields = "nextPageToken, files(id, name, mimeType)"
+	}
 	fetchPage := func(pageToken string) ([]*drive.File, string, error) {
 		call := svc.Files.List().
 			Q(q).
@@ -121,7 +126,7 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 			OrderBy("modifiedTime desc")
 		call = driveFilesListCallWithDriveSupport(call, c.AllDrives)
 		resp, err := call.
-			Fields("nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, webViewLink)").
+			Fields(gapi.Field(fields)).
 			Context(ctx).
 			Do()
 		if err != nil {
@@ -213,6 +218,7 @@ type DriveSearchCmd struct {
 	Max       int64    `name:"max" aliases:"limit" help:"Max results per page" default:"20"`
 	Page      string   `name:"page" aliases:"cursor" help:"Page token"`
 	All       bool     `name:"all" help:"Fetch all pages and return combined list (no nextPageToken); ignores page"`
+	Compact   bool     `name:"compact" help:"Return minimal fields (id, name, mimeType) to reduce response size"`
 	AllDrives bool     `name:"all-drives" help:"Include shared drives (default: true; use --no-all-drives for My Drive only)" default:"true" negatable:"_"`
 }
 
@@ -233,6 +239,10 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	q := buildDriveSearchQuery(query, c.RawQuery)
+	fields := "nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, webViewLink)"
+	if c.Compact {
+		fields = "nextPageToken, files(id, name, mimeType)"
+	}
 	fetchPage := func(pageToken string) ([]*drive.File, string, error) {
 		call := svc.Files.List().
 			Q(q).
@@ -241,7 +251,7 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			OrderBy("modifiedTime desc")
 		call = driveFilesListCallWithDriveSupport(call, c.AllDrives)
 		resp, err := call.
-			Fields("nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, webViewLink)").
+			Fields(gapi.Field(fields)).
 			Context(ctx).
 			Do()
 		if err != nil {

@@ -559,7 +559,7 @@ func Register(s *server.Server, executor Executor) {
 			Handler: p.driveGetPermission,
 		}, {
 			Name:        "drive.listFiles",
-			Description: "List files and folders in a Drive folder (default root). Omit 'page' to get ALL results in one response (server fetches all pages; no nextPageToken). For folders only use drive.searchFiles with query mimeType = 'application/vnd.google-apps.folder' and rawQuery true.",
+			Description: "List files and folders in a Drive folder (default root). Omit 'page' to get ALL results (server fetches all pages; compact format to reduce truncation). For 'list all folders' use drive.searchFiles with query mimeType = 'application/vnd.google-apps.folder' and rawQuery true — do NOT use listFiles with trashed=false.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
@@ -583,7 +583,7 @@ func Register(s *server.Server, executor Executor) {
 			Handler: p.driveListFiles,
 		}, 		{
 			Name:        "drive.searchFiles",
-			Description: "Search files and folders in Google Drive. Omit 'page' to get ALL results in one response (server fetches all pages; no nextPageToken). For folders only use query mimeType = 'application/vnd.google-apps.folder' with rawQuery true. To check if a folder exists by name use query with the folder name.",
+			Description: "Search files and folders in Google Drive. Omit 'page' to get ALL results (server fetches all pages; compact format). For 'list all folders' use query mimeType = 'application/vnd.google-apps.folder' with rawQuery true — this returns only folders (smaller response, less truncation).",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
@@ -1406,8 +1406,9 @@ func (p *provider) driveListFiles(_ context.Context, input map[string]any) (map[
 	} else {
 		// No page token: fetch all pages so agents get full list without handling pagination.
 		args = append(args, "--all")
-		// Use larger page size when fetching all (override small client max so we get full list).
+		// Use larger page size and compact fields to reduce response size (avoids gateway truncation).
 		args = append(args, "--max", "100")
+		args = append(args, "--compact")
 	}
 	if _, ok := input["allDrives"]; ok {
 		if asBool(input["allDrives"]) {
@@ -1441,6 +1442,7 @@ func (p *provider) driveSearchFiles(_ context.Context, input map[string]any) (ma
 	} else {
 		args = append(args, "--all")
 		args = append(args, "--max", "100")
+		args = append(args, "--compact")
 	}
 	// Default allDrives to true so search includes shared drives; only restrict when explicitly false
 	if v, ok := input["allDrives"]; ok && !asBool(v) {
