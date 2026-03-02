@@ -312,6 +312,18 @@ OpenClaw (or the skill that runs mcporter) may use a default path like `~/.mcpor
 
 Many OpenClaw installs use the default mcporter config path `~/.mcporter/mcporter.json`. Setup merges the gog-agentic entry into that file when it exists, or creates it in cloud context, and **starts the mcporter daemon with that path** so the gateway finds gog-agentic. If your gateway uses a different config path, run the daemon with that path (e.g. `./scripts/ensure-mcp-daemon.sh` for workspace config). See §8.0.
 
+### 8.9 Subagent does not have gog-agentic tools (main agent does)
+
+**Symptom:** The agent says "gog-agentic tools are not in my tool list" or "tools required to access Google Drive are not available," but the diagnostic (§8.0) shows gog-agentic healthy (32 tools) and auth is valid. Logs show `drive.listfiles` **is** called in some runs but the **same** run then replies that tools are unavailable.
+
+**Cause:** OpenClaw gives **subagents** a reduced tool set (e.g. read, write, exec, browser, subagents). MCP tools (gog-agentic) are often **only** available to the **main** agent. When the user asks "list my Drive" or "list root directories in Google Drive," the main agent may delegate to a subagent; that subagent correctly reports "no Drive tools" because it genuinely does not receive them.
+
+**What to do:**
+
+1. **User workaround:** Ask for Drive/Docs in a way the **main** agent handles directly, e.g. in the main chat: "Use drive.listFiles to list the top-level items in my Google Drive" or "Call the gog-agentic drive tool to list my Drive root." Avoid phrasing that triggers a subagent-only task (e.g. "list the root directories" is often delegated).
+2. **TOOLS.md (injected by setup):** The directive tells the main agent to use gog-agentic first and to **handle Drive/Docs in the main session** when the request is only about Drive/Docs—do not delegate to a subagent for that. It also tells subagents: if you do not have `drive.*` or `docs.*` in your list, report that the user should ask in the main chat for Drive/Docs.
+3. **OpenClaw config (if available):** If your OpenClaw version supports configuring which tools subagents receive, ensure MCP (or gog-agentic) tools are included for subagents so delegated Drive/Docs tasks can use them. Otherwise, rely on (1) and (2).
+
 ## 9. Verifying that OpenClaw used gog-agentic MCP
 
 When the agent creates a folder or document, it is not always obvious whether it used the gog MCP tools or another path (e.g. another Google Workspace integration, or the gog CLI via a shell tool).
