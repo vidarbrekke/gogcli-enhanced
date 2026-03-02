@@ -1385,7 +1385,30 @@ func (p *provider) driveGetPermission(_ context.Context, input map[string]any) (
 	return p.runCLI(cleanArgs(args), "drive", "getPermission")
 }
 
-func (p *provider) driveListFiles(_ context.Context, input map[string]any) (map[string]any, error) {
+func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (map[string]any, error) {
+	query := strings.TrimSpace(asString(input["query"]))
+	parentID := strings.TrimSpace(asString(input["parentId"]))
+	if parentID == "" {
+		parentID = "root"
+	}
+	// If the agent is asking for folders (by mimeType or "folder"), or using trashed=false
+	// to list root (common fallback when folder filter fails), use searchFiles so we return
+	// only folders — avoids mixed list + truncation leaving only a few folders visible.
+	if query != "" {
+		qLower := strings.ToLower(query)
+		looksLikeFolderOnly := strings.Contains(qLower, "application/vnd.google-apps.folder") ||
+			(strings.Contains(qLower, "mimetype") && strings.Contains(qLower, "folder"))
+		trashedFalseOnly := qLower == "trashed=false"
+		if looksLikeFolderOnly || trashedFalseOnly {
+			searchInput := make(map[string]any)
+			for k, v := range input {
+				searchInput[k] = v
+			}
+			searchInput["query"] = "mimeType = 'application/vnd.google-apps.folder' and '" + parentID + "' in parents"
+			searchInput["rawQuery"] = true
+			return p.driveSearchFiles(ctx, searchInput)
+		}
+	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
