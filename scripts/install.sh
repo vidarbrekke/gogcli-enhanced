@@ -103,4 +103,18 @@ fi
 
 echo "Building gog..." >&2
 make build
-echo "Done. Binary: $ROOT_DIR/bin/gog" >&2
+
+BINARY="$ROOT_DIR/bin/gog"
+[[ -x "$BINARY" ]] || { echo "install.sh: build did not produce $BINARY" >&2; exit 1; }
+echo "Done. Binary: $BINARY" >&2
+
+# Symlink into a PATH location so mcporter/setup find gog without configuring repo path.
+LINK_DIR="${HOME}/.local/bin"
+LINK_PATH="$LINK_DIR/gog"
+if [[ -e "$LINK_PATH" ]] && [[ ! -L "$LINK_PATH" ]]; then
+	echo "install.sh: $LINK_PATH exists and is not a symlink; skipping link (update manually if needed)" >&2
+else
+	mkdir -p "$LINK_DIR"
+	ln -sf "$BINARY" "$LINK_PATH"
+	echo "Linked: $LINK_PATH -> $BINARY" >&2
+fi
