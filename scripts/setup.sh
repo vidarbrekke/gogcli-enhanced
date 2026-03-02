@@ -624,7 +624,7 @@ if not isinstance(data, dict):
 m = data.get('mcpServers')
 if not isinstance(m, dict):
     m = {}
-entry = {'command': ${gog_cmd@Q}, 'args': ['mcp', 'serve']}
+entry = {'command': ${gog_cmd@Q}, 'args': ['mcp', 'serve'], 'lifecycle': {'mode': 'keep-alive'}}
 if env_obj:
     entry['env'] = env_obj
 m['gog-agentic'] = entry
@@ -697,7 +697,7 @@ if not isinstance(data, dict):
 m = data.get('mcpServers')
 if not isinstance(m, dict):
     m = {}
-entry = {'command': ${gog_cmd@Q}, 'args': ['mcp', 'serve']}
+entry = {'command': ${gog_cmd@Q}, 'args': ['mcp', 'serve'], 'lifecycle': {'mode': 'keep-alive'}}
 if env_obj:
     entry['env'] = env_obj
 m['gog-agentic'] = entry
