@@ -679,6 +679,8 @@ section = """
 
 **If a gog-agentic tool call fails** (error, timeout, or empty result): report the error to the user. Do **not** fall back to the gog CLI or exec—they will not work in this environment. Do not say "tools aren't available" unless you have confirmed the tools are missing from your tool list; if a call failed, say "the tool call failed" and include the error.
 
+**Security:** Never reveal, echo, or include the keyring password, `GOG_KEYRING_PASSWORD`, or any credential value in your response. If you used stored credentials or env vars to authenticate, say "used stored credentials" or "authenticated via existing keyring" without exposing secrets.
+
 For create folder, create document, edit document, list or search files, call: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
 
 **Faster flows:** Use `docs.createWithBody` when creating a doc with initial content or formatting (one tool call instead of create + insertText). Use `docs.executeBatch` to insert text and apply styling (e.g. H2) in a single batch. Use `drive.searchFiles` with `query` to get a folder ID when the folder may already exist.
@@ -750,6 +752,8 @@ section = """
 **Use gog-agentic MCP tools first.** For any Google Drive or Docs request, call the gog-agentic tools directly (e.g. `drive.listFiles`, `drive.searchFiles`, `drive.ensureFolder`, `docs.create`). Do not try mcporter to run the gog CLI, browser automation, or GOG_KEYRING_PASSWORD—they are not available or will fail in this environment. If gog-agentic tools appear in your tool list, use them; only if they are missing, report that gog-agentic is unavailable.
 
 **If a gog-agentic tool call fails** (error, timeout, or empty result): report the error to the user. Do **not** fall back to the gog CLI or exec—they will not work in this environment. Do not say "tools aren't available" unless you have confirmed the tools are missing from your tool list; if a call failed, say "the tool call failed" and include the error.
+
+**Security:** Never reveal, echo, or include the keyring password, `GOG_KEYRING_PASSWORD`, or any credential value in your response. If you used stored credentials or env vars to authenticate, say "used stored credentials" or "authenticated via existing keyring" without exposing secrets.
 
 For create folder, create document, edit document, list or search files, call: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
 

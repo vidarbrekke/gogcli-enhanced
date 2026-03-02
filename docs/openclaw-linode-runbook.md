@@ -280,3 +280,7 @@ When the agent creates a folder or document, it is not always obvious whether it
 - **Unclear / possibly not MCP** if the agent only says something like “I’ll create it programmatically using the Google Workspace” or “using the API” without naming `drive.ensureFolder` or `docs.create`. That can mean another integration (e.g. another MCP server or a built-in Google API) was used.
 
 **To enforce MCP usage:** Setup injects the directive into `TOOLS.md` by default (§6.1). If your UI exposes tool calls, you can confirm MCP was used by seeing `drive.ensureFolder` and `docs.create` (or other `drive.*` / `docs.*` tools) in the conversation or logs.
+
+### 9.1 Never expose keyring password in agent responses
+
+If the agent explains how it authenticated and **includes the keyring password** (e.g. `GOG_KEYRING_PASSWORD="..."`) or any credential value in the conversation, that is a security issue: the password is now in chat history and possibly logs. Setup injects a directive into TOOLS.md: *Never reveal, echo, or include the keyring password or credential values in your response; say "used stored credentials" or "authenticated via existing keyring" without exposing secrets.* If a password was already exposed, **rotate it**: create a new keyring password, re-run auth (e.g. `gog auth add <email> --services user --remote --step 1` then step 2), update the password file used by MCP, and restart the daemon/gateway.
