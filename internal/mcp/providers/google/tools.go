@@ -1400,15 +1400,14 @@ func (p *provider) driveListFiles(_ context.Context, input map[string]any) (map[
 	if max, ok := asInt(input["max"]); ok && max > 0 {
 		args = append(args, "--max", strconv.FormatInt(max, 10))
 	}
-	if page := strings.TrimSpace(asString(input["page"])); page != "" {
-		args = append(args, "--page", page)
+	pageVal := strings.TrimSpace(asString(input["page"]))
+	if pageVal != "" && !strings.EqualFold(pageVal, "null") {
+		args = append(args, "--page", pageVal)
 	} else {
 		// No page token: fetch all pages so agents get full list without handling pagination.
 		args = append(args, "--all")
-		// Use larger page size when fetching all so we do fewer API round-trips.
-		if _, hasMax := input["max"]; !hasMax {
-			args = append(args, "--max", "100")
-		}
+		// Use larger page size when fetching all (override small client max so we get full list).
+		args = append(args, "--max", "100")
 	}
 	if _, ok := input["allDrives"]; ok {
 		if asBool(input["allDrives"]) {
@@ -1436,13 +1435,12 @@ func (p *provider) driveSearchFiles(_ context.Context, input map[string]any) (ma
 	if max, ok := asInt(input["max"]); ok && max > 0 {
 		args = append(args, "--max", strconv.FormatInt(max, 10))
 	}
-	if page := strings.TrimSpace(asString(input["page"])); page != "" {
-		args = append(args, "--page", page)
+	pageVal := strings.TrimSpace(asString(input["page"]))
+	if pageVal != "" && !strings.EqualFold(pageVal, "null") {
+		args = append(args, "--page", pageVal)
 	} else {
 		args = append(args, "--all")
-		if _, hasMax := input["max"]; !hasMax {
-			args = append(args, "--max", "100")
-		}
+		args = append(args, "--max", "100")
 	}
 	// Default allDrives to true so search includes shared drives; only restrict when explicitly false
 	if v, ok := input["allDrives"]; ok && !asBool(v) {
