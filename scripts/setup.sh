@@ -656,7 +656,9 @@ marker = sys.argv[2]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-**Use only gog-agentic MCP for Drive/Docs.** Do not run the `gog` CLI in a shell or terminal for Google Drive or Google Docs—use the MCP tools instead. For create folder, create document, edit document, list or search files, etc., call the gog-agentic tools: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not invoke `gog` or other Google integrations for these actions. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
+**Use gog-agentic MCP first—do not run the gog CLI or shell.** For any Drive or Docs request (list files, search, create folder, create doc, etc.), call the gog-agentic MCP tools directly (e.g. `drive.listFiles`, `drive.searchFiles`, `drive.ensureFolder`, `docs.create`). The gog CLI is not authenticated in this environment and will fail; skip it and use MCP only.
+
+For create folder, create document, edit document, list or search files, call: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
 
 **Faster flows:** Use `docs.createWithBody` when creating a doc with initial content or formatting (one tool call instead of create + insertText). Use `docs.executeBatch` to insert text and apply styling (e.g. H2) in a single batch. Use `drive.searchFiles` with `query` to get a folder ID when the folder may already exist.
 """
@@ -718,7 +720,9 @@ marker = sys.argv[2]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-**Use only gog-agentic MCP for Drive/Docs.** Do not run the `gog` CLI in a shell or terminal for Google Drive or Google Docs—use the MCP tools instead. For create folder, create document, edit document, list or search files, etc., call the gog-agentic tools: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not invoke `gog` or other Google integrations for these actions. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
+**Use gog-agentic MCP first—do not run the gog CLI or shell.** For any Drive or Docs request (list files, search, create folder, create doc, etc.), call the gog-agentic MCP tools directly (e.g. `drive.listFiles`, `drive.searchFiles`, `drive.ensureFolder`, `docs.create`). The gog CLI is not authenticated in this environment and will fail; skip it and use MCP only.
+
+For create folder, create document, edit document, list or search files, call: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
 
 **Faster flows:** Use `docs.createWithBody` when creating a doc with initial content or formatting (one tool call instead of create + insertText). Use `docs.executeBatch` to insert text and apply styling (e.g. H2) in a single batch. Use `drive.searchFiles` with `query` to get a folder ID when the folder may already exist.
 """
