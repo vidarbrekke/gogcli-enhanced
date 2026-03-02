@@ -162,6 +162,13 @@ If the agent reads TOOLS.md but reports that gog-agentic tools are not in its to
 
 3. **Confirm the OpenClaw gateway uses this config** when it fetches the tool list. The gateway must be started with `--config` (or equivalent) pointing at the same `mcporter.json`. If OpenClaw uses another config file or workspace, it will not load gog-agentic. See §8.4.
 
+   **If the gateway is run by systemd** (e.g. `openclaw-gateway.service`), ensure (a) **WorkingDirectory** is set to the workspace so relative `config/mcporter.json` resolves, and (b) **MCPORTER_CONFIG** is set to the full path of the workspace mcporter config. Example drop-in:
+   ```ini
+   WorkingDirectory=/root/openclaw-stock-home/.openclaw/workspace
+   Environment=MCPORTER_CONFIG=/root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json
+   ```
+   Then `systemctl --user daemon-reload` and `systemctl --user restart openclaw-gateway`.
+
 4. **Then** restart the OpenClaw gateway so it reconnects to mcporter and refreshes the tool list.
 
 #### 8.0a 5-whys: Why are gog-agentic tools not in the agent's list?
