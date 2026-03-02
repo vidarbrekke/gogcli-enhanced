@@ -16,7 +16,7 @@ Use this when running OpenClaw on a Linode server and want the agent to create/e
 - **Fallback:** If `~/openclaw-stock-home/.openclaw/workspace` or `~/.openclaw/workspace` exists and is different from the detected workspace, the script also merges the same `gog-agentic` entry there, so OpenClaw finds gog even when the repo is cloned elsewhere.
 - **Env:** If `GOG_KEYRING_BACKEND` is set during setup (e.g. file keyring), the script adds `"env": {"GOG_KEYRING_BACKEND": "file"}` to the server entry so the spawned `gog mcp serve` process uses the file keyring. For headless MCP, the script can also create a keyring password file and add `GOG_KEYRING_PASSWORD_FILE` to that `env`: it will do so automatically when `GOG_KEYRING_PASSWORD` is set, or when you confirm at the prompt “Save keyring password to a file so the MCP server can unlock without a TTY?”. Otherwise add `GOG_KEYRING_PASSWORD_FILE` manually (see §4 and §8.2).
 
-After setup, **restart OpenClaw** (or ensure it is started with the same `mcporter.json` path) so it picks up the new server. No refactor or manual MCP config is needed.
+After setup, the script has already started the mcporter daemon and restarted OpenClaw (when the gateway runs under the same user). You do not need to run any further commands—the agent should see gog-agentic tools. If the gateway runs under a different user, restart it manually so it picks up the config.
 
 ## 2. Why it failed before
 
@@ -140,6 +140,30 @@ Alternatively you can use `gog drive mkdir testing123 --json` for step 1; the re
 
 When the MCP config file already lists **gog-agentic** but the agent doesn’t use the tools (or OpenClaw says there is no MCP server), check the following.
 
+### 8.0 Agent says “gog-agentic tools are not showing up in my tool list”
+
+If the agent reads TOOLS.md but reports that gog-agentic tools are not in its tool list, the gateway is not seeing the MCP server. **Restarting only the gateway is not enough** if the mcporter daemon is not running or the gateway uses a different config.
+
+**Checklist (on the Linode server):**
+
+1. **Run the diagnostic** (as the same user that runs OpenClaw):
+   ```bash
+   /root/openclaw-stock-home/.openclaw/workspace/repositories/gogcli-enhanced/scripts/mcp-diagnose-gog.sh /root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json
+   ```
+   - If it prints **"OK: gog-agentic responds and exposes tools"**, gog is fine; the issue is how the gateway loads MCP (step 3).
+   - If it prints **"ERROR: gog mcp serve exited"** or **"gog-agentic not found"**, fix the config or keyring (see §8.1, §8.2) then retry.
+
+2. **Start or restart the mcporter daemon** (required when using `"lifecycle": { "mode": "keep-alive" }`). If you ran `./scripts/setup.sh`, it already started the daemon and restarted the OpenClaw gateway; if the agent still has no tools, run:
+   ```bash
+   mcporter --config /root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json daemon restart
+   mcporter --config /root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json daemon status
+   ```
+   You should see **gog-agentic** in the status. If not, the daemon may be using a different config path or gog may be failing to start (check diagnostic from step 1).
+
+3. **Confirm the OpenClaw gateway uses this config** when it fetches the tool list. The gateway must be started with `--config` (or equivalent) pointing at the same `mcporter.json`. If OpenClaw uses another config file or workspace, it will not load gog-agentic. See §8.4.
+
+4. **Then** restart the OpenClaw gateway so it reconnects to mcporter and refreshes the tool list.
+
 ### 8.1 Command must be an absolute path
 
 If `command` in the gog-agentic entry is relative (e.g. `gog` or `./bin/gog`), mcporter may start the process with a different working directory and fail to find the binary. Re-run setup from the repo so it writes an absolute path, or edit `mcporter.json` and set `mcpServers.gog-agentic.command` to the full path to the `gog` binary (e.g. `/root/openclaw-stock-home/.openclaw/workspace/repositories/gogcli-enhanced/bin/gog`).
@@ -180,6 +204,8 @@ The gog MCP server talks over **stdio** (stdin/stdout). If the MCP host spawns i
 3. Ensure OpenClaw (or whatever runs mcporter) uses the same config path so it talks to the daemon; the daemon will then list/call tools via the held gog process.
 
 After this, `mcporter daemon status` should list gog-agentic and `mcporter list gog-agentic` should return tools. The gog CLI (e.g. `gog drive ls`) works in a separate process with a TTY; MCP only works when the host (or daemon) keeps the gog process attached and pipes stdio.
+
+**After deploy (git pull):** From the repo on the server, run `./scripts/ensure-mcp-daemon.sh` to restart the daemon (and optionally `RESTART_GATEWAY=1 ./scripts/ensure-mcp-daemon.sh` to also restart the OpenClaw gateway). That prevents "tools not in list" when the gateway was restarted without the daemon.
 
 ### 8.6 Agent says "gog CLI needs to be authenticated" or "no tokens stored" (5-whys root cause)
 

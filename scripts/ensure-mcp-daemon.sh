@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# After git pull / deploy: ensure mcporter daemon is running so the OpenClaw gateway sees gog-agentic.
+# Run from the repo (e.g. on Linode after deploy). Safe to run repeatedly.
+#
+# Usage:
+#   ./scripts/ensure-mcp-daemon.sh
+#   WORKSPACE_DIR=/path/to/workspace ./scripts/ensure-mcp-daemon.sh
+# Optional: RESTART_GATEWAY=1 to also restart openclaw-gateway (systemd user).
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Workspace: where config/mcporter.json lives (OpenClaw workspace, not repo root).
+if [[ -n "${WORKSPACE_DIR:-}" ]]; then
+  WORKSPACE_DIR="$(cd "$WORKSPACE_DIR" && pwd)"
+elif [[ "$ROOT_DIR" == *"/repositories/"* ]]; then
+  WORKSPACE_DIR="${ROOT_DIR%/repositories/*}"
+else
+  WORKSPACE_DIR="${OPENCLAW_WORKSPACE:-$ROOT_DIR}"
+fi
+MCPORTER_CONFIG="$WORKSPACE_DIR/config/mcporter.json"
+
+log() { echo "[ensure-mcp-daemon] $*"; }
+warn() { echo "[ensure-mcp-daemon] WARN: $*" >&2; }
+
+if [[ ! -f "$MCPORTER_CONFIG" ]]; then
+  warn "Config not found: $MCPORTER_CONFIG (run setup.sh first?)"
+  exit 1
+fi
+
+if [[ -x "$ROOT_DIR/scripts/mcp-diagnose-gog.sh" ]]; then
+  if "$ROOT_DIR/scripts/mcp-diagnose-gog.sh" "$MCPORTER_CONFIG" >/tmp/gog-mcp-diagnose.out 2>/tmp/gog-mcp-diagnose.err; then
+    log "gog MCP diagnostic passed."
+  else
+    warn "gog MCP diagnostic failed; see /tmp/gog-mcp-diagnose.err"
+  fi
+fi
+
+if ! command -v mcporter &>/dev/null; then
+  warn "mcporter not in PATH; cannot start daemon."
+  exit 1
+fi
+
+mcporter --config "$MCPORTER_CONFIG" daemon restart
+log "mcporter daemon restarted (config: $MCPORTER_CONFIG)."
+mcporter --config "$MCPORTER_CONFIG" daemon status || true
+
+if [[ "${RESTART_GATEWAY:-0}" == "1" ]]; then
+  if systemctl --user restart openclaw-gateway 2>/dev/null; then
+    log "OpenClaw gateway restarted."
+  else
+    warn "Could not restart openclaw-gateway (not running as user with that service?)."
+  fi
+fi

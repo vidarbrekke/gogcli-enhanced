@@ -773,6 +773,33 @@ PY
 
   echo "Running verification check. Stay tuned."
 
+  # Run diagnostic so we catch keyring/path issues at setup time (not when the agent tries to use tools).
+  if [[ -x "$ROOT_DIR/scripts/mcp-diagnose-gog.sh" ]]; then
+    if "$ROOT_DIR/scripts/mcp-diagnose-gog.sh" "$mcporter_config" >/tmp/gog-mcp-diagnose.out 2>/tmp/gog-mcp-diagnose.err; then
+      log "gog MCP diagnostic passed (tools exposed)."
+    else
+      warn "gog MCP diagnostic failed; agent may not see gog-agentic tools until keyring/path are fixed."
+      [[ -s /tmp/gog-mcp-diagnose.err ]] && warn "See: /tmp/gog-mcp-diagnose.err"
+    fi
+  fi
+
+  # Start mcporter daemon so the gateway can see gog-agentic immediately (keep-alive mode requires daemon).
+  if has_cmd mcporter; then
+    if mcporter --config "$mcporter_config" daemon restart 2>/dev/null; then
+      log "Started mcporter daemon (keep-alive for gog-agentic)."
+    else
+      warn "Could not start mcporter daemon; run manually: mcporter --config $mcporter_config daemon restart"
+    fi
+  fi
+
+  # Restart OpenClaw gateway so it picks up the tool list (one-command setup; no separate step for the user).
+  if systemctl --user restart openclaw-gateway 2>/dev/null; then
+    log "Restarted OpenClaw gateway so the agent sees gog-agentic tools."
+  else
+    # Gateway may not be installed, or we may not be the user that runs it; don't fail setup.
+    log "OpenClaw gateway was not restarted (not running under this user?). Restart it manually so the agent sees gog-agentic."
+  fi
+
   python3 - <<PY
 import json
 p = ${mcporter_config@Q}
@@ -830,7 +857,7 @@ print_final() {
   echo "gogcli-enhanced is a Google Workspace MCP server, and is ready for use."
   if [[ -n "${MCP_CONFIG_PATH:-}" ]]; then
     echo "MCP config was written to: $MCP_CONFIG_PATH"
-    echo "Ensure OpenClaw (or mcporter) is started with this config so the agent sees the gog-agentic tools."
+    echo "mcporter daemon and OpenClaw gateway were started/restarted so the agent sees gog-agentic tools."
   fi
   echo "Use plain language in OpenClaw. Example:"
   echo "- Create a new Google Doc called Test1 in a new Drive folder called testing123"
