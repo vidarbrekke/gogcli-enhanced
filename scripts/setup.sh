@@ -656,9 +656,9 @@ marker = sys.argv[2]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-For Google Drive and Google Docs actions (create folder, create document, edit document, list files, etc.), **always use the gog-agentic MCP tools** when available. Use `drive.ensureFolder` for folders, `docs.create` for new docs (with `parentId` from the folder result), `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not invoke the `gog` CLI or use other Google integrations for these actions unless the required tool does not exist in gog-agentic. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
+**Use only gog-agentic MCP for Drive/Docs.** Do not run the `gog` CLI in a shell or terminal for Google Drive or Google Docs—use the MCP tools instead. For create folder, create document, edit document, list or search files, etc., call the gog-agentic tools: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not invoke `gog` or other Google integrations for these actions. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
 
-**Faster flows:** Use `docs.createWithBody` when creating a doc with initial content or formatting (one tool call instead of create + insertText). Use `docs.executeBatch` to insert text and apply styling (e.g. H2) in a single batch instead of separate insertText + replaceAllText. Use `drive.searchFiles` with `query` to get a folder ID when the folder may already exist.
+**Faster flows:** Use `docs.createWithBody` when creating a doc with initial content or formatting (one tool call instead of create + insertText). Use `docs.executeBatch` to insert text and apply styling (e.g. H2) in a single batch. Use `drive.searchFiles` with `query` to get a folder ID when the folder may already exist.
 """
 existing = ""
 if os.path.isfile(tools_path):
@@ -718,9 +718,9 @@ marker = sys.argv[2]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-For Google Drive and Google Docs actions (create folder, create document, edit document, list files, etc.), **always use the gog-agentic MCP tools** when available. Use `drive.ensureFolder` for folders, `docs.create` for new docs (with `parentId` from the folder result), `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not invoke the `gog` CLI or use other Google integrations for these actions unless the required tool does not exist in gog-agentic. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
+**Use only gog-agentic MCP for Drive/Docs.** Do not run the `gog` CLI in a shell or terminal for Google Drive or Google Docs—use the MCP tools instead. For create folder, create document, edit document, list or search files, etc., call the gog-agentic tools: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not invoke `gog` or other Google integrations for these actions. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
 
-**Faster flows:** Use `docs.createWithBody` when creating a doc with initial content or formatting (one tool call instead of create + insertText). Use `docs.executeBatch` to insert text and apply styling (e.g. H2) in a single batch instead of separate insertText + replaceAllText. Use `drive.searchFiles` with `query` to get a folder ID when the folder may already exist.
+**Faster flows:** Use `docs.createWithBody` when creating a doc with initial content or formatting (one tool call instead of create + insertText). Use `docs.executeBatch` to insert text and apply styling (e.g. H2) in a single batch. Use `drive.searchFiles` with `query` to get a folder ID when the folder may already exist.
 """
 existing = ""
 if os.path.isfile(tools_path):

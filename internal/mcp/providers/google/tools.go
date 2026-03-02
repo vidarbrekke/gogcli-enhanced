@@ -581,9 +581,9 @@ func Register(s *server.Server, executor Executor) {
 				},
 			},
 			Handler: p.driveListFiles,
-		}, {
+		}, 		{
 			Name:        "drive.searchFiles",
-			Description: "Search files in Google Drive.",
+			Description: "Search files and folders in Google Drive. To check if a folder exists by name: use query with the folder name (e.g. 'testing123'); results include My Drive and shared drives when allDrives is true (default). Use rawQuery: true with Drive query language (e.g. \"name contains 'testing123' and mimeType = 'application/vnd.google-apps.folder'\") for folder-only matches.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
@@ -1432,12 +1432,11 @@ func (p *provider) driveSearchFiles(_ context.Context, input map[string]any) (ma
 	if page := strings.TrimSpace(asString(input["page"])); page != "" {
 		args = append(args, "--page", page)
 	}
-	if _, ok := input["allDrives"]; ok {
-		if asBool(input["allDrives"]) {
-			args = append(args, "--all-drives")
-		} else {
-			args = append(args, "--no-all-drives")
-		}
+	// Default allDrives to true so search includes shared drives; only restrict when explicitly false
+	if v, ok := input["allDrives"]; ok && !asBool(v) {
+		args = append(args, "--no-all-drives")
+	} else {
+		args = append(args, "--all-drives")
 	}
 	args = append(args, query)
 	return p.runCLI(cleanArgs(args), "drive", "searchFiles")

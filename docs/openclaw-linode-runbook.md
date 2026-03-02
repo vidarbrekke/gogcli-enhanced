@@ -90,7 +90,7 @@ So the agent should call `drive.ensureFolder` first, read `folderId` from the re
 
 Setup **automatically** injects a directive into the OpenClaw workspace bootstrap file `TOOLS.md` so the agent always prefers gog-agentic for Google Drive and Docs. OpenClaw includes `TOOLS.md` in the system prompt for every run, so no manual instruction is required.
 
-- **What setup does:** Creates or appends to `$workspace_dir/TOOLS.md` a section *"Google Drive and Docs (gog-agentic MCP)"* that instructs the agent to use `drive.ensureFolder`, `docs.create`, and other `drive.*` / `docs.*` tools instead of the CLI or other Google integrations. Idempotent: re-running setup does not duplicate the section.
+- **What setup does:** Creates or appends to `$workspace_dir/TOOLS.md` a section *"Google Drive and Docs (gog-agentic MCP)"* that instructs the agent to use **only** gog-agentic MCP for Drive/Docs (never run the `gog` CLI in a shell). Idempotent: re-running setup does not duplicate the section.
 - **If you need to add it manually** (e.g. different workspace or TOOLS.md was removed), add a system or project instruction with this text:
 
 > For Google Drive and Google Docs actions (create folder, create document, edit document, list files, etc.), **always use the gog-agentic MCP tools** when available. Call `drive.ensureFolder` for folders, `docs.create` for new docs (with `parentId` from the folder result), `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not invoke the `gog` CLI directly or use other Google integrations for these actions unless the required tool does not exist in gog-agentic. If a user asks to create a folder and document, use `drive.ensureFolder` then `docs.create` with the returned `folderId` as `parentId`.
@@ -102,6 +102,10 @@ This reduces ambiguity and keeps behavior consistent with the headless setup (ke
 ### 6.2 Faster flows (fewer round-trips, fewer tokens)
 
 To reduce latency and token usage use: `docs.createWithBody` when creating a doc with initial content (one tool call); `docs.executeBatch` to insert text and apply styling in one batch; `drive.searchFiles` with `query` to get folder ID when the folder may already exist. Setup injects this into `TOOLS.md` (§6.1).
+
+### 6.3 Agent says a folder “does not exist” but you see it in Drive
+
+Tools use the default account in the keyring. If the folder exists under a **different Google account** than the one on the server, the agent will not see it—add that account on the server or pass `account` to the tool. Use `drive.searchFiles` with the folder name as `query`; search includes My Drive and shared drives by default.
 
 ## 7. Verify
 
@@ -164,6 +168,18 @@ This script reads the gog-agentic entry, runs the same `command` and `args` with
 ### 8.4 Confirm OpenClaw uses this config
 
 Ensure OpenClaw (or mcporter) is actually started with `--config /root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json` (or the equivalent path). If OpenClaw uses a different config file or workspace, it will not load gog-agentic. Check how you start OpenClaw and that no other config overrides this one.
+
+### 8.5 gog-agentic shows as “offline” or MCP tool calls don’t work
+
+The gog MCP server talks over **stdio** (stdin/stdout). If the MCP host spawns it per-request without keeping the process attached, gog can exit or appear offline.
+
+**Fix (recommended):** Use the **mcporter keep-alive daemon** so one long-lived process holds the gog stdio connection:
+
+1. In `mcporter.json`, add to the gog-agentic entry: `"lifecycle": { "mode": "keep-alive" }`.
+2. Start (or restart) the daemon: `mcporter --config /path/to/workspace/config/mcporter.json daemon restart`.
+3. Ensure OpenClaw (or whatever runs mcporter) uses the same config path so it talks to the daemon; the daemon will then list/call tools via the held gog process.
+
+After this, `mcporter daemon status` should list gog-agentic and `mcporter list gog-agentic` should return tools. The gog CLI (e.g. `gog drive ls`) works in a separate process with a TTY; MCP only works when the host (or daemon) keeps the gog process attached and pipes stdio.
 
 ## 9. Verifying that OpenClaw used gog-agentic MCP
 
