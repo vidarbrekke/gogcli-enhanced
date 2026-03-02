@@ -164,7 +164,42 @@ If the agent reads TOOLS.md but reports that gog-agentic tools are not in its to
 
 4. **Then** restart the OpenClaw gateway so it reconnects to mcporter and refreshes the tool list.
 
-### 8.1 Command must be an absolute path
+#### 8.0a 5-whys: Why are gog-agentic tools not in the agent's list?
+
+| # | Why | Answer |
+|---|-----|--------|
+| **1** | Why does the agent say the tools aren't in its list? | The tool list the agent receives from the gateway does not include `drive.listFiles`, `drive.searchFiles`, etc. |
+| **2** | Why would that list not include those tools? | Either (a) the gateway never asked mcporter for gog-agentic's tools, (b) the gateway asked but got no/empty list (daemon not running, wrong socket, or gog process crashed), or (c) the gateway got them but did not expose them to the agent (filtering, wrong workspace, or bug). |
+| **3** | Why would the gateway not ask, or not get, or not expose? | (a) Gateway's MCP config does not include gog-agentic (wrong config file or path). (b) Daemon not running, or gateway connects to a different daemon/socket, or the gog child process in the daemon failed. (c) OpenClaw merges tools per workspace/profile; the active one may not have gog-agentic. |
+| **4** | Why would the gateway's config not include gog-agentic or connect to the wrong daemon? | We write to workspace `config/mcporter.json`, fallbacks, and `~/.mcporter/mcporter.json`. We do not control which config path the OpenClaw gateway uses at runtime; it may be started with a path we never write to, or a different workspace may be active. |
+| **5 (root cause)** | Why does this keep happening? | **The gateway's runtime MCP config path (or active workspace) is not the one we write to**, so the agent's tool list never includes gog-agentic. Until the gateway is configured to use a config that contains gog-agentic and the daemon is run with that same config, the agent will not see the tools. |
+
+**Use temporary debug logging** (§8.0b) to see whether the gateway is calling gog at all: if the log never shows `tools/list`, the gateway is not connecting to our gog process. If it shows `tools/list tools=32`, the gateway is getting the list but not passing it to the agent (downstream/workspace issue).
+
+### 8.0b Temporary debug logging (where the process breaks down)
+
+To see whether the OpenClaw gateway is actually calling the gog MCP server and what gog returns:
+
+1. **Set a debug log path** in the gog-agentic `env` in the mcporter config (same config the daemon uses). Example, in `mcpServers.gog-agentic.env` add:
+   ```json
+   "GOG_MCP_DEBUG_LOG": "/tmp/gog-mcp-debug.log"
+   ```
+2. **Restart the daemon** (and gateway if needed):
+   ```bash
+   mcporter --config /root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json daemon restart
+   systemctl --user restart openclaw-gateway
+   ```
+3. **Trigger a conversation** in OpenClaw that would use Drive (e.g. "list my Drive root").
+4. **Check the log** on the server:
+   ```bash
+   cat /tmp/gog-mcp-debug.log
+   ```
+   - **No file or empty:** The gateway is not connecting to this gog process (wrong config path or daemon not used).
+   - **`initialize` then `tools/list tools=32`:** The gateway is calling gog and gog is returning 32 tools; the break is downstream (gateway not exposing them to the agent, or different workspace).
+   - **`initialize` only, no `tools/list`:** The gateway connected but never requested the tool list (unusual).
+   - **`tools/list tools=0`:** gog is returning an empty list (bug or server not initialized).
+
+Remove `GOG_MCP_DEBUG_LOG` from the config and restart the daemon when you are done debugging.
 
 If `command` in the gog-agentic entry is relative (e.g. `gog` or `./bin/gog`), mcporter may start the process with a different working directory and fail to find the binary. Re-run setup from the repo so it writes an absolute path, or edit `mcporter.json` and set `mcpServers.gog-agentic.command` to the full path to the `gog` binary (e.g. `/root/openclaw-stock-home/.openclaw/workspace/repositories/gogcli-enhanced/bin/gog`).
 

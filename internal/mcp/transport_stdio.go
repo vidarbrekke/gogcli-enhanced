@@ -1,4 +1,3 @@
-//nolint:wsl_v5 // protocol switch intentionally compact
 package mcp
 
 import (
@@ -7,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"sync"
+	"time"
 
 	"github.com/steipete/gogcli/internal/mcp/server"
 )
@@ -119,6 +120,7 @@ func ServeStdio(ctx context.Context, r io.Reader, w io.Writer, s *server.Server)
 func handleRPC(ctx context.Context, s *server.Server, req rpcRequest) rpcResponse {
 	switch req.Method {
 	case "initialize":
+		mcpDebugLog(req.Method, nil)
 		return rpcResponse{
 			JSONRPC: "2.0",
 			ID:      req.ID,
@@ -153,6 +155,7 @@ func handleRPC(ctx context.Context, s *server.Server, req rpcRequest) rpcRespons
 			}
 			tools = append(tools, tool)
 		}
+		mcpDebugLog(req.Method, map[string]int{"tools": len(tools)})
 		return rpcResponse{
 			JSONRPC: "2.0",
 			ID:      req.ID,
@@ -193,4 +196,27 @@ func writeRPC(w io.Writer, resp rpcResponse) error {
 		return fmt.Errorf("write rpc response: %w", err)
 	}
 	return nil
+}
+
+var mcpDebugLogMu sync.Mutex
+
+// mcpDebugLog writes one line to the file in GOG_MCP_DEBUG_LOG when set (temporary debugging).
+// Format: ISO8601 method [key=value ...]
+func mcpDebugLog(method string, extra map[string]int) {
+	path := os.Getenv("GOG_MCP_DEBUG_LOG")
+	if path == "" {
+		return
+	}
+	mcpDebugLogMu.Lock()
+	defer mcpDebugLogMu.Unlock()
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	line := time.Now().UTC().Format(time.RFC3339) + " " + method
+	for k, v := range extra {
+		line += fmt.Sprintf(" %s=%d", k, v)
+	}
+	_, _ = f.WriteString(line + "\n")
+	_ = f.Close()
 }
