@@ -61,6 +61,8 @@ const (
 
 	// driveListAllMaxItems caps the number of items returned when --all is used to avoid runaway.
 	driveListAllMaxItems = 10_000
+	// driveListAllMaxOutputItems caps JSON output size so gateways that truncate still see a useful batch.
+	driveListAllMaxOutputItems = 50
 )
 
 type DriveCmd struct {
@@ -151,10 +153,16 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 			pageToken = nextToken
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
-				"files": allFiles,
-				// Omit nextPageToken when empty so clients don't assume more pages.
-			})
+			total := len(allFiles)
+			out := map[string]any{"files": allFiles}
+			if total > driveListAllMaxOutputItems {
+				allFiles = allFiles[:driveListAllMaxOutputItems]
+				out["files"] = allFiles
+				out["truncatedAt"] = driveListAllMaxOutputItems
+				out["totalCount"] = total
+				out["note"] = "Response limited to 50 items to fit gateway; more items available."
+			}
+			return outfmt.WriteJSON(ctx, os.Stdout, out)
 		}
 		if len(allFiles) == 0 {
 			u.Err().Println("No files")
@@ -276,10 +284,16 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			pageToken = nextToken
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
-				"files": allFiles,
-				// Omit nextPageToken when empty so clients don't assume more pages.
-			})
+			total := len(allFiles)
+			out := map[string]any{"files": allFiles}
+			if total > driveListAllMaxOutputItems {
+				allFiles = allFiles[:driveListAllMaxOutputItems]
+				out["files"] = allFiles
+				out["truncatedAt"] = driveListAllMaxOutputItems
+				out["totalCount"] = total
+				out["note"] = "Response limited to 50 items to fit gateway; more items available."
+			}
+			return outfmt.WriteJSON(ctx, os.Stdout, out)
 		}
 		if len(allFiles) == 0 {
 			u.Err().Println("No results")
