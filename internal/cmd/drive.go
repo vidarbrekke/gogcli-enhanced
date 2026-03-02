@@ -147,8 +147,8 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 		if outfmt.IsJSON(ctx) {
 			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
-				"files":         allFiles,
-				"nextPageToken": "",
+				"files": allFiles,
+				// Omit nextPageToken when empty so clients don't assume more pages.
 			})
 		}
 		if len(allFiles) == 0 {
@@ -267,8 +267,8 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 		if outfmt.IsJSON(ctx) {
 			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
-				"files":         allFiles,
-				"nextPageToken": "",
+				"files": allFiles,
+				// Omit nextPageToken when empty so clients don't assume more pages.
 			})
 		}
 		if len(allFiles) == 0 {

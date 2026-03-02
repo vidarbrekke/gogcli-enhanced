@@ -347,6 +347,24 @@ Many OpenClaw installs use the default mcporter config path `~/.mcporter/mcporte
 `mcporter --config /path/to/workspace/config/mcporter.json call --server gog-agentic --tool drive.listFiles --args '{}' --output json`  
 If that returns `"ok": true` and a `result` with files, the agent can do the same via exec. If the agent still says tools are unavailable, ensure it has exec and TOOLS.md instructs it to use `mcporter call gog-agentic.*` when direct tools are missing.
 
+## 8.10 Drive list/search returns only first page (e.g. “only 4 folders”)
+
+**Why the Drive API uses pagination:** Google’s Drive API returns results in pages (e.g. 20–100 items per request) with a `nextPageToken` for the next page. That’s by design: accounts can have huge numbers of files; a single “give me everything” response would be slow, could time out, and would use a lot of memory. So the API is page-based; clients that need more must request the next page.
+
+**What we do:** When you **don’t** pass a `page` token, our MCP tools (`drive.listFiles`, `drive.searchFiles`) request **all pages** and return **one combined JSON** with every matching file (up to 10,000) and **no** `nextPageToken`. So the agent gets a complete list in one call and doesn’t need to handle pagination.
+
+**If you still see only the first few items:** The mcporter daemon runs a long-lived `gog mcp serve` process. After you deploy a new `gog` binary (e.g. `git pull` and `./scripts/install.sh` or copying the binary), that process is still the **old** one until you restart the daemon. So list/search keep returning only the first page until the daemon is restarted.
+
+**Fix:** After every deploy that updates the `gog` binary, restart the mcporter daemon so the new binary is used:
+
+```bash
+mcporter --config /path/to/workspace/config/mcporter.json daemon restart
+```
+
+Or from the repo: `./scripts/ensure-mcp-daemon.sh` (and optionally `RESTART_GATEWAY=1 ./scripts/ensure-mcp-daemon.sh`). Then try “list all folders” again; you should get the full list in one response.
+
+When the user asks for "all folders" only, the agent should use **drive.searchFiles** with `rawQuery: true` and query `mimeType = 'application/vnd.google-apps.folder'` (see TOOLS.md "List only folders" command). That returns only folders, so the response is smaller and less likely to be truncated.
+
 ## 9. Verifying that OpenClaw used gog-agentic MCP
 
 When the agent creates a folder or document, it is not always obvious whether it used the gog MCP tools or another path (e.g. another Google Workspace integration, or the gog CLI via a shell tool).

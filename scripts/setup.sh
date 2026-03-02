@@ -673,11 +673,10 @@ tools_path = sys.argv[1]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-## Google Drive and Docs (gog-agentic MCP)
-
 **Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names contain dots so you MUST use `--server gog-agentic --tool <toolName>` — do NOT use the `gog-agentic.drive.listFiles` dot-selector (it splits on the first dot and fails with "tool not found").
 
-- **List Drive root:** `mcporter call --server gog-agentic --tool drive.listFiles --args '{}' --output json`
+- **List Drive root (files and folders):** `mcporter call --server gog-agentic --tool drive.listFiles --args '{}' --output json`
+- **List only folders (use when user asks for "folders" or "all folders"):** `mcporter call --server gog-agentic --tool drive.searchFiles --args '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\"\",\"rawQuery\":true}' --output json` — returns only folders, smaller response so it is not truncated.
 - **Create folder:** `mcporter call --server gog-agentic --tool drive.ensureFolder --args '{"path":"FolderName"}' --output json`
 - **Create doc:** `mcporter call --server gog-agentic --tool docs.create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
 - **Search files:** `mcporter call --server gog-agentic --tool drive.searchFiles --args '{"query":"name or text"}' --output json`
@@ -750,7 +749,8 @@ section = """
 
 **Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names contain dots so you MUST use `--server gog-agentic --tool <toolName>` — do NOT use the `gog-agentic.drive.listFiles` dot-selector (it splits on the first dot and fails with "tool not found").
 
-- **List Drive root:** `mcporter call --server gog-agentic --tool drive.listFiles --args '{}' --output json`
+- **List Drive root (files and folders):** `mcporter call --server gog-agentic --tool drive.listFiles --args '{}' --output json`
+- **List only folders (use when user asks for "folders" or "all folders"):** `mcporter call --server gog-agentic --tool drive.searchFiles --args '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\"\",\"rawQuery\":true}' --output json` — returns only folders, smaller response so it is not truncated.
 - **Create folder:** `mcporter call --server gog-agentic --tool drive.ensureFolder --args '{"path":"FolderName"}' --output json`
 - **Create doc:** `mcporter call --server gog-agentic --tool docs.create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
 - **Search files:** `mcporter call --server gog-agentic --tool drive.searchFiles --args '{"query":"name or text"}' --output json`
