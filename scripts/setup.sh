@@ -679,6 +679,8 @@ section = """
 
 **OAuth is already set up:** The keyring stores the Google OAuth refresh token. When the MCP server has the keyring password (via its env), it has full Google access—no separate "token" step. So if you have gog-agentic tools, use them to access Drive; do not say "I can't access via CLI or MCP" or suggest opening drive.google.com / screenshots as alternatives. Only if the tools are confirmed missing from your list should you say you cannot access Drive programmatically.
 
+**When the tools are missing from your list:** Tell the user: "The gog-agentic MCP tools are not in my tool list. The OpenClaw gateway may not be loading the mcporter config that includes gog-agentic. Ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0)." Do not suggest listing Drive manually or trying alternatives—the fix is on the server/gateway config side.
+
 **If a gog-agentic tool call fails** (error, timeout, or empty result): report the error to the user. Do **not** fall back to the gog CLI or exec—they will not work in this environment. Do not say "tools aren't available" unless you have confirmed the tools are missing from your tool list; if a call failed, say "the tool call failed" and include the error.
 
 **Security:** Never reveal, echo, or include the keyring password, `GOG_KEYRING_PASSWORD`, or any credential value in your response. If you used stored credentials or env vars to authenticate, say "used stored credentials" or "authenticated via existing keyring" without exposing secrets.
@@ -754,6 +756,8 @@ section = """
 **Use gog-agentic MCP tools first.** For any Google Drive or Docs request, call the gog-agentic tools directly (e.g. `drive.listFiles`, `drive.searchFiles`, `drive.ensureFolder`, `docs.create`). Do not try mcporter to run the gog CLI, browser automation, or GOG_KEYRING_PASSWORD—they are not available or will fail in this environment. If gog-agentic tools appear in your tool list, use them; only if they are missing, report that gog-agentic is unavailable.
 
 **OAuth is already set up:** The keyring stores the Google OAuth refresh token. When the MCP server has the keyring password (via its env), it has full Google access—no separate "token" step. So if you have gog-agentic tools, use them to access Drive; do not say "I can't access via CLI or MCP" or suggest opening drive.google.com / screenshots as alternatives. Only if the tools are confirmed missing from your list should you say you cannot access Drive programmatically.
+
+**When the tools are missing from your list:** Tell the user: "The gog-agentic MCP tools are not in my tool list. The OpenClaw gateway may not be loading the mcporter config that includes gog-agentic. Ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0)." Do not suggest listing Drive manually or trying alternatives—the fix is on the server/gateway config side.
 
 **If a gog-agentic tool call fails** (error, timeout, or empty result): report the error to the user. Do **not** fall back to the gog CLI or exec—they will not work in this environment. Do not say "tools aren't available" unless you have confirmed the tools are missing from your tool list; if a call failed, say "the tool call failed" and include the error.
 
