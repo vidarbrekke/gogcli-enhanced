@@ -1634,7 +1634,9 @@ func maybeOpIDArgs(input map[string]any) []string {
 }
 
 func maybeAccountArgs(input map[string]any) []string {
-	if acct := strings.TrimSpace(asString(input["account"])); acct != "" {
+	acct := strings.TrimSpace(asString(input["account"]))
+	// Ignore values that look like flags (e.g. client passing --json as account)
+	if acct != "" && !strings.HasPrefix(acct, "-") {
 		return []string{"--account", acct}
 	}
 	return nil
