@@ -38,18 +38,18 @@ func Register(s *server.Server, executor Executor) {
 	p := &provider{exec: executor}
 	toolSpecs := []server.ToolSpec{
 		{
-			Name:        "docs.planBatch",
-			Description: "Validate and plan a Docs batch update request without applying changes.",
+		Name:        "docs.planBatch",
+		Description: "Validate and plan a Docs batch update request without applying changes.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
-			InputSchema: map[string]any{
-				"type":     "object",
-				"required": []string{"docId", "request"},
-				"properties": map[string]any{
-					"docId":   map[string]any{"type": "string"},
-					"request": map[string]any{"type": "object"},
-					"opId":    map[string]any{"type": "string"},
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"docId", "request"},
+			"properties": map[string]any{
+				"docId":   map[string]any{"type": "string"},
+				"request": map[string]any{"type": "object"},
+				"opId":    map[string]any{"type": "string"},
 					"timeoutMs": map[string]any{
 						"type": "integer",
 					},
@@ -63,18 +63,18 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsPlanBatch,
 		}, {
-			Name:        "docs.executeBatch",
-			Description: "Execute a Docs batch update request.",
+		Name:        "docs.executeBatch",
+		Description: "Execute a Docs batch update request.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "write-heavy",
-			InputSchema: map[string]any{
-				"type":     "object",
-				"required": []string{"docId", "request"},
-				"properties": map[string]any{
-					"docId":   map[string]any{"type": "string"},
-					"request": map[string]any{"type": "object"},
-					"opId":    map[string]any{"type": "string"},
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"docId", "request"},
+			"properties": map[string]any{
+				"docId":   map[string]any{"type": "string"},
+				"request": map[string]any{"type": "object"},
+				"opId":    map[string]any{"type": "string"},
 					"timeoutMs": map[string]any{
 						"type": "integer",
 					},
@@ -499,15 +499,15 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.slidesCreateSlide,
 		}, {
-			Name:        "drive.ensureFolder",
-			Description: "Ensure a folder path exists in Drive; create missing segments.",
+		Name:        "drive.ensureFolder",
+		Description: "Ensure a folder path exists in Drive; create missing segments.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "write-safe",
-			InputSchema: map[string]any{
-				"type":     "object",
-				"required": []string{"path"},
-				"properties": map[string]any{
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"path"},
+			"properties": map[string]any{
 					"path":           map[string]any{"type": "string"},
 					"parentId":       map[string]any{"type": "string"},
 					"account":        map[string]any{"type": "string"},
@@ -519,15 +519,15 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveEnsureFolder,
 		}, {
-			Name:        "drive.untrash",
-			Description: "Restore a trashed Drive file.",
+		Name:        "drive.untrash",
+		Description: "Restore a trashed Drive file.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "write-safe",
-			InputSchema: map[string]any{
-				"type":     "object",
-				"required": []string{"fileId"},
-				"properties": map[string]any{
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"fileId"},
+			"properties": map[string]any{
 					"fileId":         map[string]any{"type": "string"},
 					"account":        map[string]any{"type": "string"},
 					"opId":           map[string]any{"type": "string"},
@@ -538,15 +538,15 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveUntrash,
 		}, {
-			Name:        "drive.getPermission",
-			Description: "Get one permission entry for a Drive file.",
+		Name:        "drive.getPermission",
+		Description: "Get one permission entry for a Drive file.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
-			InputSchema: map[string]any{
-				"type":     "object",
-				"required": []string{"fileId", "permissionId"},
-				"properties": map[string]any{
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []string{"fileId", "permissionId"},
+			"properties": map[string]any{
 					"fileId":         map[string]any{"type": "string"},
 					"permissionId":   map[string]any{"type": "string"},
 					"account":        map[string]any{"type": "string"},

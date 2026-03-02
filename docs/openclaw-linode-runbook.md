@@ -142,7 +142,7 @@ When the MCP config file already lists **gog-agentic** but the agent doesn’t u
 
 ### 8.0 Agent says “gog-agentic tools are not showing up in my tool list”
 
-If the agent reads TOOLS.md but reports that gog-agentic tools are not in its tool list, the gateway is not seeing the MCP server. **Restarting only the gateway is not enough** if the mcporter daemon is not running or the gateway uses a different config.
+If the agent reads TOOLS.md but reports that gog-agentic tools are not in its tool list, the gateway may not be exposing MCP server tools as first-class tools (some OpenClaw setups only expose core tools + plugins). **Use exec + mcporter call:** The agent can still use gog-agentic by calling the **exec** tool with `mcporter call gog-agentic.<toolName> --args '<JSON>'`. TOOLS.md (injected by setup) instructs the agent to do this when drive.*/docs.* are not in its list. Ensure (1) the agent has **exec** allowed (main agent does by default), (2) mcporter is on PATH for the gateway process, and (3) the mcporter daemon is running with a config that includes gog-agentic (see below). If the agent still says tools are unavailable after trying exec + mcporter, or exec fails, run the checklist. **Restarting only the gateway is not enough** if the mcporter daemon is not running or the gateway uses a different config.
 
 **Checklist (on the Linode server):**
 
@@ -168,6 +168,8 @@ If the agent reads TOOLS.md but reports that gog-agentic tools are not in its to
    Environment=MCPORTER_CONFIG=/root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json
    ```
    Then `systemctl --user daemon-reload` and `systemctl --user restart openclaw-gateway`.
+
+   **If the gateway overrides HOME** (e.g. `Environment=HOME=/root/openclaw-stock-home`), the MCP layer may resolve the default mcporter config as `$HOME/.mcporter/mcporter.json`, i.e. `/root/openclaw-stock-home/.mcporter/mcporter.json`. That path must exist and contain the gog-agentic entry, or the agent will not see the tools. Setup (when run from a workspace under `.../openclaw-stock-home/.openclaw/workspace`) now merges gog-agentic into that path automatically. If you deployed before that change, create or merge manually: copy the `gog-agentic` entry from `workspace/config/mcporter.json` into `openclaw_stock_home/.mcporter/mcporter.json` (create the directory if needed), then restart the daemon and gateway.
 
 4. **Then** restart the OpenClaw gateway so it reconnects to mcporter and refreshes the tool list.
 
@@ -311,6 +313,39 @@ OpenClaw (or the skill that runs mcporter) may use a default path like `~/.mcpor
 ## 8.8 Ensure gateway finds gog-agentic: merge into default mcporter path
 
 Many OpenClaw installs use the default mcporter config path `~/.mcporter/mcporter.json`. Setup merges the gog-agentic entry into that file when it exists, or creates it in cloud context, and **starts the mcporter daemon with that path** so the gateway finds gog-agentic. If your gateway uses a different config path, run the daemon with that path (e.g. `./scripts/ensure-mcp-daemon.sh` for workspace config). See §8.0.
+
+## 8.9 Agent says “gog-agentic tools are not in my tool list” (OpenClaw design: exec + mcporter)
+
+**What OpenClaw actually does:** In many setups, the OpenClaw gateway does **not** inject MCP server tools (e.g. `drive.listFiles`, `docs.create`) as first-class tools into the agent’s tool list. MCP is used via the **mcporter skill**: the agent has the **exec** tool and is expected to run `mcporter call gog-agentic.<toolName> --args '<JSON>'` when it needs Drive/Docs. The gateway’s `gateway.config` / config JSON does not list MCP servers; they are defined only in `config/mcporter.json`. So the agent’s “tool list” may legitimately not contain `drive.*` / `docs.*`—that does not mean the config is missing.
+
+**What must be true for the agent to use gog-agentic:**
+
+1. **Agent has exec**  
+   The main agent (and any subagent that handles Drive/Docs) must have the **exec** tool allowed. Default OpenClaw config usually allows exec; if you use a strict `tools.profile` or `tools.deny`, ensure exec is not denied.
+
+2. **TOOLS.md tells the agent to use exec + mcporter when direct tools are missing**  
+   Setup injects a section into `$workspace_dir/TOOLS.md` that says: if `drive.*` / `docs.*` are not in your tool list, use **exec** with `mcporter call gog-agentic.drive.listFiles --args '{}'` (and similar for other tools). Ensure that file exists in the workspace and contains that directive (see §6.1). Without it, the agent may conclude “tools are unavailable” instead of trying exec + mcporter.
+
+3. **Exec environment has mcporter and MCPORTER_CONFIG**  
+   When the agent runs a command via exec, the shell must see `mcporter` on PATH and `MCPORTER_CONFIG` pointing at the workspace mcporter config (so `mcporter call gog-agentic.*` uses the same config as the daemon). The gateway inherits env from systemd/process; if you override `HOME`, ensure `env.vars` in `openclaw.json` includes `MCPORTER_CONFIG` so exec children get it:
+   ```json
+   "env": {
+     "vars": {
+       "MCPORTER_CONFIG": "/path/to/workspace/config/mcporter.json",
+       "GOG_KEYRING_BACKEND": "file",
+       "GOG_KEYRING_PASSWORD_FILE": "/path/to/workspace/.config/gogcli/keyring.password",
+       "XDG_CONFIG_HOME": "/path/to/workspace/.config"
+     }
+   }
+   ```
+   Replace `/path/to/workspace` with the real workspace path (e.g. `/root/openclaw-stock-home/.openclaw/workspace`). Restart the gateway after editing.
+
+4. **mcporter daemon is running with that config**  
+   Run the §8.0 checklist: diagnostic script, then `mcporter --config <that config> daemon restart`, then restart the gateway.
+
+**Verification:** As the gateway user, run:
+`mcporter --config /path/to/workspace/config/mcporter.json call --server gog-agentic --tool drive.listFiles --args '{}' --output json`  
+If that returns `"ok": true` and a `result` with files, the agent can do the same via exec. If the agent still says tools are unavailable, ensure it has exec and TOOLS.md instructs it to use `mcporter call gog-agentic.*` when direct tools are missing.
 
 ## 9. Verifying that OpenClaw used gog-agentic MCP
 
