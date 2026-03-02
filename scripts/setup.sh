@@ -673,19 +673,18 @@ tools_path = sys.argv[1]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-**Use gog-agentic MCP tools first.** For any Google Drive or Docs request, call the gog-agentic tools directly (e.g. `drive.listFiles`, `drive.searchFiles`, `drive.ensureFolder`, `docs.create`). Do not try mcporter to run the gog CLI, browser automation, or GOG_KEYRING_PASSWORD—they are not available or will fail in this environment. If gog-agentic tools appear in your tool list, use them; only if they are missing, report that gog-agentic is unavailable.
+## Google Drive and Docs (gog-agentic MCP)
 
-**OAuth is already set up:** The keyring stores the Google OAuth refresh token. When the MCP server has the keyring password (via its env), it has full Google access—no separate "token" step. So if you have gog-agentic tools, use them to access Drive; do not say "I can't access via CLI or MCP" or suggest opening drive.google.com / screenshots as alternatives. Only if the tools are confirmed missing from your list should you say you cannot access Drive programmatically.
+**Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names contain dots so you MUST use `--server gog-agentic --tool <toolName>` — do NOT use the `gog-agentic.drive.listFiles` dot-selector (it splits on the first dot and fails with "tool not found").
 
-**When the tools are missing from your list:** Tell the user: "The gog-agentic MCP tools are not in my tool list. The OpenClaw gateway may not be loading the mcporter config that includes gog-agentic. Ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0)." Do not suggest listing Drive manually or trying alternatives—the fix is on the server/gateway config side.
+- **List Drive root:** `mcporter call --server gog-agentic --tool drive.listFiles --args '{}' --output json`
+- **Create folder:** `mcporter call --server gog-agentic --tool drive.ensureFolder --args '{"path":"FolderName"}' --output json`
+- **Create doc:** `mcporter call --server gog-agentic --tool docs.create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
+- **Search files:** `mcporter call --server gog-agentic --tool drive.searchFiles --args '{"query":"name or text"}' --output json`
 
-**If a gog-agentic tool call fails** (error, timeout, or empty result): report the error to the user. Do **not** fall back to the gog CLI or exec—they will not work in this environment. Do not say "tools aren't available" unless you have confirmed the tools are missing from your tool list; if a call failed, say "the tool call failed" and include the error.
+OAuth is already set up. If the exec call fails (e.g. command not found or error output), report the error and then suggest the user ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0). Never reveal the keyring password or credentials.
 
-**Security:** Never reveal, echo, or include the keyring password, `GOG_KEYRING_PASSWORD`, or any credential value in your response. If you used stored credentials or env vars to authenticate, say "used stored credentials" or "authenticated via existing keyring" without exposing secrets.
-
-For create folder, create document, edit document, list or search files, call: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
-
-**Faster flows:** Use `docs.createWithBody` when creating a doc with initial content or formatting (one tool call instead of create + insertText). Use `docs.executeBatch` to insert text and apply styling (e.g. H2) in a single batch. Use `drive.searchFiles` with `query` to get a folder ID when the folder may already exist.
+For "create folder then doc": run ensureFolder first, then docs.create with the returned folderId as parentId.
 """
 existing = ""
 if os.path.isfile(tools_path):
@@ -749,19 +748,16 @@ tools_path = sys.argv[1]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-**Use gog-agentic MCP tools first.** For any Google Drive or Docs request, call the gog-agentic tools directly (e.g. `drive.listFiles`, `drive.searchFiles`, `drive.ensureFolder`, `docs.create`). Do not try mcporter to run the gog CLI, browser automation, or GOG_KEYRING_PASSWORD—they are not available or will fail in this environment. If gog-agentic tools appear in your tool list, use them; only if they are missing, report that gog-agentic is unavailable.
+**Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names contain dots so you MUST use `--server gog-agentic --tool <toolName>` — do NOT use the `gog-agentic.drive.listFiles` dot-selector (it splits on the first dot and fails with "tool not found").
 
-**OAuth is already set up:** The keyring stores the Google OAuth refresh token. When the MCP server has the keyring password (via its env), it has full Google access—no separate "token" step. So if you have gog-agentic tools, use them to access Drive; do not say "I can't access via CLI or MCP" or suggest opening drive.google.com / screenshots as alternatives. Only if the tools are confirmed missing from your list should you say you cannot access Drive programmatically.
+- **List Drive root:** `mcporter call --server gog-agentic --tool drive.listFiles --args '{}' --output json`
+- **Create folder:** `mcporter call --server gog-agentic --tool drive.ensureFolder --args '{"path":"FolderName"}' --output json`
+- **Create doc:** `mcporter call --server gog-agentic --tool docs.create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
+- **Search files:** `mcporter call --server gog-agentic --tool drive.searchFiles --args '{"query":"name or text"}' --output json`
 
-**When the tools are missing from your list:** Tell the user: "The gog-agentic MCP tools are not in my tool list. The OpenClaw gateway may not be loading the mcporter config that includes gog-agentic. Ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0)." Do not suggest listing Drive manually or trying alternatives—the fix is on the server/gateway config side.
+OAuth is already set up. If the exec call fails (e.g. command not found or error output), report the error and then suggest the user ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0). Never reveal the keyring password or credentials.
 
-**If a gog-agentic tool call fails** (error, timeout, or empty result): report the error to the user. Do **not** fall back to the gog CLI or exec—they will not work in this environment. Do not say "tools aren't available" unless you have confirmed the tools are missing from your tool list; if a call failed, say "the tool call failed" and include the error.
-
-**Security:** Never reveal, echo, or include the keyring password, `GOG_KEYRING_PASSWORD`, or any credential value in your response. If you used stored credentials or env vars to authenticate, say "used stored credentials" or "authenticated via existing keyring" without exposing secrets.
-
-For create folder, create document, edit document, list or search files, call: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
-
-**Faster flows:** Use `docs.createWithBody` when creating a doc with initial content or formatting (one tool call instead of create + insertText). Use `docs.executeBatch` to insert text and apply styling (e.g. H2) in a single batch. Use `drive.searchFiles` with `query` to get a folder ID when the folder may already exist.
+For "create folder then doc": run ensureFolder first, then docs.create with the returned folderId as parentId.
 """
 existing = ""
 if os.path.isfile(tools_path):
@@ -813,6 +809,38 @@ PY
     log "Merged gog-agentic into default mcporter config: $default_mcp"
     if has_cmd mcporter; then
       mcporter --config "$default_mcp" daemon restart 2>/dev/null && log "Started mcporter daemon (default path so gateway finds gog-agentic)." || true
+    fi
+  fi
+
+  # When gateway runs with HOME set to OpenClaw home (e.g. systemd override), it resolves ~/.mcporter to that HOME.
+  # Ensure gog-agentic exists there so the agent gets tools even when MCPORTER_CONFIG is not used.
+  if [[ "$workspace_dir" == *"/.openclaw/workspace" ]]; then
+    local openclaw_home="${workspace_dir%/.openclaw/workspace}"
+    local openclaw_mcp="$openclaw_home/.mcporter/mcporter.json"
+    if [[ -n "$openclaw_home" ]] && [[ "$openclaw_home" != "$HOME" ]]; then
+      mkdir -p "$(dirname "$openclaw_mcp")"
+      python3 - <<PY
+import json, os
+target = ${openclaw_mcp@Q}
+src = ${mcporter_config@Q}
+with open(src, 'r', encoding='utf-8') as f:
+    ws = json.load(f)
+entry = (ws.get('mcpServers') or {}).get('gog-agentic')
+if not entry:
+    exit(0)
+if os.path.exists(target):
+    with open(target, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+else:
+    data = {}
+if not isinstance(data.get('mcpServers'), dict):
+    data['mcpServers'] = {}
+data['mcpServers']['gog-agentic'] = entry
+with open(target, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+PY
+      log "Merged gog-agentic into OpenClaw HOME mcporter config: $openclaw_mcp"
     fi
   fi
 
