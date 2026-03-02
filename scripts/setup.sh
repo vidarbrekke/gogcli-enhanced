@@ -515,11 +515,30 @@ PY
   fi
 
   if is_cloud_context; then
-    echo "A browser URL will be shown next. Open it, approve, and paste redirect URL back in this terminal."
-    if "$gog_cmd" auth add "$email" --services user --manual; then
+    echo "A browser URL will be shown next. Open it, approve, then paste the redirect URL back here."
+    step1_out="$("$gog_cmd" auth add "$email" --services user --remote --step 1 2>/dev/null)" || true
+    auth_url=""
+    if [[ -n "$step1_out" ]]; then
+      auth_url="$(echo "$step1_out" | awk -F'\t' '$1=="auth_url"{print $2; exit}')"
+    fi
+    if [[ -z "$auth_url" ]]; then
+      err "Could not get auth URL. Run manually: $gog_cmd auth add $email --services user --remote --step 1"
+      return 1
+    fi
+    echo ""
+    echo "Open this URL in your browser to authorize:"
+    echo "  $auth_url"
+    echo ""
+    local redirect_url
+    prompt_line redirect_url "Paste the full redirect URL from your browser, then press Enter: "
+    if [[ -z "$redirect_url" ]]; then
+      err "Redirect URL is required. Re-run and paste the URL after authorizing."
+      return 1
+    fi
+    if "$gog_cmd" auth add "$email" --services user --remote --step 2 --auth-url "$redirect_url"; then
       AUTH_ACCOUNT_OK=1
     else
-      err "Authorization did not complete. Retry now with: $gog_cmd auth add $email --services user --manual"
+      err "Authorization did not complete. Retry: $gog_cmd auth add $email --services user --remote --step 2 --auth-url <url>"
       return 1
     fi
   else
@@ -650,13 +669,13 @@ PY
   local tools_md="$workspace_dir/TOOLS.md"
   local directive_marker="gog-agentic MCP (Google Drive and Docs)"
   python3 - "$tools_md" "$directive_marker" <<'PY'
-import sys, os
+import sys, os, re
 tools_path = sys.argv[1]
 marker = sys.argv[2]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-**Use gog-agentic MCP first—do not run the gog CLI or shell.** For any Drive or Docs request (list files, search, create folder, create doc, etc.), call the gog-agentic MCP tools directly (e.g. `drive.listFiles`, `drive.searchFiles`, `drive.ensureFolder`, `docs.create`). The gog CLI is not authenticated in this environment and will fail; skip it and use MCP only.
+**Use gog-agentic MCP tools first.** For any Google Drive or Docs request, call the gog-agentic tools directly (e.g. `drive.listFiles`, `drive.searchFiles`, `drive.ensureFolder`, `docs.create`). Do not try mcporter to run the gog CLI, browser automation, or GOG_KEYRING_PASSWORD—they are not available or will fail in this environment. If gog-agentic tools appear in your tool list, use them; only if they are missing, report that gog-agentic is unavailable.
 
 For create folder, create document, edit document, list or search files, call: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
 
@@ -667,6 +686,12 @@ if os.path.isfile(tools_path):
     with open(tools_path, "r", encoding="utf-8") as f:
         existing = f.read()
 if marker in existing:
+    # Replace existing section so re-run updates the directive (e.g. after deploy).
+    pattern = r'\n## Google Drive and Docs \(gog-agentic MCP\)\n.*?(?=\n## |\Z)'
+    new_content = re.sub(pattern, '\n' + section.strip() + '\n', existing, count=1, flags=re.DOTALL)
+    if new_content != existing:
+        with open(tools_path, "w", encoding="utf-8") as f:
+            f.write(new_content)
     sys.exit(0)
 with open(tools_path, "a" if existing else "w", encoding="utf-8") as f:
     if existing and not existing.endswith("\n"):
@@ -714,13 +739,13 @@ PY
     # Ensure directive in this workspace bootstrap too
     tools_md_fb="$fallback_dir/TOOLS.md"
     python3 - "$tools_md_fb" "gog-agentic MCP (Google Drive and Docs)" <<'PY'
-import sys, os
+import sys, os, re
 tools_path = sys.argv[1]
 marker = sys.argv[2]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-**Use gog-agentic MCP first—do not run the gog CLI or shell.** For any Drive or Docs request (list files, search, create folder, create doc, etc.), call the gog-agentic MCP tools directly (e.g. `drive.listFiles`, `drive.searchFiles`, `drive.ensureFolder`, `docs.create`). The gog CLI is not authenticated in this environment and will fail; skip it and use MCP only.
+**Use gog-agentic MCP tools first.** For any Google Drive or Docs request, call the gog-agentic tools directly (e.g. `drive.listFiles`, `drive.searchFiles`, `drive.ensureFolder`, `docs.create`). Do not try mcporter to run the gog CLI, browser automation, or GOG_KEYRING_PASSWORD—they are not available or will fail in this environment. If gog-agentic tools appear in your tool list, use them; only if they are missing, report that gog-agentic is unavailable.
 
 For create folder, create document, edit document, list or search files, call: `drive.ensureFolder`, `drive.searchFiles`, `docs.create`, `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. For "create folder and document", call `drive.ensureFolder` first, then `docs.create` with the returned `folderId` as `parentId`.
 
@@ -731,6 +756,11 @@ if os.path.isfile(tools_path):
     with open(tools_path, "r", encoding="utf-8") as f:
         existing = f.read()
 if marker in existing:
+    pattern = r'\n## Google Drive and Docs \(gog-agentic MCP\)\n.*?(?=\n## |\Z)'
+    new_content = re.sub(pattern, '\n' + section.strip() + '\n', existing, count=1, flags=re.DOTALL)
+    if new_content != existing:
+        with open(tools_path, "w", encoding="utf-8") as f:
+            f.write(new_content)
     sys.exit(0)
 with open(tools_path, "a" if existing else "w", encoding="utf-8") as f:
     if existing and not existing.endswith("\n"):

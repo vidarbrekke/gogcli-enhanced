@@ -86,14 +86,14 @@ The intended flow:
 
 So the agent should call `drive.ensureFolder` first, read `folderId` from the result, then call `docs.create` with that `parentId`. With `docs.create` now available in MCP, this flow is supported end-to-end.
 
-### 6.1 Prefer gog-agentic MCP (automatic via setup)
+### 6.1 Prefer gog-agentic MCP first (automatic via setup)
 
-Setup **automatically** injects a directive into the OpenClaw workspace bootstrap file `TOOLS.md` so the agent always prefers gog-agentic for Google Drive and Docs. OpenClaw includes `TOOLS.md` in the system prompt for every run, so no manual instruction is required.
+Setup **automatically** injects a directive into the OpenClaw workspace bootstrap file `TOOLS.md` so the agent uses gog-agentic for Google Drive and Docs **before** trying other paths. OpenClaw includes `TOOLS.md` in the system prompt for every run, so no manual instruction is required.
 
-- **What setup does:** Creates or appends to `$workspace_dir/TOOLS.md` a section *"Google Drive and Docs (gog-agentic MCP)"* that instructs the agent to use **only** gog-agentic MCP for Drive/Docs (never run the `gog` CLI in a shell). Idempotent: re-running setup does not duplicate the section.
+- **What setup does:** Creates or appends to `$workspace_dir/TOOLS.md` a section *"Google Drive and Docs (gog-agentic MCP)"* that instructs the agent to call gog-agentic MCP tools directly and **not** to try mcporter-to-CLI, browser automation, or GOG_KEYRING_PASSWORD—so the agent does not waste time and tokens probing those paths. Idempotent: re-running setup does not duplicate the section.
 - **If you need to add it manually** (e.g. different workspace or TOOLS.md was removed), add a system or project instruction with this text:
 
-> For Google Drive and Google Docs actions (create folder, create document, edit document, list files, etc.), **always use the gog-agentic MCP tools** when available. Call `drive.ensureFolder` for folders, `docs.create` for new docs (with `parentId` from the folder result), `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not invoke the `gog` CLI directly or use other Google integrations for these actions unless the required tool does not exist in gog-agentic. If a user asks to create a folder and document, use `drive.ensureFolder` then `docs.create` with the returned `folderId` as `parentId`.
+> For Google Drive and Google Docs actions (create folder, create document, edit document, list files, etc.), **use the gog-agentic MCP tools first.** Call `drive.ensureFolder` for folders, `docs.create` for new docs (with `parentId` from the folder result), `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not try mcporter to run the gog CLI, browser automation, or GOG_KEYRING_PASSWORD—use MCP tools directly. Only if gog-agentic tools are missing from your tool list, report that gog-agentic is unavailable.
 
 *Why TOOLS.md:* OpenClaw injects bootstrap files (e.g. `TOOLS.md`) into the system prompt automatically. Writing the directive during setup gives zero manual steps and scales to all users.
 
@@ -180,6 +180,30 @@ The gog MCP server talks over **stdio** (stdin/stdout). If the MCP host spawns i
 3. Ensure OpenClaw (or whatever runs mcporter) uses the same config path so it talks to the daemon; the daemon will then list/call tools via the held gog process.
 
 After this, `mcporter daemon status` should list gog-agentic and `mcporter list gog-agentic` should return tools. The gog CLI (e.g. `gog drive ls`) works in a separate process with a TTY; MCP only works when the host (or daemon) keeps the gog process attached and pipes stdio.
+
+### 8.6 Agent says "gog CLI needs to be authenticated" or "no tokens stored" (5-whys root cause)
+
+**Root cause:** The environment passed to the exec/shell when the agent runs a command did not include the gog keyring env vars (`GOG_KEYRING_BACKEND`, `GOG_KEYRING_PASSWORD_FILE`, `XDG_CONFIG_HOME`). OpenClaw builds exec env from the gateway's runtime env, which is seeded from `process.env` and merged with config `env.vars` when config is loaded. If neither had the gog vars, the shell's `gog` process sees no keyring and reports "no tokens" / "authenticate first".
+
+**Fix (applied on the server):**
+
+1. **Config:** In `openclaw.json` (e.g. `/root/openclaw-stock-home/.openclaw/openclaw.json`), add under the top-level `env`:
+   ```json
+   "env": {
+     "vars": {
+       "GOG_KEYRING_BACKEND": "file",
+       "GOG_KEYRING_PASSWORD_FILE": "/path/to/workspace/.config/gogcli/keyring.password",
+       "XDG_CONFIG_HOME": "/path/to/workspace/.config"
+     }
+   }
+   ```
+   Use the real path to your keyring password file and config directory. When the gateway loads config, these vars are merged into the runtime env used for exec.
+
+2. **Systemd (optional):** In the gateway's systemd override, add the same `Environment=` lines so the gateway process has them at startup.
+
+3. **Restart:** Restart the OpenClaw gateway so it reloads config and applies `env.vars`.
+
+4. **Prefer MCP:** Continue to direct the agent to use gog-agentic MCP first (TOOLS.md) so it does not rely on the CLI for Drive/Docs.
 
 ## 9. Verifying that OpenClaw used gog-agentic MCP
 
