@@ -231,6 +231,45 @@ After this, `mcporter daemon status` should list gog-agentic and `mcporter list 
 
 4. **Prefer MCP:** Continue to direct the agent to use gog-agentic MCP first (TOOLS.md) so it does not rely on the CLI for Drive/Docs.
 
+## 8.7 Agent says “I can’t access Google Drive — authentication isn’t set up” (5-whys)
+
+Use this when the agent responds with “authentication isn’t set up” or “I can’t access your Google Drive directly” and offers to set up gog CLI or share files instead of using tools.
+
+**Why 1:** Why does the agent say authentication isn’t set up?  
+Because it either has no gog-agentic tools in its tool list and infers it can’t access Drive, or it called a tool and got an auth/keyring error and is paraphrasing it.
+
+**Why 2:** Why would it have no tools / get an auth error?  
+Either (A) the OpenClaw gateway never loaded gog-agentic (wrong or missing MCP config path), or (B) the gateway loaded it but the gog process fails at runtime (keyring env, binary path), or (C) the agent has the tools but didn’t call them and defaulted to “auth not set up” from context.
+
+**Why 3:** Why would the gateway not load gog-agentic?  
+The gateway gets its MCP server list from a config file. If that config is not the same file we write to (e.g. we write to `workspace/config/mcporter.json` but the gateway uses `~/.mcporter/mcporter.json` or another path), gog-agentic will never appear in the tool list.
+
+**Why 4:** Why would the config path differ?  
+OpenClaw (or the skill that runs mcporter) may use a default path like `~/.mcporter/mcporter.json` or a path set in openclaw.json / systemd. Our setup writes to the workspace `config/mcporter.json` and to fallback workspaces; it does not know which path the gateway actually uses.
+
+**Why 5 (root cause):** The gateway’s MCP config path and the path(s) we write to are not guaranteed to match, so the agent may never see gog-agentic and falls back to “authentication isn’t set up.”
+
+**Fix:**
+
+1. **Confirm where the gateway gets its MCP config.** Check how the OpenClaw gateway is started (systemd unit, openclaw.json, or env). If it uses `~/.mcporter/mcporter.json`, ensure that file contains gog-agentic (setup can merge into it; see below).
+2. **Ensure gog-agentic is in that config.** We write to:
+   - `$workspace_dir/config/mcporter.json` (e.g. `/root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json`)
+   - Fallbacks: `~/openclaw-stock-home/.openclaw/workspace/config/mcporter.json`, `~/.openclaw/workspace/config/mcporter.json`
+   - If your gateway uses `~/.mcporter/mcporter.json`, run setup from the repo—it now merges gog-agentic there when that path exists (see §8.8). Or merge the gog-agentic entry from the workspace config into `~/.mcporter/mcporter.json` manually.
+3. **Restart daemon and gateway.** Run `./scripts/ensure-mcp-daemon.sh` with the workspace config, then `RESTART_GATEWAY=1 ./scripts/ensure-mcp-daemon.sh` (or restart the gateway however you normally do). See §8.0.
+4. **If the agent has tools but reports auth:** The gog process may be failing to unlock the keyring. Check §8.2 (GOG_KEYRING_PASSWORD_FILE in mcporter.json env) and run the diagnostic (§8.3).
+
+**Why 6–10 (if still broken):** If the agent still says auth isn’t set up after the fix:
+- **Why 6:** Gateway might not have reloaded the config (restart gateway after changing config).
+- **Why 7:** Multiple gateway processes; only one was restarted (stop all, start one with the correct config).
+- **Why 8:** Tool list is cached and not refreshed (restart gateway so it re-fetches tools from mcporter).
+- **Why 9:** The model is inferring “auth not set up” from TOOLS.md or a previous turn without calling tools (ensure TOOLS.md says “use gog-agentic tools first” and that the agent sees the tools in its list).
+- **Why 10:** A different OpenClaw profile or workspace is active in the UI, and that profile uses a different gateway/config (switch workspace or ensure the active one uses the config we write to).
+
+## 8.8 Ensure gateway finds gog-agentic: merge into default mcporter path
+
+Many OpenClaw installs use the default mcporter config path `~/.mcporter/mcporter.json`. Setup merges the gog-agentic entry into that file when it exists, or creates it in cloud context, and **starts the mcporter daemon with that path** so the gateway finds gog-agentic. If your gateway uses a different config path, run the daemon with that path (e.g. `./scripts/ensure-mcp-daemon.sh` for workspace config). See §8.0.
+
 ## 9. Verifying that OpenClaw used gog-agentic MCP
 
 When the agent creates a folder or document, it is not always obvious whether it used the gog MCP tools or another path (e.g. another Google Workspace integration, or the gog CLI via a shell tool).

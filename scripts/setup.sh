@@ -771,6 +771,41 @@ PY
     log "Ensured gog-agentic directive in $tools_md_fb"
   done
 
+  # So the gateway finds gog-agentic even when it uses the default mcporter path (~/.mcporter/mcporter.json)
+  local default_mcp="$HOME/.mcporter/mcporter.json"
+  if [[ -f "$default_mcp" ]] || is_cloud_context; then
+    mkdir -p "$(dirname "$default_mcp")"
+    python3 - <<PY
+import json, os
+default_path = ${default_mcp@Q}
+env_obj = json.loads(${env_json@Q})
+if os.environ.get("MCP_PASSWORD_FILE_PATH"):
+    env_obj["GOG_KEYRING_PASSWORD_FILE"] = os.environ.get("MCP_PASSWORD_FILE_PATH")
+entry = {'command': ${gog_cmd@Q}, 'args': ['mcp', 'serve'], 'lifecycle': {'mode': 'keep-alive'}}
+if env_obj:
+    entry['env'] = env_obj
+if os.path.exists(default_path):
+    with open(default_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+else:
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+m = data.get('mcpServers')
+if not isinstance(m, dict):
+    m = {}
+m['gog-agentic'] = entry
+data['mcpServers'] = m
+with open(default_path, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+PY
+    log "Merged gog-agentic into default mcporter config: $default_mcp"
+    if has_cmd mcporter; then
+      mcporter --config "$default_mcp" daemon restart 2>/dev/null && log "Started mcporter daemon (default path so gateway finds gog-agentic)." || true
+    fi
+  fi
+
   echo "Running verification check. Stay tuned."
 
   # Run diagnostic so we catch keyring/path issues at setup time (not when the agent tries to use tools).
