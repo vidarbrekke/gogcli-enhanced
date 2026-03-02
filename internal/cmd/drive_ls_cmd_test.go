@@ -187,3 +187,85 @@ func TestDriveLsCmd_NoAllDrives(t *testing.T) {
 		t.Fatalf("execute: %v", execErr)
 	}
 }
+
+func TestDriveLsCmd_AllFlagCombinesPages(t *testing.T) {
+	origNew := newDriveService
+	t.Cleanup(func() { newDriveService = origNew })
+
+	pageNum := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Path != "/drive/v3/files" && r.URL.Path != "/files" {
+			http.NotFound(w, r)
+			return
+		}
+		if errMsg := driveAllDrivesQueryError(r, true); errMsg != "" {
+			http.Error(w, errMsg, http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		pageNum++
+		switch pageNum {
+		case 1:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"files": []map[string]any{
+					{"id": "p1a", "name": "Page1A", "mimeType": "application/pdf", "size": "0", "modifiedTime": "2025-01-01T00:00:00Z"},
+					{"id": "p1b", "name": "Page1B", "mimeType": "application/pdf", "size": "0", "modifiedTime": "2025-01-01T00:00:00Z"},
+				},
+				"nextPageToken": "token2",
+			})
+		case 2:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"files": []map[string]any{
+					{"id": "p2a", "name": "Page2A", "mimeType": "application/pdf", "size": "0", "modifiedTime": "2025-01-01T00:00:00Z"},
+				},
+				"nextPageToken": "",
+			})
+		default:
+			http.Error(w, "unexpected page", http.StatusInternalServerError)
+		}
+	}))
+	defer srv.Close()
+
+	svc, err := drive.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
+
+	flags := &RootFlags{Account: "a@b.com"}
+	u, _ := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+	ctx := ui.WithUI(context.Background(), u)
+	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
+
+	jsonOut := captureStdout(t, func() {
+		cmd := &DriveLsCmd{}
+		if execErr := runKong(t, cmd, []string{"--all"}, ctx, flags); execErr != nil {
+			t.Fatalf("execute: %v", execErr)
+		}
+	})
+
+	var parsed struct {
+		Files         []*drive.File `json:"files"`
+		NextPageToken string        `json:"nextPageToken"`
+	}
+	if err := json.Unmarshal([]byte(jsonOut), &parsed); err != nil {
+		t.Fatalf("json parse: %v\nout=%q", err, jsonOut)
+	}
+	if parsed.NextPageToken != "" {
+		t.Fatalf("expected empty nextPageToken with --all, got %q", parsed.NextPageToken)
+	}
+	if len(parsed.Files) != 3 {
+		t.Fatalf("expected 3 files (2+1 pages), got %d", len(parsed.Files))
+	}
+	if pageNum != 2 {
+		t.Fatalf("expected 2 API calls, got %d", pageNum)
+	}
+}

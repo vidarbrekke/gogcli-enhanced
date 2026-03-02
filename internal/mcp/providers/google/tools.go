@@ -559,7 +559,7 @@ func Register(s *server.Server, executor Executor) {
 			Handler: p.driveGetPermission,
 		}, {
 			Name:        "drive.listFiles",
-			Description: "List files in Drive folder context.",
+			Description: "List files in Drive folder context. When page is omitted, fetches all pages (up to 10k items) and returns a single combined list with no nextPageToken.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
@@ -1402,6 +1402,9 @@ func (p *provider) driveListFiles(_ context.Context, input map[string]any) (map[
 	}
 	if page := strings.TrimSpace(asString(input["page"])); page != "" {
 		args = append(args, "--page", page)
+	} else {
+		// No page token: fetch all pages so agents get full list without handling pagination.
+		args = append(args, "--all")
 	}
 	if _, ok := input["allDrives"]; ok {
 		if asBool(input["allDrives"]) {
@@ -1431,6 +1434,8 @@ func (p *provider) driveSearchFiles(_ context.Context, input map[string]any) (ma
 	}
 	if page := strings.TrimSpace(asString(input["page"])); page != "" {
 		args = append(args, "--page", page)
+	} else {
+		args = append(args, "--all")
 	}
 	// Default allDrives to true so search includes shared drives; only restrict when explicitly false
 	if v, ok := input["allDrives"]; ok && !asBool(v) {

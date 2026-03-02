@@ -58,6 +58,9 @@ const (
 
 	drivePermRoleReader = "reader"
 	drivePermRoleWriter = "writer"
+
+	// driveListAllMaxItems caps the number of items returned when --all is used to avoid runaway.
+	driveListAllMaxItems = 10_000
 )
 
 type DriveCmd struct {
@@ -83,8 +86,9 @@ type DriveCmd struct {
 }
 
 type DriveLsCmd struct {
-	Max       int64  `name:"max" aliases:"limit" help:"Max results" default:"20"`
+	Max       int64  `name:"max" aliases:"limit" help:"Max results per page" default:"20"`
 	Page      string `name:"page" aliases:"cursor" help:"Page token"`
+	All       bool   `name:"all" help:"Fetch all pages and return combined list (no nextPageToken); ignores page"`
 	Query     string `name:"query" help:"Drive query filter"`
 	Parent    string `name:"parent" help:"Folder ID to list (default: root)"`
 	AllDrives bool   `name:"all-drives" help:"Include shared drives (default: true; use --no-all-drives for My Drive only)" default:"true" negatable:"_"`
@@ -109,29 +113,78 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	q := buildDriveListQuery(folderID, c.Query)
 
-	call := svc.Files.List().
-		Q(q).
-		PageSize(c.Max).
-		PageToken(c.Page).
-		OrderBy("modifiedTime desc")
-	call = driveFilesListCallWithDriveSupport(call, c.AllDrives)
+	fetchPage := func(pageToken string) ([]*drive.File, string, error) {
+		call := svc.Files.List().
+			Q(q).
+			PageSize(c.Max).
+			PageToken(pageToken).
+			OrderBy("modifiedTime desc")
+		call = driveFilesListCallWithDriveSupport(call, c.AllDrives)
+		resp, err := call.
+			Fields("nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, webViewLink)").
+			Context(ctx).
+			Do()
+		if err != nil {
+			return nil, "", err
+		}
+		return resp.Files, resp.NextPageToken, nil
+	}
 
-	resp, err := call.
-		Fields("nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, webViewLink)").
-		Context(ctx).
-		Do()
+	if c.All {
+		var allFiles []*drive.File
+		pageToken := c.Page
+		for {
+			files, nextToken, err := fetchPage(pageToken)
+			if err != nil {
+				return err
+			}
+			allFiles = append(allFiles, files...)
+			if nextToken == "" || int64(len(allFiles)) >= driveListAllMaxItems {
+				pageToken = ""
+				break
+			}
+			pageToken = nextToken
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+				"files":         allFiles,
+				"nextPageToken": "",
+			})
+		}
+		if len(allFiles) == 0 {
+			u.Err().Println("No files")
+			return nil
+		}
+		w, flush := tableWriter(ctx)
+		defer flush()
+		fmt.Fprintln(w, "ID\tNAME\tTYPE\tSIZE\tMODIFIED")
+		for _, f := range allFiles {
+			fmt.Fprintf(
+				w,
+				"%s\t%s\t%s\t%s\t%s\n",
+				f.Id,
+				f.Name,
+				driveType(f.MimeType),
+				formatDriveSize(f.Size),
+				formatDateTime(f.ModifiedTime),
+			)
+		}
+		return nil
+	}
+
+	files, nextToken, err := fetchPage(c.Page)
 	if err != nil {
 		return err
 	}
 
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
-			"files":         resp.Files,
-			"nextPageToken": resp.NextPageToken,
+			"files":         files,
+			"nextPageToken": nextToken,
 		})
 	}
 
-	if len(resp.Files) == 0 {
+	if len(files) == 0 {
 		u.Err().Println("No files")
 		return nil
 	}
@@ -139,7 +192,7 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 	w, flush := tableWriter(ctx)
 	defer flush()
 	fmt.Fprintln(w, "ID\tNAME\tTYPE\tSIZE\tMODIFIED")
-	for _, f := range resp.Files {
+	for _, f := range files {
 		fmt.Fprintf(
 			w,
 			"%s\t%s\t%s\t%s\t%s\n",
@@ -150,15 +203,16 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 			formatDateTime(f.ModifiedTime),
 		)
 	}
-	printNextPageHint(u, resp.NextPageToken)
+	printNextPageHint(u, nextToken)
 	return nil
 }
 
 type DriveSearchCmd struct {
 	Query     []string `arg:"" name:"query" help:"Search query"`
 	RawQuery  bool     `name:"raw-query" aliases:"raw" help:"Treat query as Drive query language (pass through; may error if invalid)"`
-	Max       int64    `name:"max" aliases:"limit" help:"Max results" default:"20"`
+	Max       int64    `name:"max" aliases:"limit" help:"Max results per page" default:"20"`
 	Page      string   `name:"page" aliases:"cursor" help:"Page token"`
+	All       bool     `name:"all" help:"Fetch all pages and return combined list (no nextPageToken); ignores page"`
 	AllDrives bool     `name:"all-drives" help:"Include shared drives (default: true; use --no-all-drives for My Drive only)" default:"true" negatable:"_"`
 }
 
@@ -178,29 +232,79 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 
-	call := svc.Files.List().
-		Q(buildDriveSearchQuery(query, c.RawQuery)).
-		PageSize(c.Max).
-		PageToken(c.Page).
-		OrderBy("modifiedTime desc")
-	call = driveFilesListCallWithDriveSupport(call, c.AllDrives)
+	q := buildDriveSearchQuery(query, c.RawQuery)
+	fetchPage := func(pageToken string) ([]*drive.File, string, error) {
+		call := svc.Files.List().
+			Q(q).
+			PageSize(c.Max).
+			PageToken(pageToken).
+			OrderBy("modifiedTime desc")
+		call = driveFilesListCallWithDriveSupport(call, c.AllDrives)
+		resp, err := call.
+			Fields("nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, webViewLink)").
+			Context(ctx).
+			Do()
+		if err != nil {
+			return nil, "", err
+		}
+		return resp.Files, resp.NextPageToken, nil
+	}
 
-	resp, err := call.
-		Fields("nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, webViewLink)").
-		Context(ctx).
-		Do()
+	if c.All {
+		var allFiles []*drive.File
+		pageToken := c.Page
+		for {
+			files, nextToken, err := fetchPage(pageToken)
+			if err != nil {
+				return err
+			}
+			allFiles = append(allFiles, files...)
+			if nextToken == "" || int64(len(allFiles)) >= driveListAllMaxItems {
+				pageToken = ""
+				break
+			}
+			pageToken = nextToken
+		}
+		if outfmt.IsJSON(ctx) {
+			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+				"files":         allFiles,
+				"nextPageToken": "",
+			})
+		}
+		if len(allFiles) == 0 {
+			u.Err().Println("No results")
+			return nil
+		}
+		w, flush := tableWriter(ctx)
+		defer flush()
+		fmt.Fprintln(w, "ID\tNAME\tTYPE\tSIZE\tMODIFIED")
+		for _, f := range allFiles {
+			fmt.Fprintf(
+				w,
+				"%s\t%s\t%s\t%s\t%s\n",
+				f.Id,
+				f.Name,
+				driveType(f.MimeType),
+				formatDriveSize(f.Size),
+				formatDateTime(f.ModifiedTime),
+			)
+		}
+		return nil
+	}
+
+	files, nextToken, err := fetchPage(c.Page)
 	if err != nil {
 		return err
 	}
 
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
-			"files":         resp.Files,
-			"nextPageToken": resp.NextPageToken,
+			"files":         files,
+			"nextPageToken": nextToken,
 		})
 	}
 
-	if len(resp.Files) == 0 {
+	if len(files) == 0 {
 		u.Err().Println("No results")
 		return nil
 	}
@@ -208,7 +312,7 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	w, flush := tableWriter(ctx)
 	defer flush()
 	fmt.Fprintln(w, "ID\tNAME\tTYPE\tSIZE\tMODIFIED")
-	for _, f := range resp.Files {
+	for _, f := range files {
 		fmt.Fprintf(
 			w,
 			"%s\t%s\t%s\t%s\t%s\n",
@@ -219,7 +323,7 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			formatDateTime(f.ModifiedTime),
 		)
 	}
-	printNextPageHint(u, resp.NextPageToken)
+	printNextPageHint(u, nextToken)
 	return nil
 }
 
