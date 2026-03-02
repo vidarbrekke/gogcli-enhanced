@@ -1391,23 +1391,25 @@ func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (ma
 	if parentID == "" {
 		parentID = "root"
 	}
-	// If the agent is asking for folders (by mimeType or "folder"), or using trashed=false
-	// to list root (common fallback when folder filter fails), use searchFiles so we return
-	// only folders — avoids mixed list + truncation leaving only a few folders visible.
-	if query != "" {
+	// Redirect to folders-only when: no query (agent often means "list folders" when using {}),
+	// or query is trashed=false / folder mimeType — so response has only folders and fits gateway.
+	redirectToFoldersOnly := false
+	if query == "" {
+		redirectToFoldersOnly = true
+	} else {
 		qLower := strings.ToLower(query)
-		looksLikeFolderOnly := strings.Contains(qLower, "application/vnd.google-apps.folder") ||
-			(strings.Contains(qLower, "mimetype") && strings.Contains(qLower, "folder"))
-		trashedFalseOnly := qLower == "trashed=false"
-		if looksLikeFolderOnly || trashedFalseOnly {
-			searchInput := make(map[string]any)
-			for k, v := range input {
-				searchInput[k] = v
-			}
-			searchInput["query"] = "mimeType = 'application/vnd.google-apps.folder' and '" + parentID + "' in parents"
-			searchInput["rawQuery"] = true
-			return p.driveSearchFiles(ctx, searchInput)
+		redirectToFoldersOnly = strings.Contains(qLower, "application/vnd.google-apps.folder") ||
+			(strings.Contains(qLower, "mimetype") && strings.Contains(qLower, "folder")) ||
+			qLower == "trashed=false"
+	}
+	if redirectToFoldersOnly {
+		searchInput := make(map[string]any)
+		for k, v := range input {
+			searchInput[k] = v
 		}
+		searchInput["query"] = "mimeType = 'application/vnd.google-apps.folder' and '" + parentID + "' in parents"
+		searchInput["rawQuery"] = true
+		return p.driveSearchFiles(ctx, searchInput)
 	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
