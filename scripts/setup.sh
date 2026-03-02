@@ -667,11 +667,9 @@ PY
 
   # Inject directive into OpenClaw bootstrap so the agent always prefers gog-agentic for Drive/Docs (no manual instruction needed).
   local tools_md="$workspace_dir/TOOLS.md"
-  local directive_marker="gog-agentic MCP (Google Drive and Docs)"
-  python3 - "$tools_md" "$directive_marker" <<'PY'
+  python3 - "$tools_md" <<'PY'
 import sys, os, re
 tools_path = sys.argv[1]
-marker = sys.argv[2]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
@@ -693,19 +691,18 @@ existing = ""
 if os.path.isfile(tools_path):
     with open(tools_path, "r", encoding="utf-8") as f:
         existing = f.read()
-if marker in existing:
-    # Replace existing section so re-run updates the directive (e.g. after deploy).
-    pattern = r'\n## Google Drive and Docs \(gog-agentic MCP\)\n.*?(?=\n## |\Z)'
-    new_content = re.sub(pattern, '\n' + section.strip() + '\n', existing, count=1, flags=re.DOTALL)
-    if new_content != existing:
-        with open(tools_path, "w", encoding="utf-8") as f:
-            f.write(new_content)
-    sys.exit(0)
-with open(tools_path, "a" if existing else "w", encoding="utf-8") as f:
-    if existing and not existing.endswith("\n"):
-        f.write("\n")
-    f.write(section.strip())
-    f.write("\n")
+heading = "## Google Drive and Docs (gog-agentic MCP)"
+pattern = r'(?ms)^## Google Drive and Docs \(gog-agentic MCP\)\n.*?(?=^## |\Z)'
+canonical = section.strip() + "\n"
+if re.search(pattern, existing):
+    # Replace all duplicate sections with one canonical block.
+    cleaned = re.sub(pattern, "", existing).rstrip()
+    new_content = (cleaned + "\n\n" + canonical) if cleaned else canonical
+else:
+    cleaned = existing.rstrip()
+    new_content = (cleaned + "\n\n" + canonical) if cleaned else canonical
+with open(tools_path, "w", encoding="utf-8") as f:
+    f.write(new_content)
 PY
   log "Ensured gog-agentic directive in $tools_md (OpenClaw bootstrap)"
 
@@ -746,10 +743,9 @@ PY
     log "Also registered 'gog-agentic' in fallback config: $fallback_config"
     # Ensure directive in this workspace bootstrap too
     tools_md_fb="$fallback_dir/TOOLS.md"
-    python3 - "$tools_md_fb" "gog-agentic MCP (Google Drive and Docs)" <<'PY'
+    python3 - "$tools_md_fb" <<'PY'
 import sys, os, re
 tools_path = sys.argv[1]
-marker = sys.argv[2]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
@@ -771,18 +767,16 @@ existing = ""
 if os.path.isfile(tools_path):
     with open(tools_path, "r", encoding="utf-8") as f:
         existing = f.read()
-if marker in existing:
-    pattern = r'\n## Google Drive and Docs \(gog-agentic MCP\)\n.*?(?=\n## |\Z)'
-    new_content = re.sub(pattern, '\n' + section.strip() + '\n', existing, count=1, flags=re.DOTALL)
-    if new_content != existing:
-        with open(tools_path, "w", encoding="utf-8") as f:
-            f.write(new_content)
-    sys.exit(0)
-with open(tools_path, "a" if existing else "w", encoding="utf-8") as f:
-    if existing and not existing.endswith("\n"):
-        f.write("\n")
-    f.write(section.strip())
-    f.write("\n")
+pattern = r'(?ms)^## Google Drive and Docs \(gog-agentic MCP\)\n.*?(?=^## |\Z)'
+canonical = section.strip() + "\n"
+if re.search(pattern, existing):
+    cleaned = re.sub(pattern, "", existing).rstrip()
+    new_content = (cleaned + "\n\n" + canonical) if cleaned else canonical
+else:
+    cleaned = existing.rstrip()
+    new_content = (cleaned + "\n\n" + canonical) if cleaned else canonical
+with open(tools_path, "w", encoding="utf-8") as f:
+    f.write(new_content)
 PY
     log "Ensured gog-agentic directive in $tools_md_fb"
   done
@@ -888,6 +882,67 @@ verify_binary() {
   fi
 }
 
+enforce_token_ready_for_mcp() {
+  local gog_cmd="$INSTALL_TARGET"
+  [[ -x "$gog_cmd" ]] || gog_cmd="$BIN_IN_REPO"
+
+  # Gate success on the exact auth environment used by gog-agentic.
+  if XDG_CONFIG_HOME="$XDG_CONFIG_HOME" \
+    GOG_KEYRING_BACKEND="${GOG_KEYRING_BACKEND:-file}" \
+    GOG_KEYRING_PASSWORD_FILE="${GOG_KEYRING_PASSWORD_FILE:-$CONFIG_DIR/keyring.password}" \
+    "$gog_cmd" auth list --check >/tmp/gog-auth-gate.out 2>/tmp/gog-auth-gate.err; then
+    log "Google token check passed for MCP runtime."
+    return 0
+  fi
+
+  warn "No valid Google token found for MCP runtime. Completing auth now..."
+  clear_screen
+  echo "Final auth gate: connect your Google account now so MCP works immediately."
+  local email
+  prompt_line email "Google account email to authorize, then press Enter: "
+  if [[ -z "$email" ]]; then
+    err "Email is required to finish setup with a working MCP token."
+    return 1
+  fi
+
+  if is_cloud_context; then
+    local step1_out auth_url redirect_url
+    step1_out="$("$gog_cmd" auth add "$email" --services user --remote --step 1 2>/dev/null)" || true
+    auth_url="$(echo "$step1_out" | awk -F'\t' '$1=="auth_url"{print $2; exit}')"
+    if [[ -z "$auth_url" ]]; then
+      err "Could not generate auth URL. Run manually: $gog_cmd auth add $email --services user --remote --step 1"
+      return 1
+    fi
+    echo
+    echo "Open this URL in your browser:"
+    echo "  $auth_url"
+    echo
+    prompt_line redirect_url "Paste the full redirect URL, then press Enter: "
+    [[ -n "$redirect_url" ]] || { err "Redirect URL is required."; return 1; }
+    "$gog_cmd" auth add "$email" --services user --remote --step 2 --auth-url "$redirect_url" >/tmp/gog-auth-gate-step2.out 2>/tmp/gog-auth-gate-step2.err || {
+      err "Auth step 2 failed. See /tmp/gog-auth-gate-step2.err"
+      return 1
+    }
+  else
+    "$gog_cmd" auth add "$email" >/tmp/gog-auth-gate-local.out 2>/tmp/gog-auth-gate-local.err || {
+      err "Local auth failed. See /tmp/gog-auth-gate-local.err"
+      return 1
+    }
+  fi
+
+  if ! XDG_CONFIG_HOME="$XDG_CONFIG_HOME" \
+    GOG_KEYRING_BACKEND="${GOG_KEYRING_BACKEND:-file}" \
+    GOG_KEYRING_PASSWORD_FILE="${GOG_KEYRING_PASSWORD_FILE:-$CONFIG_DIR/keyring.password}" \
+    "$gog_cmd" auth list --check >/tmp/gog-auth-gate-final.out 2>/tmp/gog-auth-gate-final.err; then
+    err "Setup cannot finish: token still unavailable to MCP runtime."
+    err "Check /tmp/gog-auth-gate-final.err and rerun setup."
+    return 1
+  fi
+
+  AUTH_ACCOUNT_OK=1
+  log "Google token is now available for MCP runtime."
+}
+
 print_final() {
   echo
   echo -e "${GREEN}Setup complete.${RESET}"
@@ -923,5 +978,6 @@ build_and_install
 ensure_path_auto
 configure_auth
 configure_openclaw_mcp_auto
+enforce_token_ready_for_mcp
 verify_binary
 print_final
