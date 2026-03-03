@@ -911,6 +911,7 @@ gog sheets export <spreadsheetId> --format pdf --out ./sheet.pdf
 gog sheets format <spreadsheetId> 'Sheet1!A1:B2' --format-json '{"textFormat":{"bold":true}}' --format-fields 'userEnteredFormat.textFormat.bold'
 gog sheets insert <spreadsheetId> "Sheet1" rows 2 --count 3
 gog sheets notes <spreadsheetId> 'Sheet1!A1:B10'
+gog sheets links <spreadsheetId> 'Sheet1!A1:B10'
 gog sheets edit values <spreadsheetId> "Sheet1!A1:B2" "a|b, c|d"
 gog sheets edit append <spreadsheetId> "Sheet1!A:C" "a|b"
 gog sheets edit clear <spreadsheetId> "Sheet1!A1:B2" --force
@@ -1006,6 +1007,7 @@ gog sheets insert <spreadsheetId> "Sheet1" cols 3 --after
 
 # Notes
 gog sheets notes <spreadsheetId> 'Sheet1!A1:B10'
+gog sheets links <spreadsheetId> 'Sheet1!A1:B10'   # Includes rich-text links
 
 # Create
 gog sheets create "My New Spreadsheet" --sheets "Sheet1,Sheet2"
