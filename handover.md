@@ -286,6 +286,81 @@ See `docs/refactor/external-review-feedback.md` for the full review and remainin
 
 ---
 
+## Session Handover: MCP Drive Pagination + Cursor Rules (2026-03)
+
+**For new developers:** This section documents what was done in a recent session (trials, errors, and final fixes) so you understand the current state and why things work the way they do.
+
+### 1. Google Drive “only 4 folders” in OpenClaw (Linode)
+
+**Symptom:** When the agent (OpenClaw) listed “all folders in Google Drive root,” it only ever saw 4 folders, even though the Drive had more.
+
+**What we tried (trials and errors):**
+
+- **Assumption 1:** The agent was calling `drive.listFiles` with `{}`, which returns files and folders mixed; after truncation only a few items were visible and only some were folders.  
+  **Change:** We made `drive.listFiles` with empty/trashed=false query **redirect** to `drive.searchFiles` with a folders-only query (`mimeType = 'application/vnd.google-apps.folder'`), so the response contained only folders.  
+  **Result:** Still only 4 folders visible.
+
+- **Assumption 2:** Response was too large and the gateway truncated by size.  
+  **Change:** We capped `--all` JSON output at 50 items (`driveListAllMaxOutputItems` in `internal/cmd/drive.go`), then lowered to 10, with `--compact` (id, name, mimeType only).  
+  **Result:** Still only 4. So the limit was outside our code.
+
+- **Root cause (5 Whys):**  
+  1. User sees 4 → agent received only 4 items.  
+  2. gog returns up to 10; something downstream truncates.  
+  3. Our MCP server and transport do not truncate; truncation happens in the **gateway** or when the agent uses the **exec** tool to run `mcporter call ...` (tool result = exec stdout).  
+  4. Many gateways cap exec/tool result length (e.g. ~1–2 KB).  
+  5. **Conclusion:** The gateway (or exec tool) enforces a max length on tool result content; we cannot change that from this repo.
+
+**Fix we implemented:** Keep each response small enough to fit the limit. From MCP we **no longer use `--all`** for `drive.listFiles` and `drive.searchFiles`. We request **one page of 4 items** (`mcpDrivePageSize = 4` in `internal/mcp/providers/google/tools.go`) with `--compact` and return **`nextPageToken`**. The agent can call again with `page: nextPageToken` until there is no token, and thus get all folders.
+
+**Relevant code:**
+
+- `internal/mcp/providers/google/tools.go`: `mcpDrivePageSize = 4`; when `page` is empty we pass `--max 4` and `--compact` (no `--all`). Tool descriptions say to loop with `nextPageToken` for “list all folders.”
+- `internal/cmd/drive.go`: `driveListAllMaxOutputItems = 10` still applies to **CLI** `gog drive ls --all` / `gog drive search ... --all` only.
+- `docs/openclaw-linode-runbook.md` §8.10: Documents the 5 Whys, root cause, and that the agent should paginate using `nextPageToken`.
+- `docs/TOOLS-gog-agentic-section.md` and `scripts/setup.sh`: “List only folders” bullet updated to say “call again with `page: nextPageToken` until no token.”
+
+**Deploy (Linode):** After any gog binary update: `git pull`, `./scripts/install.sh`, copy `bin/gog` to `/root/.local/bin/gog`, then `MCPORTER_CONFIG=/path/to/workspace/config/mcporter.json mcporter daemon restart`. Otherwise the agent keeps using the old binary and behavior.
+
+**OpenClaw feedback: “First 25 directories” returned only 10; pageToken didn’t advance (2026-03)**  
+User asked for “first 25 directories” in Drive root. OpenClaw called `drive.listFiles` with Drive API-style args: `query`, `fields`, `maxResults: 25`, and later `pageToken`. It got only 10 items and “same 10 repeatedly” when using pageToken. **Root cause:** Our MCP tools use `max` and `page`, not `maxResults`/`pageSize`/`pageToken`. Those were ignored, so default page size applied and pagination never advanced. **Fix:** In `internal/mcp/providers/google/tools.go`, `driveListFiles` and `driveSearchFiles` accept aliases: `pageToken` → `page`, `maxResults` or `pageSize` → `max` (capped for gateway). Tool descriptions and TOOLS/runbook note that `page` = previous response’s `nextPageToken`, and that Drive API names are accepted.
+
+---
+
+### 2. AGENTS.md and Agent Discipline
+
+**State:** `AGENTS.md` had been deleted from the repo.
+
+**What we did:** Recreated `AGENTS.md` with the full repository guidelines (project structure, build/test, coding style, testing, commit/PR, security, agentic workflow, batch vs sedmat). Added a new section at the bottom:
+
+**## Agent Discipline**
+
+- Do not perform broad refactors unless explicitly requested.
+- Do not upgrade dependencies or change toolchain versions without approval.
+- Prefer minimal diffs over cleanup-only changes.
+- For bug fixes: identify root cause before proposing changes.
+- Do not restate large diffs or logs in responses unless necessary.
+
+Cursor loads workspace rules from `AGENTS.md` when present, so the agent now gets these discipline rules in this project.
+
+---
+
+### 3. Cursor rules reference and user-rule edits
+
+**What we did:**
+
+- **Created `docs/CURSOR-RULES-FULL-TEXT.md`** — A single markdown file that contains the full text of every rule applied in Cursor (workspace rule from AGENTS.md + user rules). Use it as a reference; update it whenever someone changes a rule so the doc stays in sync.
+
+- **Playwright / Chromium (user rule):** Replaced with:
+  - “Always use Chromium with Playwright. Add: `--browser=chromium`. Or when using npx: `--project=chromium`.”  
+  User rules live in **Cursor Settings → Rules**; they are global (all projects). We updated the text in `docs/CURSOR-RULES-FULL-TEXT.md` and provided the exact text to paste into Settings, because we cannot edit Settings from the repo.
+
+- **Universal LLM-Driven Development Cheat-Sheet (user rule):** Same situation — it’s a user rule in Settings → Rules. To replace it entirely and keep it global: paste the new full text into Settings → Rules (over the old cheat-sheet). The reference copy in `docs/CURSOR-RULES-FULL-TEXT.md` can be updated whenever the rule text changes so the doc remains accurate.
+
+**Takeaway for new devs:** Workspace rules = files in the repo (e.g. `AGENTS.md`). User rules = Cursor Settings → Rules (global). We can edit repo files; for user rules we update the reference doc and give paste-ready text.
+
+---
+
 ## Suggested Milestone Order (Practical)
 
 1. **Milestone A:** Shared foundation complete

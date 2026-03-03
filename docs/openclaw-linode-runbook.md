@@ -361,9 +361,15 @@ If that returns `"ok": true` and a `result` with files, the agent can do the sam
 mcporter --config /path/to/workspace/config/mcporter.json daemon restart
 ```
 
-Or from the repo: `./scripts/ensure-mcp-daemon.sh` (and optionally `RESTART_GATEWAY=1 ./scripts/ensure-mcp-daemon.sh`). Then try “list all folders” again; you should get the full list in one response.
+Or from the repo: `./scripts/ensure-mcp-daemon.sh` (and optionally `RESTART_GATEWAY=1 ./scripts/ensure-mcp-daemon.sh`). For listing all folders, the agent should call drive.searchFiles (folders query) and then call again with page set to the returned nextPageToken until there is no token.
 
-When the user asks for "all folders" only, the agent should use **drive.searchFiles** with `rawQuery: true` and query `mimeType = 'application/vnd.google-apps.folder'` (see TOOLS.md "List only folders" command). That returns only folders. When using `--all`, the JSON response is capped at **10 items** so gateways that truncate tool output still receive a full batch; the response includes `truncatedAt`, `totalCount`, and a note if more items exist. If the user still sees fewer than 10 folders, the gateway limit may be very low—consider increasing it or using pagination (page token) for more.
+When the user asks for "all folders" only, the agent should use **drive.searchFiles** with `rawQuery: true` and query `mimeType = 'application/vnd.google-apps.folder'` (see TOOLS.md "List only folders" command). That returns only folders.
+
+**Root cause of "only 4 folders" (5 Whys):** (1) User sees only 4 → agent received only 4 items. (2) Why only 4? gog returns up to 10; something downstream truncates. (3) Where? Our MCP server returns the full JSON (no truncation in gog or transport_stdio). Truncation happens in the gateway or when the agent uses the **exec** tool to run `mcporter call ...` — then the tool result is exec’s stdout, and many gateways limit exec/tool result length. (4) Why 4? Likely a byte limit (e.g. ~1KB); 4 compact folder objects fit in that. (5) Root cause: **gateway (or exec tool) enforces a max length on tool result content**; we cannot change that. So we keep each response small: MCP drive list/search use **paginated mode** (no --all) with **page size 4** and return **nextPageToken**. Each response fits the limit; the agent calls again with `page: nextPageToken` until no token to get all folders.
+
+**Chosen fix:** From MCP, drive.listFiles and drive.searchFiles do not use --all. They request one page of 4 items (--max 4, --compact) and return nextPageToken. For "list all folders" the agent should call once, then repeatedly with page set to the returned nextPageToken until nextPageToken is missing.
+
+**Parameter names:** The tools accept **page** (and alias **pageToken**) for the next-page token, and **max** (and aliases **maxResults**, **pageSize**) for page size; maxResults/pageSize are capped at 25 so responses still fit the gateway. Agents that use Drive API-style args (maxResults, pageToken) will work without change.
 
 ## 9. Verifying that OpenClaw used gog-agentic MCP
 

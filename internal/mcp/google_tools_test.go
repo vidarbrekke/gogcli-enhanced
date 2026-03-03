@@ -120,6 +120,66 @@ func TestGoogleTools_DriveSearchFiles_MapsArgs(t *testing.T) {
 	}
 }
 
+func TestGoogleTools_DriveSearchFiles_NoPage_UsesPaginatedMode(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"files":[],"nextPageToken":""}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.searchFiles", map[string]any{
+		"query":    "mimeType = 'application/vnd.google-apps.folder'",
+		"rawQuery": true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	// No --all; one page of mcpDrivePageSize (4) + --compact so response fits gateway limit.
+	if slices.Contains(gotArgs, "--all") {
+		t.Fatalf("expected no --all (paginated mode), got %v", gotArgs)
+	}
+	if !slices.Contains(gotArgs, "--max") {
+		t.Fatalf("expected --max for page size, got %v", gotArgs)
+	}
+	if !slices.Contains(gotArgs, "--compact") {
+		t.Fatalf("expected --compact, got %v", gotArgs)
+	}
+	// Default page size should be 4
+	for i := range gotArgs {
+		if gotArgs[i] == "--max" && i+1 < len(gotArgs) && gotArgs[i+1] != "4" {
+			t.Fatalf("expected --max 4 when no page/max passed, got --max %s", gotArgs[i+1])
+		}
+	}
+}
+
+// TestGoogleTools_DriveSearchFiles_PageTokenMaxResultsAliases verifies Drive API-style args are mapped to our CLI.
+func TestGoogleTools_DriveSearchFiles_PageTokenMaxResultsAliases(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"files":[],"nextPageToken":""}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.searchFiles", map[string]any{
+		"query":       "mimeType = 'application/vnd.google-apps.folder'",
+		"rawQuery":    true,
+		"pageToken":  "token-from-drive-api",
+		"maxResults": float64(25),
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "--page") {
+		t.Fatalf("expected --page from pageToken alias, got %v", gotArgs)
+	}
+	for i := range gotArgs {
+		if gotArgs[i] == "--page" && i+1 < len(gotArgs) && gotArgs[i+1] != "token-from-drive-api" {
+			t.Fatalf("expected --page token-from-drive-api, got --page %s", gotArgs[i+1])
+		}
+		if gotArgs[i] == "--max" && i+1 < len(gotArgs) && gotArgs[i+1] != "25" {
+			t.Fatalf("expected --max 25 from maxResults alias, got --max %s", gotArgs[i+1])
+		}
+	}
+}
+
 func TestGoogleTools_SheetsValuesUpdate_MapsArgs(t *testing.T) {
 	var gotArgs []string
 	s := NewGoogleServer(func(args []string) (string, string, error) {

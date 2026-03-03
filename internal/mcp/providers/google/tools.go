@@ -34,6 +34,40 @@ var (
 	errExecutorNotConfigured     = errors.New("executor not configured")
 )
 
+// mcpDrivePageSize is the default page size for drive list/search when called from MCP.
+// Small so each response fits within gateway/exec tool result length limits; agent uses nextPageToken to get more.
+const mcpDrivePageSize = 4
+
+// mcpDriveMaxCap caps page size when agent uses maxResults/pageSize so response still fits gateway.
+const mcpDriveMaxCap = 25
+
+// driveListSearchNormalizeInput copies Drive API-style args into our names so agents can use either.
+// pageToken → page; maxResults or pageSize → max (capped at mcpDriveMaxCap).
+func driveListSearchNormalizeInput(input map[string]any) {
+	page := strings.TrimSpace(asString(input["page"]))
+	if page == "" || strings.EqualFold(page, "null") {
+		if pt := strings.TrimSpace(asString(input["pageToken"])); pt != "" && !strings.EqualFold(pt, "null") {
+			input["page"] = pt
+		}
+	}
+	if _, hasMax := input["max"]; hasMax {
+		return
+	}
+	if n, ok := asInt(input["maxResults"]); ok && n > 0 {
+		if n > mcpDriveMaxCap {
+			n = mcpDriveMaxCap
+		}
+		input["max"] = n
+		return
+	}
+	if n, ok := asInt(input["pageSize"]); ok && n > 0 {
+		if n > mcpDriveMaxCap {
+			n = mcpDriveMaxCap
+		}
+		input["max"] = n
+	}
+}
+
 func Register(s *server.Server, executor Executor) {
 	p := &provider{exec: executor}
 	toolSpecs := []server.ToolSpec{
@@ -559,7 +593,7 @@ func Register(s *server.Server, executor Executor) {
 			Handler: p.driveGetPermission,
 		}, {
 			Name:        "drive.listFiles",
-			Description: "List files and folders in a Drive folder (default root). Omit 'page' to get ALL results (server fetches all pages; compact format to reduce truncation). For 'list all folders' use drive.searchFiles with query mimeType = 'application/vnd.google-apps.folder' and rawQuery true — do NOT use listFiles with trashed=false.",
+			Description: "List files and folders in a Drive folder (default root). Returns one page (default 4 items) + nextPageToken. Use page or pageToken (from previous nextPageToken) for next page; max or maxResults/pageSize for page size (maxResults/pageSize capped at 25). For 'list all folders' use drive.searchFiles with query mimeType = 'application/vnd.google-apps.folder' and rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
@@ -569,7 +603,10 @@ func Register(s *server.Server, executor Executor) {
 					"parentId": map[string]any{"type": "string"},
 					"query":    map[string]any{"type": "string"},
 					"max":      map[string]any{"type": "integer"},
-					"page":     map[string]any{"type": "string"},
+					"page":       map[string]any{"type": "string"},
+					"pageToken":  map[string]any{"type": "string"},
+					"maxResults": map[string]any{"type": "integer"},
+					"pageSize":   map[string]any{"type": "integer"},
 					"allDrives": map[string]any{
 						"type": "boolean",
 					},
@@ -583,7 +620,7 @@ func Register(s *server.Server, executor Executor) {
 			Handler: p.driveListFiles,
 		}, 		{
 			Name:        "drive.searchFiles",
-			Description: "Search files and folders in Google Drive. Omit 'page' to get ALL results (server fetches all pages; compact format). For 'list all folders' use query mimeType = 'application/vnd.google-apps.folder' with rawQuery true — this returns only folders (smaller response, less truncation).",
+			Description: "Search files and folders in Google Drive. Returns one page (default 4 items) + nextPageToken. Use page or pageToken (from previous nextPageToken) for next page; max or maxResults/pageSize for page size (maxResults/pageSize capped at 25). For 'list all folders' use query mimeType = 'application/vnd.google-apps.folder' with rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
@@ -594,8 +631,11 @@ func Register(s *server.Server, executor Executor) {
 					"query":          map[string]any{"type": "string"},
 					"rawQuery":       map[string]any{"type": "boolean"},
 					"max":            map[string]any{"type": "integer"},
-					"page":           map[string]any{"type": "string"},
-					"allDrives":      map[string]any{"type": "boolean"},
+					"page":       map[string]any{"type": "string"},
+					"pageToken":  map[string]any{"type": "string"},
+					"maxResults": map[string]any{"type": "integer"},
+					"pageSize":   map[string]any{"type": "integer"},
+					"allDrives":  map[string]any{"type": "boolean"},
 					"account":        map[string]any{"type": "string"},
 					"opId":           map[string]any{"type": "string"},
 					"timeoutMs":      map[string]any{"type": "integer"},
@@ -1386,6 +1426,7 @@ func (p *provider) driveGetPermission(_ context.Context, input map[string]any) (
 }
 
 func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (map[string]any, error) {
+	driveListSearchNormalizeInput(input)
 	query := strings.TrimSpace(asString(input["query"]))
 	parentID := strings.TrimSpace(asString(input["parentId"]))
 	if parentID == "" {
@@ -1429,10 +1470,11 @@ func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (ma
 	if pageVal != "" && !strings.EqualFold(pageVal, "null") {
 		args = append(args, "--page", pageVal)
 	} else {
-		// No page token: fetch all pages so agents get full list without handling pagination.
-		args = append(args, "--all")
-		// Use larger page size and compact fields to reduce response size (avoids gateway truncation).
-		args = append(args, "--max", "100")
+		// Paginated mode (no --all): one page of mcpDrivePageSize so response fits gateway/exec limit.
+		// Agent gets nextPageToken and can call again with page=<token> to get more.
+		if _, hasMax := input["max"]; !hasMax {
+			args = append(args, "--max", strconv.Itoa(mcpDrivePageSize))
+		}
 		args = append(args, "--compact")
 	}
 	if _, ok := input["allDrives"]; ok {
@@ -1446,6 +1488,7 @@ func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (ma
 }
 
 func (p *provider) driveSearchFiles(_ context.Context, input map[string]any) (map[string]any, error) {
+	driveListSearchNormalizeInput(input)
 	query := strings.TrimSpace(asString(input["query"]))
 	if query == "" {
 		return map[string]any{"service": "drive", "operation": "searchFiles", "error_code": "invalid_argument", "message": "missing query"}, errMissingQuery
@@ -1465,8 +1508,10 @@ func (p *provider) driveSearchFiles(_ context.Context, input map[string]any) (ma
 	if pageVal != "" && !strings.EqualFold(pageVal, "null") {
 		args = append(args, "--page", pageVal)
 	} else {
-		args = append(args, "--all")
-		args = append(args, "--max", "100")
+		// Paginated mode (no --all): one page of mcpDrivePageSize so response fits gateway/exec limit.
+		if _, hasMax := input["max"]; !hasMax {
+			args = append(args, "--max", strconv.Itoa(mcpDrivePageSize))
+		}
 		args = append(args, "--compact")
 	}
 	// Default allDrives to true so search includes shared drives; only restrict when explicitly false
