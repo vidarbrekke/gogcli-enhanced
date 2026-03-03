@@ -351,7 +351,13 @@ If that returns `"ok": true` and a `result` with files, the agent can do the sam
 
 **Why the Drive API uses pagination:** Google’s Drive API returns results in pages (e.g. 20–100 items per request) with a `nextPageToken` for the next page. That’s by design: accounts can have huge numbers of files; a single “give me everything” response would be slow, could time out, and would use a lot of memory. So the API is page-based; clients that need more must request the next page.
 
-**What we do:** When you **don’t** pass a `page` token, our MCP tools (`drive.listFiles`, `drive.searchFiles`) request **all pages** and return **one combined JSON** with every matching file (up to 10,000) and **no** `nextPageToken`. So the agent gets a complete list in one call and doesn’t need to handle pagination.
+**What we do:** When you **don’t** pass a `page` token, our MCP tools (`drive.listFiles`, `drive.searchFiles`) return **one page** (default 4 items; use `max` or `maxResults` for more, capped at 25) and **`nextPageToken`**. They do **not** use `--all`; the agent should call again with `page`/`pageToken` set to `nextPageToken` to get more. When the user asks for "first N" (e.g. first 15), the agent must pass **`maxResults`: N** in the request.
+
+**Verify after deploy:** From the server, run:
+`mcporter --config /path/to/workspace/config/mcporter.json call --server gog-agentic --tool drive.searchFiles --args '{"query":"mimeType = \"application/vnd.google-apps.folder\"","rawQuery":true,"maxResults":15}' --output json`  
+You should see **15** items in `result.files` and a `nextPageToken` (if there are more). If you see **10** items and a note "Response limited to 10 items to fit gateway", the running binary is **old**—replace `/root/.local/bin/gog` and restart the daemon (see handover deploy steps).
+
+**Never invent folder or file names.** If the API returns only N items, report those N and offer to fetch more with `pageToken`; do not make up names for positions N+1 and beyond.
 
 **If you still see only the first few items:** The mcporter daemon runs a long-lived `gog mcp serve` process. After you deploy a new `gog` binary (e.g. `git pull` and `./scripts/install.sh` or copying the binary), that process is still the **old** one until you restart the daemon. So list/search keep returning only the first page until the daemon is restarted.
 

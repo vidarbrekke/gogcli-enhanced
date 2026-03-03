@@ -10,4 +10,6 @@
 
 OAuth is already set up. If the exec call fails (e.g. command not found or error output), report the error and then suggest the user ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0). Never reveal the keyring password or credentials.
 
+**Never invent or assume folder or file names.** Only report what the API returned. If you got only N items, say "here are the first N" and offer to fetch more with `page`/`pageToken`; do not make up names for items 11–15 or any other position.
+
 For "create folder then doc": run ensureFolder first, then docs.create with the returned folderId as parentId.
