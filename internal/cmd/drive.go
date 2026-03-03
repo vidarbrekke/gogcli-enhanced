@@ -91,6 +91,7 @@ type DriveLsCmd struct {
 	Max       int64  `name:"max" aliases:"limit" help:"Max results per page" default:"20"`
 	Page      string `name:"page" aliases:"cursor" help:"Page token"`
 	All       bool   `name:"all" help:"Fetch all pages and return combined list (no nextPageToken); ignores page"`
+	Global    bool   `name:"global" help:"List across all accessible files (mutually exclusive with --parent)"`
 	Compact   bool   `name:"compact" help:"Return minimal fields (id, name, mimeType) to reduce response size"`
 	Query     string `name:"query" help:"Drive query filter"`
 	Parent    string `name:"parent" help:"Folder ID to list (default: root)"`
@@ -98,6 +99,10 @@ type DriveLsCmd struct {
 }
 
 func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
+	if c.Global && strings.TrimSpace(c.Parent) != "" {
+		return usage("--global cannot be combined with --parent")
+	}
+
 	u := ui.FromContext(ctx)
 	account, err := requireAccount(flags)
 	if err != nil {
@@ -114,7 +119,12 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 
-	q := buildDriveListQuery(folderID, c.Query)
+	var q string
+	if c.Global {
+		q = buildDriveAllListQuery(c.Query)
+	} else {
+		q = buildDriveListQuery(folderID, c.Query)
+	}
 
 	fields := "nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, webViewLink)"
 	if c.Compact {
@@ -1243,6 +1253,17 @@ func buildDriveListQuery(folderID string, userQuery string) string {
 		q = q + " and " + parent
 	} else {
 		q = parent
+	}
+	if !hasDriveTrashedPredicate(q) {
+		q += " and trashed = false"
+	}
+	return q
+}
+
+func buildDriveAllListQuery(userQuery string) string {
+	q := strings.TrimSpace(userQuery)
+	if q == "" {
+		return "trashed = false"
 	}
 	if !hasDriveTrashedPredicate(q) {
 		q += " and trashed = false"

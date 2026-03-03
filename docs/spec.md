@@ -178,7 +178,7 @@ Flag aliases:
 - `gog config set <key> <value>`
 - `gog config unset <key>`
 - `gog version`
-- `gog drive ls [--parent ID] [--max N] [--page TOKEN] [--query Q] [--[no-]all-drives]`
+- `gog drive ls [--global] [--parent ID] [--max N] [--page TOKEN] [--query Q] [--[no-]all-drives]` (`--global` and `--parent` are mutually exclusive)
 - `gog drive search <text> [--raw-query] [--max N] [--page TOKEN] [--[no-]all-drives]`
 - `gog drive get <fileId>`
 - `gog drive download <fileId> [--out PATH] [--format F]` (`--format` only applies to Google Workspace files)

@@ -180,6 +180,44 @@ func TestGoogleTools_DriveSearchFiles_PageTokenMaxResultsAliases(t *testing.T) {
 	}
 }
 
+func TestGoogleTools_DriveListFiles_Global_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"files":[]}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.listFiles", map[string]any{
+		"global":         true,
+		"maxResults":     float64(15),
+		"retryBackoffMs": float64(700),
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "--global") {
+		t.Fatalf("expected --global, got %v", gotArgs)
+	}
+	if slices.Contains(gotArgs, "--parent") {
+		t.Fatalf("did not expect --parent with global listing, got %v", gotArgs)
+	}
+}
+
+func TestGoogleTools_DriveListFiles_GlobalAndParent_Invalid(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		return `{"files":[]}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.listFiles", map[string]any{
+		"global":   true,
+		"parentId": "root",
+	})
+	if env.OK {
+		t.Fatal("expected invalid_argument for global+parentId")
+	}
+	if env.Error == nil || env.Error.Code != "invalid_argument" {
+		t.Fatalf("unexpected error: %#v", env.Error)
+	}
+}
+
 func TestGoogleTools_SheetsValuesUpdate_MapsArgs(t *testing.T) {
 	var gotArgs []string
 	s := NewGoogleServer(func(args []string) (string, string, error) {
@@ -198,6 +236,32 @@ func TestGoogleTools_SheetsValuesUpdate_MapsArgs(t *testing.T) {
 	}
 	if !slices.Contains(gotArgs, "sheets") || !slices.Contains(gotArgs, "--values-json") {
 		t.Fatalf("expected sheets values args, got=%v", gotArgs)
+	}
+}
+
+func TestGoogleTools_SheetsLinks_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"spreadsheetId":"s1","range":"Sheet1!A1:B10","links":[]}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "sheets.links", map[string]any{
+		"spreadsheetId":  "s1",
+		"range":          "Sheet1!A1:B10",
+		"account":        "a@example.com",
+		"retryBackoffMs": float64(700),
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	want := []string{
+		"--json",
+		"--retry-backoff", "700ms",
+		"--account", "a@example.com",
+		"sheets", "links", "s1", "Sheet1!A1:B10",
+	}
+	if !slices.Equal(gotArgs, want) {
+		t.Fatalf("unexpected args:\nwant=%v\ngot=%v", want, gotArgs)
 	}
 }
 

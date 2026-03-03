@@ -269,3 +269,56 @@ func TestDriveLsCmd_AllFlagCombinesPages(t *testing.T) {
 		t.Fatalf("expected 2 API calls, got %d", pageNum)
 	}
 }
+
+func TestDriveLsCmd_GlobalFlagUsesGlobalQuery(t *testing.T) {
+	origNew := newDriveService
+	t.Cleanup(func() { newDriveService = origNew })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Path != "/drive/v3/files" && r.URL.Path != "/files" {
+			http.NotFound(w, r)
+			return
+		}
+		q := r.URL.Query().Get("q")
+		if strings.Contains(q, "'root' in parents") {
+			t.Fatalf("global query should not be root-scoped: %q", q)
+		}
+		if !strings.Contains(q, "trashed = false") {
+			t.Fatalf("global query should include trashed=false: %q", q)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"files": []map[string]any{}})
+	}))
+	defer srv.Close()
+
+	svc, err := drive.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
+
+	flags := &RootFlags{Account: "a@b.com"}
+	u, _ := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+	ctx := ui.WithUI(context.Background(), u)
+	if execErr := runKong(t, &DriveLsCmd{}, []string{"--global"}, ctx, flags); execErr != nil {
+		t.Fatalf("execute: %v", execErr)
+	}
+}
+
+func TestDriveLsCmd_GlobalAndParentMutuallyExclusive(t *testing.T) {
+	flags := &RootFlags{Account: "a@b.com"}
+	u, _ := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+	ctx := ui.WithUI(context.Background(), u)
+	err := runKong(t, &DriveLsCmd{}, []string{"--global", "--parent", "root"}, ctx, flags)
+	if err == nil || !strings.Contains(err.Error(), "--global cannot be combined with --parent") {
+		t.Fatalf("expected mutual exclusivity error, got: %v", err)
+	}
+}

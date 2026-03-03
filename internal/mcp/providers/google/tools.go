@@ -452,6 +452,26 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.sheetsValuesAppend,
 		}, {
+			Name:        "sheets.links",
+			Description: "Get hyperlinks from a Sheets range.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "read-fast",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId", "range"},
+				"properties": map[string]any{
+					"spreadsheetId":  map[string]any{"type": "string"},
+					"range":          map[string]any{"type": "string"},
+					"account":        map[string]any{"type": "string"},
+					"opId":           map[string]any{"type": "string"},
+					"timeoutMs":      map[string]any{"type": "integer"},
+					"retries":        map[string]any{"type": "integer"},
+					"retryBackoffMs": map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsLinks,
+		}, {
 			Name:        "slides.planBatch",
 			Description: "Validate and plan a Slides batch update request without applying changes.",
 			Tier:        "ga",
@@ -593,7 +613,7 @@ func Register(s *server.Server, executor Executor) {
 			Handler: p.driveGetPermission,
 		}, {
 			Name:        "drive.listFiles",
-			Description: "List files and folders in a Drive folder (default root). Returns one page (default 4 items) + nextPageToken. When the user asks for 'first N' items (e.g. first 15), always include \"max\" or \"maxResults\": N in the request. Use page or pageToken (from previous nextPageToken) for next page. For 'list all folders' use drive.searchFiles with query mimeType = 'application/vnd.google-apps.folder' and rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
+			Description: "List files and folders in a Drive folder (default root). Returns one page (default 4 items) + nextPageToken. When the user asks for 'first N' items (e.g. first 15), always include \"max\" or \"maxResults\": N in the request. Use page or pageToken (from previous nextPageToken) for next page. Set global=true to list across all accessible files (cannot combine with parentId). For 'list all folders' use drive.searchFiles with query mimeType = 'application/vnd.google-apps.folder' and rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
@@ -607,6 +627,7 @@ func Register(s *server.Server, executor Executor) {
 					"pageToken":  map[string]any{"type": "string"},
 					"maxResults": map[string]any{"type": "integer"},
 					"pageSize":   map[string]any{"type": "integer"},
+					"global":     map[string]any{"type": "boolean"},
 					"allDrives": map[string]any{
 						"type": "boolean",
 					},
@@ -1294,6 +1315,23 @@ func (p *provider) sheetsValuesAppend(_ context.Context, input map[string]any) (
 	return p.runCLI(cleanArgs(args), "sheets", "valuesAppend")
 }
 
+func (p *provider) sheetsLinks(_ context.Context, input map[string]any) (map[string]any, error) {
+	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
+	rangeSpec := strings.TrimSpace(asString(input["range"]))
+	if spreadsheetID == "" {
+		return map[string]any{"service": "sheets", "operation": "links", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+	}
+	if rangeSpec == "" {
+		return map[string]any{"service": "sheets", "operation": "links", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "sheets", "links", spreadsheetID, rangeSpec)
+	return p.runCLI(cleanArgs(args), "sheets", "links")
+}
+
 func (p *provider) slidesPlanBatch(_ context.Context, input map[string]any) (map[string]any, error) {
 	presentationID := strings.TrimSpace(asString(input["presentationId"]))
 	if presentationID == "" {
@@ -1428,14 +1466,18 @@ func (p *provider) driveGetPermission(_ context.Context, input map[string]any) (
 func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (map[string]any, error) {
 	driveListSearchNormalizeInput(input)
 	query := strings.TrimSpace(asString(input["query"]))
+	global := asBool(input["global"])
 	parentID := strings.TrimSpace(asString(input["parentId"]))
+	if global && parentID != "" {
+		return map[string]any{"service": "drive", "operation": "listFiles", "error_code": "invalid_argument", "message": "global cannot be combined with parentId"}, errors.New("global cannot be combined with parentId")
+	}
 	if parentID == "" {
 		parentID = "root"
 	}
 	// Redirect to folders-only when: no query (agent often means "list folders" when using {}),
 	// or query is trashed=false / folder mimeType — so response has only folders and fits gateway.
 	redirectToFoldersOnly := false
-	if query == "" {
+	if !global && query == "" {
 		redirectToFoldersOnly = true
 	} else {
 		qLower := strings.ToLower(query)
@@ -1457,6 +1499,9 @@ func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (ma
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
 	args = append(args, "drive", "ls")
+	if global {
+		args = append(args, "--global")
+	}
 	if parent := strings.TrimSpace(asString(input["parentId"])); parent != "" {
 		args = append(args, "--parent", parent)
 	}
