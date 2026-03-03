@@ -357,6 +357,20 @@ If that returns `"ok": true` and a `result` with files, the agent can do the sam
 `mcporter --config /path/to/workspace/config/mcporter.json call --server gog-agentic --tool drive.searchFiles --args '{"query":"mimeType = \"application/vnd.google-apps.folder\"","rawQuery":true,"maxResults":15}' --output json`  
 You should see **15** items in `result.files` and a `nextPageToken` (if there are more). If you see **10** items and a note "Response limited to 10 items to fit gateway", the running binary is **old**—replace `/root/.local/bin/gog` and restart the daemon (see handover deploy steps).
 
+**Smoke tests (after deploy):** Run these to confirm each tool family responds. Replace `$MCP_CFG` with your mcporter config path and use a valid docId/fileId where required.
+
+| Tool family | Command |
+|-------------|--------|
+| Docs read | `mcporter --config $MCP_CFG call --server gog-agentic --tool docs.get --args '{"docId":"<docId>"}' --output json` |
+| Docs cat | `mcporter --config $MCP_CFG call --server gog-agentic --tool docs.cat --args '{"docId":"<docId>"}' --output json` |
+| Docs list tabs | `mcporter --config $MCP_CFG call --server gog-agentic --tool docs.listTabs --args '{"docId":"<docId>"}' --output json` |
+| Drive list | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive.listFiles --args '{"maxResults":5}' --output json` |
+| Drive search | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive.searchFiles --args '{"query":"mimeType = \"application/vnd.google-apps.folder\"","rawQuery":true,"maxResults":5}' --output json` |
+| Drive permissions | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive.listPermissions --args '{"fileId":"<fileId>"}' --output json` |
+| Drive upload (backup) | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive.uploadFile --args '{"localPath":"/tmp/smoke-upload.txt","parentId":"<folderId>"}' --output json` (create file or expect file-not-found) |
+
+Expect `"ok": true` and a `result` object; errors indicate auth or binary issues (see §8.0).
+
 **Never invent folder or file names.** If the API returns only N items, report those N and offer to fetch more with `pageToken`; do not make up names for positions N+1 and beyond.
 
 **If you still see only the first few items:** The mcporter daemon runs a long-lived `gog mcp serve` process. After you deploy a new `gog` binary (e.g. `git pull` and `./scripts/install.sh` or copying the binary), that process is still the **old** one until you restart the daemon. So list/search keep returning only the first page until the daemon is restarted.

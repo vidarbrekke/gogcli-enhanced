@@ -84,6 +84,7 @@ func Register(s *server.Server, executor Executor) {
 				"docId":   map[string]any{"type": "string"},
 				"request": map[string]any{"type": "object"},
 				"opId":    map[string]any{"type": "string"},
+				"requireRevisionId": map[string]any{"type": "string", "description": "Optional revision ID for optimistic concurrency"},
 					"timeoutMs": map[string]any{
 						"type": "integer",
 					},
@@ -109,6 +110,7 @@ func Register(s *server.Server, executor Executor) {
 				"docId":   map[string]any{"type": "string"},
 				"request": map[string]any{"type": "object"},
 				"opId":    map[string]any{"type": "string"},
+				"requireRevisionId": map[string]any{"type": "string", "description": "Optional revision ID for optimistic concurrency"},
 					"timeoutMs": map[string]any{
 						"type": "integer",
 					},
@@ -366,6 +368,122 @@ func Register(s *server.Server, executor Executor) {
 				},
 			},
 			Handler: p.docsLocatorEdit,
+		}, {
+			Name:        "docs.mergeData",
+			Description: "Generate Google Docs from a template using JSON data (mail-merge). Use validateOnly to preview operations without creating files.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"templateId", "data"},
+				"properties": map[string]any{
+					"templateId":       map[string]any{"type": "string"},
+					"data":             map[string]any{"type": "array", "items": map[string]any{"type": "object"}, "description": "Array of record objects for merge"},
+					"filenameFormat":   map[string]any{"type": "string"},
+					"outputFolderId":   map[string]any{"type": "string"},
+					"includeTimestamp": map[string]any{"type": "boolean"},
+					"validateOnly":     map[string]any{"type": "boolean"},
+					"dryRun":           map[string]any{"type": "boolean"},
+					"account":          map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.docsMergeData,
+		}, {
+			Name:        "docs.get",
+			Description: "Get Google Doc metadata and revision (thin wrapper around gog docs info). Returns id, name, revisionId, webViewLink.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "read-fast",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"docId"},
+				"properties": map[string]any{
+					"docId":   map[string]any{"type": "string"},
+					"account": map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.docsGet,
+		}, {
+			Name:        "docs.cat",
+			Description: "Extract plain text from a Google Doc (thin wrapper around gog docs cat). Use maxBytes to limit size; tab or allTabs for multi-tab docs.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "read-fast",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"docId"},
+				"properties": map[string]any{
+					"docId":    map[string]any{"type": "string"},
+					"maxBytes": map[string]any{"type": "integer", "description": "Max bytes to read (default 2000000)"},
+					"tab":      map[string]any{"type": "string", "description": "Tab title or ID to read"},
+					"allTabs":  map[string]any{"type": "boolean", "description": "Include all tabs with headers"},
+					"account":  map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.docsCat,
+		}, {
+			Name:        "docs.listTabs",
+			Description: "List all tabs in a Google Doc with id, title, index (thin wrapper around gog docs list-tabs).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "read-fast",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"docId"},
+				"properties": map[string]any{
+					"docId":   map[string]any{"type": "string"},
+					"account": map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.docsListTabs,
+		}, {
+			Name:        "docs.positionsEnd",
+			Description: "Return the append index for a Google Doc (1-based position after last content). Use before docs.insertText or append to know where to insert.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "read-fast",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"docId"},
+				"properties": map[string]any{
+					"docId":   map[string]any{"type": "string"},
+					"account": map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.docsPositionsEnd,
+		}, {
+			Name:        "docs.positionsSearch",
+			Description: "Search for text in a Google Doc and return startIndex/endIndex ranges (UTF-16). Use for precise insert/delete.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "read-fast",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"docId", "text"},
+				"properties": map[string]any{
+					"docId":     map[string]any{"type": "string"},
+					"text":     map[string]any{"type": "string"},
+					"matchCase": map[string]any{"type": "boolean"},
+					"account":   map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.docsPositionsSearch,
+		}, {
+			Name:        "docs.positionsHeadings",
+			Description: "Return positions of HEADING_1..HEADING_6 paragraphs in a Google Doc (startIndex, endIndex, style, text).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "read-fast",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"docId"},
+				"properties": map[string]any{
+					"docId":   map[string]any{"type": "string"},
+					"account": map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.docsPositionsHeadings,
 		}, {
 			Name:        "sheets.planBatch",
 			Description: "Validate and plan a Sheets batch update request without applying changes.",
@@ -686,7 +804,7 @@ func Register(s *server.Server, executor Executor) {
 			Handler: p.driveGetFile,
 		}, {
 			Name:        "drive.uploadFile",
-			Description: "Upload local file to Drive.",
+			Description: "Upload a local file to Google Drive. Use for backups: localPath is the path on the server where gog runs (e.g. on Linode use a path like /var/backups/file.tar.gz). Optionally set parentId (folder ID), name (Drive filename), or replaceFileId to overwrite an existing file.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "write-heavy",
@@ -694,20 +812,22 @@ func Register(s *server.Server, executor Executor) {
 				"type":     "object",
 				"required": []string{"localPath"},
 				"properties": map[string]any{
-					"localPath": map[string]any{"type": "string"},
-					"name":      map[string]any{"type": "string"},
-					"parentId":  map[string]any{"type": "string"},
+					"localPath": map[string]any{"type": "string", "description": "Path to the file on the server where gog/MCP runs (e.g. /var/backups/backup.tar.gz)"},
+					"name":      map[string]any{"type": "string", "description": "Drive filename (default: basename of localPath)"},
+					"parentId":  map[string]any{"type": "string", "description": "Drive folder ID to upload into"},
 					"replaceFileId": map[string]any{
-						"type": "string",
+						"type":        "string",
+						"description": "Overwrite this existing Drive file ID (keeps sharing); cannot combine with parentId",
 					},
-					"mimeType":       map[string]any{"type": "string"},
-					"convert":        map[string]any{"type": "boolean"},
-					"convertTo":      map[string]any{"type": "string"},
-					"account":        map[string]any{"type": "string"},
-					"opId":           map[string]any{"type": "string"},
-					"timeoutMs":      map[string]any{"type": "integer"},
-					"retries":        map[string]any{"type": "integer"},
-					"retryBackoffMs": map[string]any{"type": "integer"},
+					"mimeType":            map[string]any{"type": "string"},
+					"convert":             map[string]any{"type": "boolean"},
+					"convertTo":            map[string]any{"type": "string"},
+					"keepRevisionForever": map[string]any{"type": "boolean", "description": "Keep this revision forever (e.g. for backup retention)"},
+					"account":             map[string]any{"type": "string"},
+					"opId":                map[string]any{"type": "string"},
+					"timeoutMs":           map[string]any{"type": "integer"},
+					"retries":             map[string]any{"type": "integer"},
+					"retryBackoffMs":      map[string]any{"type": "integer"},
 				},
 			},
 			Handler: p.driveUploadFile,
@@ -790,6 +910,7 @@ func Register(s *server.Server, executor Executor) {
 					"fileId":         map[string]any{"type": "string"},
 					"permanent":      map[string]any{"type": "boolean"},
 					"force":          map[string]any{"type": "boolean"},
+					"validateOnly":   map[string]any{"type": "boolean", "description": "If true, return planned action without executing"},
 					"account":        map[string]any{"type": "string"},
 					"opId":           map[string]any{"type": "string"},
 					"timeoutMs":      map[string]any{"type": "integer"},
@@ -798,6 +919,144 @@ func Register(s *server.Server, executor Executor) {
 				},
 			},
 			Handler: p.driveDeleteFile,
+		}, {
+			Name:        "drive.moveFile",
+			Description: "Move a Drive file to a different folder (thin wrapper around gog drive move).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"fileId", "parentId"},
+				"properties": map[string]any{
+					"fileId":   map[string]any{"type": "string"},
+					"parentId": map[string]any{"type": "string", "description": "New parent folder ID"},
+					"account":  map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.driveMoveFile,
+		}, {
+			Name:        "drive.renameFile",
+			Description: "Rename a Drive file or folder (thin wrapper around gog drive rename).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"fileId", "name"},
+				"properties": map[string]any{
+					"fileId":  map[string]any{"type": "string"},
+					"name":    map[string]any{"type": "string", "description": "New file or folder name"},
+					"account": map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.driveRenameFile,
+		}, {
+			Name:        "drive.shareFile",
+			Description: "Share a Drive file (add permission). Use to: anyone (link), user (email), or domain. Role: reader or writer.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"fileId", "to"},
+				"properties": map[string]any{
+					"fileId":       map[string]any{"type": "string"},
+					"to":           map[string]any{"type": "string", "description": "anyone|user|domain"},
+					"email":        map[string]any{"type": "string", "description": "Required when to=user"},
+					"domain":       map[string]any{"type": "string", "description": "Required when to=domain"},
+					"role":         map[string]any{"type": "string", "description": "reader|writer (default reader)"},
+					"discoverable": map[string]any{"type": "boolean"},
+					"account":      map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.driveShareFile,
+		}, {
+			Name:        "drive.unshare",
+			Description: "Remove a permission from a Drive file (thin wrapper around gog drive unshare). Requires force=true to skip confirmation.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"fileId", "permissionId"},
+				"properties": map[string]any{
+					"fileId":       map[string]any{"type": "string"},
+					"permissionId": map[string]any{"type": "string"},
+					"force":        map[string]any{"type": "boolean"},
+					"validateOnly": map[string]any{"type": "boolean", "description": "If true, return planned action without executing"},
+					"account":      map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.driveUnshare,
+		}, {
+			Name:        "drive.createComment",
+			Description: "Create a comment on a Drive file (thin wrapper around gog drive comments create). Optional quoted text for Docs.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"fileId", "content"},
+				"properties": map[string]any{
+					"fileId":  map[string]any{"type": "string"},
+					"content": map[string]any{"type": "string"},
+					"quoted":  map[string]any{"type": "string", "description": "Anchor comment to this text (e.g. for Google Docs)"},
+					"account": map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.driveCreateComment,
+		}, {
+			Name:        "drive.deleteComment",
+			Description: "Delete a comment on a Drive file (thin wrapper around gog drive comments delete). Requires force=true to skip confirmation.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"fileId", "commentId"},
+				"properties": map[string]any{
+					"fileId":    map[string]any{"type": "string"},
+					"commentId": map[string]any{"type": "string"},
+					"force":     map[string]any{"type": "boolean"},
+					"validateOnly": map[string]any{"type": "boolean", "description": "If true, return planned action without executing"},
+					"account":   map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.driveDeleteComment,
+		}, {
+			Name:        "drive.copyFile",
+			Description: "Copy a Drive file to a new name and optionally to a folder (thin wrapper around gog drive copy).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"fileId", "name"},
+				"properties": map[string]any{
+					"fileId":   map[string]any{"type": "string"},
+					"name":     map[string]any{"type": "string", "description": "New file name"},
+					"parentId": map[string]any{"type": "string"},
+					"account":  map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.driveCopyFile,
+		}, {
+			Name:        "drive.bulkExecute",
+			Description: "Execute a bounded list of Drive operations (move, rename, share, delete). Use validateOnly to preview without executing. Max 50 operations per call.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"operations"},
+				"properties": map[string]any{
+					"operations":   map[string]any{"type": "array", "items": map[string]any{"type": "object"}, "description": "List of { op: move|rename|share|delete, fileId, ... }"},
+					"validateOnly": map[string]any{"type": "boolean"},
+					"account":      map[string]any{"type": "string"},
+				},
+			},
+			Handler: p.driveBulkExecute,
 		},
 	}
 	for _, spec := range toolSpecs {
@@ -818,7 +1077,8 @@ func (p *provider) docsPlanBatch(_ context.Context, input map[string]any) (map[s
 	if !ok {
 		return map[string]any{"service": "docs", "operation": "planBatch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing request object"}, errMissingRequest
 	}
-	path, err := writeTempJSON(requests)
+	reqForFile := injectRequireRevision(requests, asString(input["requireRevisionId"]))
+	path, err := writeTempJSON(reqForFile)
 	if err != nil {
 		return nil, err
 	}
@@ -839,7 +1099,8 @@ func (p *provider) docsExecuteBatch(_ context.Context, input map[string]any) (ma
 	if !ok {
 		return map[string]any{"service": "docs", "operation": "executeBatch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing request object"}, errMissingRequest
 	}
-	path, err := writeTempJSON(requests)
+	reqForFile := injectRequireRevision(requests, asString(input["requireRevisionId"]))
+	path, err := writeTempJSON(reqForFile)
 	if err != nil {
 		return nil, err
 	}
@@ -1208,6 +1469,130 @@ func (p *provider) docsLocatorEdit(_ context.Context, input map[string]any) (map
 		args = append(args, "--validate-only")
 	}
 	return p.runCLI(cleanArgs(args), "docs", "locatorEdit")
+}
+
+func (p *provider) docsMergeData(_ context.Context, input map[string]any) (map[string]any, error) {
+	templateID := strings.TrimSpace(asString(input["templateId"]))
+	if templateID == "" {
+		return map[string]any{"service": "docs", "operation": "mergeData", "error_code": server.ErrorCodeInvalidArgument, "message": "missing templateId"}, errMissingDocID
+	}
+	data, ok := input["data"].([]any)
+	if !ok || len(data) == 0 {
+		return map[string]any{"service": "docs", "operation": "mergeData", "error_code": server.ErrorCodeInvalidArgument, "message": "missing or empty data array"}, errMissingRequest
+	}
+	path, err := writeTempJSON(data)
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(path)
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "docs", "edit", "merge-data", templateID, "--data-file", path)
+	if v := strings.TrimSpace(asString(input["filenameFormat"])); v != "" {
+		args = append(args, "--filename-format", v)
+	}
+	if v := strings.TrimSpace(asString(input["outputFolderId"])); v != "" {
+		args = append(args, "--output-folder-id", v)
+	}
+	if asBool(input["includeTimestamp"]) {
+		args = append(args, "--include-timestamp")
+	}
+	if asBool(input["validateOnly"]) {
+		args = append(args, "--validate-only")
+	}
+	if asBool(input["dryRun"]) {
+		args = append(args, "--dry-run")
+	}
+	return p.runCLI(cleanArgs(args), "docs", "mergeData")
+}
+
+func (p *provider) docsGet(_ context.Context, input map[string]any) (map[string]any, error) {
+	docID := strings.TrimSpace(asString(input["docId"]))
+	if docID == "" {
+		return map[string]any{"service": "docs", "operation": "get", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "docs", "info", docID)
+	return p.runCLI(cleanArgs(args), "docs", "get")
+}
+
+func (p *provider) docsCat(_ context.Context, input map[string]any) (map[string]any, error) {
+	docID := strings.TrimSpace(asString(input["docId"]))
+	if docID == "" {
+		return map[string]any{"service": "docs", "operation": "cat", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "docs", "cat", docID)
+	if maxBytes, ok := asInt(input["maxBytes"]); ok && maxBytes > 0 {
+		args = append(args, "--max-bytes", strconv.FormatInt(maxBytes, 10))
+	}
+	if tab := strings.TrimSpace(asString(input["tab"])); tab != "" {
+		args = append(args, "--tab", tab)
+	}
+	if asBool(input["allTabs"]) {
+		args = append(args, "--all-tabs")
+	}
+	return p.runCLI(cleanArgs(args), "docs", "cat")
+}
+
+func (p *provider) docsListTabs(_ context.Context, input map[string]any) (map[string]any, error) {
+	docID := strings.TrimSpace(asString(input["docId"]))
+	if docID == "" {
+		return map[string]any{"service": "docs", "operation": "listTabs", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "docs", "list-tabs", docID)
+	return p.runCLI(cleanArgs(args), "docs", "listTabs")
+}
+
+func (p *provider) docsPositionsEnd(_ context.Context, input map[string]any) (map[string]any, error) {
+	docID := strings.TrimSpace(asString(input["docId"]))
+	if docID == "" {
+		return map[string]any{"service": "docs", "operation": "positionsEnd", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "docs", "positions", "end", docID)
+	return p.runCLI(cleanArgs(args), "docs", "positionsEnd")
+}
+
+func (p *provider) docsPositionsSearch(_ context.Context, input map[string]any) (map[string]any, error) {
+	docID := strings.TrimSpace(asString(input["docId"]))
+	text := strings.TrimSpace(asString(input["text"]))
+	if docID == "" {
+		return map[string]any{"service": "docs", "operation": "positionsSearch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
+	}
+	if text == "" {
+		return map[string]any{"service": "docs", "operation": "positionsSearch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing text"}, errMissingText
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "docs", "positions", "search", docID, "--text", text)
+	if asBool(input["matchCase"]) {
+		args = append(args, "--match-case")
+	}
+	return p.runCLI(cleanArgs(args), "docs", "positionsSearch")
+}
+
+func (p *provider) docsPositionsHeadings(_ context.Context, input map[string]any) (map[string]any, error) {
+	docID := strings.TrimSpace(asString(input["docId"]))
+	if docID == "" {
+		return map[string]any{"service": "docs", "operation": "positionsHeadings", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "docs", "positions", "headings", docID)
+	return p.runCLI(cleanArgs(args), "docs", "positionsHeadings")
 }
 
 func (p *provider) sheetsPlanBatch(_ context.Context, input map[string]any) (map[string]any, error) {
@@ -1610,6 +1995,9 @@ func (p *provider) driveUploadFile(_ context.Context, input map[string]any) (map
 	if v := strings.TrimSpace(asString(input["convertTo"])); v != "" {
 		args = append(args, "--convert-to", v)
 	}
+	if asBool(input["keepRevisionForever"]) {
+		args = append(args, "--keep-revision-forever")
+	}
 	return p.runCLI(cleanArgs(args), "drive", "uploadFile")
 }
 
@@ -1684,6 +2072,18 @@ func (p *provider) driveDeleteFile(_ context.Context, input map[string]any) (map
 	if fileID == "" {
 		return map[string]any{"service": "drive", "operation": "deleteFile", "error_code": "invalid_argument", "message": "missing fileId"}, errMissingFileID
 	}
+	if asBool(input["validateOnly"]) {
+		planned := map[string]any{"fileId": fileID}
+		if asBool(input["permanent"]) {
+			planned["permanent"] = true
+		}
+		return map[string]any{
+			"service":      "drive",
+			"operation":    "deleteFile",
+			"validateOnly": true,
+			"planned":      planned,
+		}, nil
+	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
@@ -1696,6 +2096,282 @@ func (p *provider) driveDeleteFile(_ context.Context, input map[string]any) (map
 		args = append(args, "--force")
 	}
 	return p.runCLI(cleanArgs(args), "drive", "deleteFile")
+}
+
+func (p *provider) driveMoveFile(_ context.Context, input map[string]any) (map[string]any, error) {
+	fileID := strings.TrimSpace(asString(input["fileId"]))
+	parentID := strings.TrimSpace(asString(input["parentId"]))
+	if fileID == "" {
+		return map[string]any{"service": "drive", "operation": "moveFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing fileId"}, errMissingFileID
+	}
+	if parentID == "" {
+		return map[string]any{"service": "drive", "operation": "moveFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing parentId"}, errMissingPath
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "drive", "move", fileID, "--parent", parentID)
+	return p.runCLI(cleanArgs(args), "drive", "moveFile")
+}
+
+func (p *provider) driveRenameFile(_ context.Context, input map[string]any) (map[string]any, error) {
+	fileID := strings.TrimSpace(asString(input["fileId"]))
+	name := strings.TrimSpace(asString(input["name"]))
+	if fileID == "" {
+		return map[string]any{"service": "drive", "operation": "renameFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing fileId"}, errMissingFileID
+	}
+	if name == "" {
+		return map[string]any{"service": "drive", "operation": "renameFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing name"}, errors.New("missing name")
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "drive", "rename", fileID, name)
+	return p.runCLI(cleanArgs(args), "drive", "renameFile")
+}
+
+func (p *provider) driveShareFile(_ context.Context, input map[string]any) (map[string]any, error) {
+	fileID := strings.TrimSpace(asString(input["fileId"]))
+	to := strings.TrimSpace(asString(input["to"]))
+	if fileID == "" {
+		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing fileId"}, errMissingFileID
+	}
+	if to == "" {
+		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing to (anyone|user|domain)"}, errors.New("missing to")
+	}
+	to = strings.ToLower(to)
+	if to != "anyone" && to != "user" && to != "domain" {
+		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "to must be anyone|user|domain"}, errors.New("invalid to")
+	}
+	if to == "user" && strings.TrimSpace(asString(input["email"])) == "" {
+		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "email required when to=user"}, errors.New("missing email")
+	}
+	if to == "domain" && strings.TrimSpace(asString(input["domain"])) == "" {
+		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "domain required when to=domain"}, errors.New("missing domain")
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "drive", "share", fileID, "--to", to)
+	if email := strings.TrimSpace(asString(input["email"])); email != "" {
+		args = append(args, "--email", email)
+	}
+	if domain := strings.TrimSpace(asString(input["domain"])); domain != "" {
+		args = append(args, "--domain", domain)
+	}
+	if role := strings.TrimSpace(asString(input["role"])); role != "" {
+		args = append(args, "--role", role)
+	}
+	if asBool(input["discoverable"]) {
+		args = append(args, "--discoverable")
+	}
+	return p.runCLI(cleanArgs(args), "drive", "shareFile")
+}
+
+func (p *provider) driveUnshare(_ context.Context, input map[string]any) (map[string]any, error) {
+	fileID := strings.TrimSpace(asString(input["fileId"]))
+	permID := strings.TrimSpace(asString(input["permissionId"]))
+	if fileID == "" {
+		return map[string]any{"service": "drive", "operation": "unshare", "error_code": server.ErrorCodeInvalidArgument, "message": "missing fileId"}, errMissingFileID
+	}
+	if permID == "" {
+		return map[string]any{"service": "drive", "operation": "unshare", "error_code": server.ErrorCodeInvalidArgument, "message": "missing permissionId"}, errMissingFileOrPermissionID
+	}
+	if asBool(input["validateOnly"]) {
+		return map[string]any{
+			"service":      "drive",
+			"operation":    "unshare",
+			"validateOnly": true,
+			"planned":      map[string]any{"fileId": fileID, "permissionId": permID},
+		}, nil
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "drive", "unshare", fileID, permID)
+	if asBool(input["force"]) {
+		args = append(args, "--force")
+	}
+	return p.runCLI(cleanArgs(args), "drive", "unshare")
+}
+
+func (p *provider) driveCreateComment(_ context.Context, input map[string]any) (map[string]any, error) {
+	fileID := strings.TrimSpace(asString(input["fileId"]))
+	content := strings.TrimSpace(asString(input["content"]))
+	if fileID == "" {
+		return map[string]any{"service": "drive", "operation": "createComment", "error_code": server.ErrorCodeInvalidArgument, "message": "missing fileId"}, errMissingFileID
+	}
+	if content == "" {
+		return map[string]any{"service": "drive", "operation": "createComment", "error_code": server.ErrorCodeInvalidArgument, "message": "missing content"}, errMissingText
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "drive", "comments", "create", fileID, content)
+	if quoted := strings.TrimSpace(asString(input["quoted"])); quoted != "" {
+		args = append(args, "--quoted", quoted)
+	}
+	return p.runCLI(cleanArgs(args), "drive", "createComment")
+}
+
+func (p *provider) driveDeleteComment(_ context.Context, input map[string]any) (map[string]any, error) {
+	fileID := strings.TrimSpace(asString(input["fileId"]))
+	commentID := strings.TrimSpace(asString(input["commentId"]))
+	if fileID == "" {
+		return map[string]any{"service": "drive", "operation": "deleteComment", "error_code": server.ErrorCodeInvalidArgument, "message": "missing fileId"}, errMissingFileID
+	}
+	if commentID == "" {
+		return map[string]any{"service": "drive", "operation": "deleteComment", "error_code": server.ErrorCodeInvalidArgument, "message": "missing commentId"}, errMissingFileOrPermissionID
+	}
+	if asBool(input["validateOnly"]) {
+		return map[string]any{
+			"service":      "drive",
+			"operation":    "deleteComment",
+			"validateOnly": true,
+			"planned":      map[string]any{"fileId": fileID, "commentId": commentID},
+		}, nil
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "drive", "comments", "delete", fileID, commentID)
+	if asBool(input["force"]) {
+		args = append(args, "--force")
+	}
+	return p.runCLI(cleanArgs(args), "drive", "deleteComment")
+}
+
+func (p *provider) driveCopyFile(_ context.Context, input map[string]any) (map[string]any, error) {
+	fileID := strings.TrimSpace(asString(input["fileId"]))
+	name := strings.TrimSpace(asString(input["name"]))
+	if fileID == "" {
+		return map[string]any{"service": "drive", "operation": "copyFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing fileId"}, errMissingFileID
+	}
+	if name == "" {
+		return map[string]any{"service": "drive", "operation": "copyFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing name"}, errors.New("missing name")
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "drive", "copy", fileID, name)
+	if parentID := strings.TrimSpace(asString(input["parentId"])); parentID != "" {
+		args = append(args, "--parent", parentID)
+	}
+	return p.runCLI(cleanArgs(args), "drive", "copyFile")
+}
+
+const driveBulkMaxOps = 50
+
+func (p *provider) driveBulkExecute(_ context.Context, input map[string]any) (map[string]any, error) {
+	raw, ok := input["operations"].([]any)
+	if !ok || len(raw) == 0 {
+		return map[string]any{"service": "drive", "operation": "bulkExecute", "error_code": server.ErrorCodeInvalidArgument, "message": "missing or empty operations array"}, errMissingRequest
+	}
+	if len(raw) > driveBulkMaxOps {
+		return map[string]any{"service": "drive", "operation": "bulkExecute", "error_code": server.ErrorCodeInvalidArgument, "message": "operations exceeds max " + strconv.Itoa(driveBulkMaxOps)}, errors.New("operations exceeds max")
+	}
+	operations := make([]map[string]any, 0, len(raw))
+	for i, r := range raw {
+		m, ok := r.(map[string]any)
+		if !ok {
+			return map[string]any{"service": "drive", "operation": "bulkExecute", "error_code": server.ErrorCodeInvalidArgument, "message": "operations[" + strconv.Itoa(i) + "] must be an object"}, errMissingRequest
+		}
+		if strings.TrimSpace(asString(m["fileId"])) == "" {
+			return map[string]any{"service": "drive", "operation": "bulkExecute", "error_code": server.ErrorCodeInvalidArgument, "message": "operations[" + strconv.Itoa(i) + "] missing fileId"}, errMissingFileID
+		}
+		operations = append(operations, m)
+	}
+	if asBool(input["validateOnly"]) {
+		planned := make([]map[string]any, 0, len(operations))
+		for _, m := range operations {
+			planned = append(planned, m)
+		}
+		return map[string]any{
+			"service":      "drive",
+			"operation":    "bulkExecute",
+			"validateOnly": true,
+			"planned":      planned,
+			"count":        len(planned),
+		}, nil
+	}
+	if p == nil || p.exec == nil {
+		return map[string]any{"service": "drive", "operation": "bulkExecute", "error_code": server.ErrorCodeInternal, "message": "executor not configured"}, errExecutorNotConfigured
+	}
+	baseArgs := []string{"--json"}
+	baseArgs = append(baseArgs, policyArgs(input)...)
+	baseArgs = append(baseArgs, maybeAccountArgs(input)...)
+	var results []map[string]any
+	var succeeded, failed int
+	for _, m := range operations {
+		op := strings.ToLower(strings.TrimSpace(asString(m["op"])))
+		fileID := strings.TrimSpace(asString(m["fileId"]))
+		var args []string
+		switch op {
+		case "move":
+			parentID := strings.TrimSpace(asString(m["parentId"]))
+			if parentID == "" {
+				results = append(results, map[string]any{"op": op, "fileId": fileID, "ok": false, "error": "missing parentId"})
+				failed++
+				continue
+			}
+			args = append(append(append([]string{}, baseArgs...), "drive", "move", fileID, "--parent", parentID))
+		case "rename":
+			name := strings.TrimSpace(asString(m["name"]))
+			if name == "" {
+				results = append(results, map[string]any{"op": op, "fileId": fileID, "ok": false, "error": "missing name"})
+				failed++
+				continue
+			}
+			args = append(append(append([]string{}, baseArgs...), "drive", "rename", fileID, name))
+		case "share":
+			to := strings.TrimSpace(asString(m["to"]))
+			if to == "" {
+				results = append(results, map[string]any{"op": op, "fileId": fileID, "ok": false, "error": "missing to"})
+				failed++
+				continue
+			}
+			args = append(append([]string{}, baseArgs...), "drive", "share", fileID, "--to", to)
+			if email := asString(m["email"]); email != "" {
+				args = append(args, "--email", email)
+			}
+			if domain := asString(m["domain"]); domain != "" {
+				args = append(args, "--domain", domain)
+			}
+			if role := asString(m["role"]); role != "" {
+				args = append(args, "--role", role)
+			}
+		case "delete":
+			args = append(append(append([]string{}, baseArgs...), "drive", "delete", fileID))
+			if asBool(m["permanent"]) {
+				args = append(args, "--permanent")
+			}
+			args = append(args, "--force")
+		default:
+			results = append(results, map[string]any{"op": op, "fileId": fileID, "ok": false, "error": "unsupported op"})
+			failed++
+			continue
+		}
+		stdout, stderr, err := p.exec(cleanArgs(args))
+		if err != nil || strings.TrimSpace(stderr) != "" {
+			results = append(results, map[string]any{"op": op, "fileId": fileID, "ok": false, "error": strings.TrimSpace(stderr), "execErr": err != nil})
+			failed++
+			continue
+		}
+		var parsed map[string]any
+		if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(stdout)), &parsed); jsonErr == nil {
+			results = append(results, map[string]any{"op": op, "fileId": fileID, "ok": true, "result": parsed})
+		} else {
+			results = append(results, map[string]any{"op": op, "fileId": fileID, "ok": true})
+		}
+		succeeded++
+	}
+	return map[string]any{
+		"service":   "drive",
+		"operation": "bulkExecute",
+		"results":   results,
+		"succeeded": succeeded,
+		"failed":    failed,
+	}, nil
 }
 
 func (p *provider) runCLI(args []string, service, operation string) (map[string]any, error) {
@@ -1735,6 +2411,24 @@ func (p *provider) runCLI(args []string, service, operation string) (map[string]
 	parsed["service"] = service
 	parsed["operation"] = operation
 	return parsed, nil
+}
+
+func injectRequireRevision(requests map[string]any, revID string) map[string]any {
+	revID = strings.TrimSpace(revID)
+	if revID == "" {
+		return requests
+	}
+	out := make(map[string]any, len(requests)+1)
+	for k, v := range requests {
+		out[k] = v
+	}
+	wc, _ := out["writeControl"].(map[string]any)
+	if wc == nil {
+		wc = make(map[string]any)
+		out["writeControl"] = wc
+	}
+	wc["requiredRevisionId"] = revID
+	return out
 }
 
 func writeTempJSON(v any) (string, error) {

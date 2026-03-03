@@ -54,6 +54,35 @@ func TestGoogleTools_DriveEnsureFolder_InvalidInput(t *testing.T) {
 	}
 }
 
+func TestGoogleTools_DriveUploadFile_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"id":"f1","name":"backup.tar.gz"}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.uploadFile", map[string]any{
+		"localPath":           "/var/backups/backup.tar.gz",
+		"parentId":             "pid1",
+		"name":                 "backup.tar.gz",
+		"keepRevisionForever":  true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	want := []string{
+		"--json",
+		"drive", "upload", "/var/backups/backup.tar.gz",
+		"--name", "backup.tar.gz",
+		"--parent", "pid1",
+		"--keep-revision-forever",
+	}
+	for _, a := range want {
+		if !slices.Contains(gotArgs, a) {
+			t.Fatalf("expected args to contain %q, got %v", a, gotArgs)
+		}
+	}
+}
+
 func TestGoogleTools_DocsInsertText_MapsArgs(t *testing.T) {
 	var gotArgs []string
 	s := NewGoogleServer(func(args []string) (string, string, error) {
@@ -453,5 +482,441 @@ func TestGoogleTools_DocsCreateWithBody_WithRequest_CallsCreateThenBatch(t *test
 	}
 	if callCount != 2 {
 		t.Fatalf("expected 2 executor calls (create + batch), got %d", callCount)
+	}
+}
+
+func TestGoogleTools_DocsGet_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"file":{"id":"d1","name":"Doc1"},"document":{"documentId":"d1","title":"Doc1","revisionId":"rev1"}}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.get", map[string]any{
+		"docId":   "d1",
+		"account": "a@example.com",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Service != "docs" || env.Operation != "get" {
+		t.Fatalf("unexpected service/op: %s %s", env.Service, env.Operation)
+	}
+	want := []string{"--json", "--account", "a@example.com", "docs", "info", "d1"}
+	for _, bit := range want {
+		if !slices.Contains(gotArgs, bit) {
+			t.Fatalf("missing arg %q in %v", bit, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_DocsGet_MissingDocId(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
+	env := s.ExecuteTool(context.Background(), "docs.get", map[string]any{})
+	if env.OK {
+		t.Fatal("expected invalid_argument when docId missing")
+	}
+	if env.Error == nil || env.Error.Code != "invalid_argument" {
+		t.Fatalf("unexpected error: %#v", env.Error)
+	}
+}
+
+func TestGoogleTools_DocsCat_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"text":"Hello world"}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.cat", map[string]any{
+		"docId":    "d1",
+		"maxBytes": float64(50000),
+		"tab":      "Sheet1",
+		"account":  "a@example.com",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Service != "docs" || env.Operation != "cat" {
+		t.Fatalf("unexpected service/op: %s %s", env.Service, env.Operation)
+	}
+	want := []string{"--json", "--account", "a@example.com", "docs", "cat", "d1", "--max-bytes", "50000", "--tab", "Sheet1"}
+	for _, bit := range want {
+		if !slices.Contains(gotArgs, bit) {
+			t.Fatalf("missing arg %q in %v", bit, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_DocsCat_AllTabs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"tabs":[{"id":"t1","text":"x"}]}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.cat", map[string]any{
+		"docId":   "d1",
+		"allTabs": true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "--all-tabs") {
+		t.Fatalf("expected --all-tabs in %v", gotArgs)
+	}
+}
+
+func TestGoogleTools_DocsListTabs_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"tabs":[{"id":"t1","title":"Tab 1","index":0}]}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.listTabs", map[string]any{
+		"docId": "d1",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Service != "docs" || env.Operation != "listTabs" {
+		t.Fatalf("unexpected service/op: %s %s", env.Service, env.Operation)
+	}
+	want := []string{"--json", "docs", "list-tabs", "d1"}
+	for _, bit := range want {
+		if !slices.Contains(gotArgs, bit) {
+			t.Fatalf("missing arg %q in %v", bit, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_DocsListTabs_MissingDocId(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
+	env := s.ExecuteTool(context.Background(), "docs.listTabs", map[string]any{})
+	if env.OK {
+		t.Fatal("expected invalid_argument when docId missing")
+	}
+	if env.Error == nil || env.Error.Code != "invalid_argument" {
+		t.Fatalf("unexpected error: %#v", env.Error)
+	}
+}
+
+func TestGoogleTools_DocsPositionsEnd_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"docId":"d1","appendIndex":42}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.positionsEnd", map[string]any{
+		"docId":   "d1",
+		"account": "a@example.com",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Service != "docs" || env.Operation != "positionsEnd" {
+		t.Fatalf("unexpected service/op: %s %s", env.Service, env.Operation)
+	}
+	want := []string{"--json", "--account", "a@example.com", "docs", "positions", "end", "d1"}
+	for _, bit := range want {
+		if !slices.Contains(gotArgs, bit) {
+			t.Fatalf("missing arg %q in %v", bit, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_DocsPositionsSearch_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"docId":"d1","text":"foo","ranges":[{"startIndex":1,"endIndex":4}]}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.positionsSearch", map[string]any{
+		"docId":     "d1",
+		"text":      "foo",
+		"matchCase": true,
+		"account":   "a@example.com",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Service != "docs" || env.Operation != "positionsSearch" {
+		t.Fatalf("unexpected service/op: %s %s", env.Service, env.Operation)
+	}
+	want := []string{"--json", "--account", "a@example.com", "docs", "positions", "search", "d1", "--text", "foo", "--match-case"}
+	for _, bit := range want {
+		if !slices.Contains(gotArgs, bit) {
+			t.Fatalf("missing arg %q in %v", bit, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_DocsPositionsSearch_MissingText(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
+	env := s.ExecuteTool(context.Background(), "docs.positionsSearch", map[string]any{
+		"docId": "d1",
+	})
+	if env.OK {
+		t.Fatal("expected invalid_argument when text missing")
+	}
+	if env.Error == nil || env.Error.Code != "invalid_argument" {
+		t.Fatalf("unexpected error: %#v", env.Error)
+	}
+}
+
+func TestGoogleTools_DocsPositionsHeadings_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"docId":"d1","headings":[{"startIndex":1,"endIndex":10,"style":"HEADING_1","text":"Title"}]}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs.positionsHeadings", map[string]any{
+		"docId": "d1",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Service != "docs" || env.Operation != "positionsHeadings" {
+		t.Fatalf("unexpected service/op: %s %s", env.Service, env.Operation)
+	}
+	want := []string{"--json", "docs", "positions", "headings", "d1"}
+	for _, bit := range want {
+		if !slices.Contains(gotArgs, bit) {
+			t.Fatalf("missing arg %q in %v", bit, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_DocsPositionsHeadings_MissingDocId(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
+	env := s.ExecuteTool(context.Background(), "docs.positionsHeadings", map[string]any{})
+	if env.OK {
+		t.Fatal("expected invalid_argument when docId missing")
+	}
+	if env.Error == nil || env.Error.Code != "invalid_argument" {
+		t.Fatalf("unexpected error: %#v", env.Error)
+	}
+}
+
+func TestGoogleTools_DriveMoveFile_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"file":{"id":"f1","name":"x","parents":["p2"]}}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.moveFile", map[string]any{
+		"fileId":   "f1",
+		"parentId": "p2",
+		"account":  "a@example.com",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	want := []string{"--json", "--account", "a@example.com", "drive", "move", "f1", "--parent", "p2"}
+	for _, bit := range want {
+		if !slices.Contains(gotArgs, bit) {
+			t.Fatalf("missing arg %q in %v", bit, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_DriveRenameFile_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"file":{"id":"f1","name":"NewName"}}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.renameFile", map[string]any{
+		"fileId": "f1",
+		"name":   "NewName",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "drive") || !slices.Contains(gotArgs, "rename") || !slices.Contains(gotArgs, "f1") || !slices.Contains(gotArgs, "NewName") {
+		t.Fatalf("unexpected args: %v", gotArgs)
+	}
+}
+
+func TestGoogleTools_DriveShareFile_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"permissionId":"perm1","link":"https://drive.google.com/..."}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.shareFile", map[string]any{
+		"fileId": "f1",
+		"to":     "user",
+		"email":  "u@example.com",
+		"role":   "writer",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	want := []string{"--json", "drive", "share", "f1", "--to", "user", "--email", "u@example.com", "--role", "writer"}
+	for _, bit := range want {
+		if !slices.Contains(gotArgs, bit) {
+			t.Fatalf("missing arg %q in %v", bit, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_DriveUnshare_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.unshare", map[string]any{
+		"fileId":       "f1",
+		"permissionId": "perm1",
+		"force":        true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "--force") {
+		t.Fatalf("expected --force in %v", gotArgs)
+	}
+}
+
+func TestGoogleTools_DriveCreateComment_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"comment":{"id":"c1","content":"Hello"}}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.createComment", map[string]any{
+		"fileId":  "f1",
+		"content": "Hello",
+		"quoted":  "anchor text",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "--quoted") || !slices.Contains(gotArgs, "anchor text") {
+		t.Fatalf("expected --quoted and anchor in %v", gotArgs)
+	}
+}
+
+func TestGoogleTools_DriveCopyFile_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"file":{"id":"copy1","name":"Copy of x"}}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.copyFile", map[string]any{
+		"fileId":   "f1",
+		"name":     "Copy of x",
+		"parentId": "folder1",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	want := []string{"--json", "drive", "copy", "f1", "Copy of x", "--parent", "folder1"}
+	for _, bit := range want {
+		if !slices.Contains(gotArgs, bit) {
+			t.Fatalf("missing arg %q in %v", bit, gotArgs)
+		}
+	}
+}
+
+// TestGoogleTools_SuccessEnvelope_HasServiceAndOperation asserts all successful MCP tool responses include service and operation (envelope contract).
+func TestGoogleTools_SuccessEnvelope_HasServiceAndOperation(t *testing.T) {
+	tools := []struct {
+		name string
+		tool string
+		args map[string]any
+	}{
+		{"docs_get", "docs.get", map[string]any{"docId": "d1"}},
+		{"drive_listFiles", "drive.listFiles", map[string]any{"parentId": "root", "max": float64(5)}},
+		{"drive_uploadFile", "drive.uploadFile", map[string]any{"localPath": "/tmp/upload-test.txt"}},
+		{"sheets_links", "sheets.links", map[string]any{"spreadsheetId": "s1", "range": "A1"}},
+	}
+	for _, tt := range tools {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewGoogleServer(func(args []string) (string, string, error) {
+				return "{}", "", nil
+			})
+			env := s.ExecuteTool(context.Background(), tt.tool, tt.args)
+			if !env.OK {
+				t.Fatalf("expected success, got error: %#v", env.Error)
+			}
+			if env.Service == "" {
+				t.Fatalf("success envelope must include service")
+			}
+			if env.Operation == "" {
+				t.Fatalf("success envelope must include operation")
+			}
+		})
+	}
+}
+
+func TestGoogleTools_DriveDeleteFile_ValidateOnly_ReturnsPlanned(t *testing.T) {
+	called := false
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		called = true
+		return "{}", "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.deleteFile", map[string]any{
+		"fileId":       "f1",
+		"validateOnly": true,
+		"permanent":    true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if called {
+		t.Fatal("executor should not be called when validateOnly is true")
+	}
+	if v, _ := env.Result["validateOnly"].(bool); !v {
+		t.Fatalf("expected validateOnly true, got %v", env.Result["validateOnly"])
+	}
+	planned, ok := env.Result["planned"].(map[string]any)
+	if !ok || planned["fileId"] != "f1" || !planned["permanent"].(bool) {
+		t.Fatalf("expected planned fileId and permanent, got %v", env.Result["planned"])
+	}
+}
+
+func TestGoogleTools_DriveUnshare_ValidateOnly_ReturnsPlanned(t *testing.T) {
+	called := false
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		called = true
+		return "{}", "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.unshare", map[string]any{
+		"fileId":       "f1",
+		"permissionId": "perm1",
+		"validateOnly": true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if called {
+		t.Fatal("executor should not be called when validateOnly is true")
+	}
+	planned, ok := env.Result["planned"].(map[string]any)
+	if !ok || planned["fileId"] != "f1" || planned["permissionId"] != "perm1" {
+		t.Fatalf("expected planned fileId and permissionId, got %v", env.Result["planned"])
+	}
+}
+
+func TestGoogleTools_DriveDeleteComment_ValidateOnly_ReturnsPlanned(t *testing.T) {
+	called := false
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		called = true
+		return "{}", "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive.deleteComment", map[string]any{
+		"fileId":       "f1",
+		"commentId":    "c1",
+		"validateOnly": true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if called {
+		t.Fatal("executor should not be called when validateOnly is true")
+	}
+	planned, ok := env.Result["planned"].(map[string]any)
+	if !ok || planned["fileId"] != "f1" || planned["commentId"] != "c1" {
+		t.Fatalf("expected planned fileId and commentId, got %v", env.Result["planned"])
 	}
 }
