@@ -593,7 +593,7 @@ func Register(s *server.Server, executor Executor) {
 			Handler: p.driveGetPermission,
 		}, {
 			Name:        "drive.listFiles",
-			Description: "List files and folders in a Drive folder (default root). Returns one page (default 4 items) + nextPageToken. Use page or pageToken (from previous nextPageToken) for next page; max or maxResults/pageSize for page size (maxResults/pageSize capped at 25). For 'list all folders' use drive.searchFiles with query mimeType = 'application/vnd.google-apps.folder' and rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
+			Description: "List files and folders in a Drive folder (default root). Returns one page (default 4 items) + nextPageToken. When the user asks for 'first N' items (e.g. first 15), always include \"max\" or \"maxResults\": N in the request. Use page or pageToken (from previous nextPageToken) for next page. For 'list all folders' use drive.searchFiles with query mimeType = 'application/vnd.google-apps.folder' and rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
@@ -620,7 +620,7 @@ func Register(s *server.Server, executor Executor) {
 			Handler: p.driveListFiles,
 		}, 		{
 			Name:        "drive.searchFiles",
-			Description: "Search files and folders in Google Drive. Returns one page (default 4 items) + nextPageToken. Use page or pageToken (from previous nextPageToken) for next page; max or maxResults/pageSize for page size (maxResults/pageSize capped at 25). For 'list all folders' use query mimeType = 'application/vnd.google-apps.folder' with rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
+			Description: "Search files and folders in Google Drive. Returns one page (default 4 items) + nextPageToken. When the user asks for 'first N' items (e.g. first 15), always include \"max\" or \"maxResults\": N in the request. Use page or pageToken (from previous nextPageToken) for next page. For 'list all folders' use query mimeType = 'application/vnd.google-apps.folder' with rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
