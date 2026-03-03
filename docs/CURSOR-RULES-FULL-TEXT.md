@@ -1,3 +1,14 @@
+# Cursor Rules — Full Text
+
+This document contains the full text of every rule currently applied in Cursor (workspace rules and user rules). Generated for reference.
+
+---
+
+## 1. Workspace rule: AGENTS.md
+
+**Source:** `AGENTS.md` (repository guidelines)
+
+```markdown
 # Repository Guidelines
 
 ## Project Structure
@@ -74,3 +85,86 @@
 - Prefer minimal diffs over cleanup-only changes.
 - For bug fixes: identify root cause before proposing changes.
 - Do not restate large diffs or logs in responses unless necessary.
+```
+
+---
+
+## 2. User rule: Playwright / Chromium
+
+**Type:** User rule (always applied)
+
+```
+Always use Chromium with Playwright.
+
+Add:
+--browser=chromium
+
+Or when using npx:
+--project=chromium
+```
+
+---
+
+## 3. User rule: Universal LLM-Driven Development Cheat-Sheet (TDD-Focused)
+
+**Type:** User rule (always applied)
+
+```markdown
+---
+title: Universal LLM-Driven Development Cheat-Sheet (TDD-Focused)
+---
+# key instruction
+NEVER make update to a server's configuration, packate or app version, without getting explicit permission
+
+# Universal LLM-Driven Development Cheat-Sheet
+
+## 1. Test-Driven Development (TDD) Mindset
+- **Tests First, Always:** Before any significant feature or refactor, write or update unit tests that define expected behavior.
+- **Test-First Prompts:** Prompt the LLM: 
+ > "Write unit tests for `<featureName>()` covering normal cases and edge cases." 
+- **Immediate Feedback Loop:** Run tests before and after code changes; tests must guide design and confirm correctness.
+- **Update Tests with Code:** If changing existing behavior, update tests first to reflect new requirements, then implement code changes to satisfy them.
+
+## 2. Core Design
+- **DRY & YAGNI:** Only generalize when patterns repeat; avoid speculative abstractions.
+- **Single Responsibility:** Each unit (function/module/class) does one thing—easier to test and mock.
+- **Separation of Concerns:** Isolate business logic from UI and data layers, enabling focused unit tests.
+
+## 3. Structure & Naming
+- **Modular Layout:** Organize by feature (`auth/`, `payments/`, `utils/`), with parallel `unit/` and `integration/` test folders.
+- **Clear Names:** Use descriptive function/class names that align with test names (e.g. `createOrder()` ↔ `test_createOrder_success()`).
+- **Config Over Code:** Place environment-specific values in config/env; mock or override in tests.
+
+## 4. LLM Workflow with TDD
+- **Prompt → Test → Code:** 
+ 1. Prompt LLM to generate tests. 
+ 2. Review and run tests (they should initially fail). 
+ 3. Prompt LLM to implement code to pass tests. 
+- **Prompt Library:** Maintain `/docs/prompts.md` with TDD templates.
+- **Verify & Sanitize:** Review all LLM-generated tests and code for accuracy and security.
+
+## 5. Testing Essentials
+- **Unit Tests:** Fast, isolated; mock external dependencies.
+- **Integration Tests:** Real dependencies in staging-like environments.
+- **Shared Fixtures:** Centralize setup/teardown in `test_utils/`.
+- **Descriptive Tests:** Name tests to reflect behavior (`test_userLogin_invalidPassword()`).
+
+## 6. Debugging & Logging
+- **Verbose Dev Logs:** Enable detailed logs for failing tests; include context (params, expected vs. actual).
+- **Reproduce in Tests:** If a bug appears, write a failing test first, then fix code to pass.
+
+## 7. Deployment & CI/CD
+- **Continuous Testing:** Run full test suite on every commit; block merges on failures.
+- **Auto Test Generation:** Integrate LLM into CI to suggest new tests for changed code.
+- **Immutable Releases:** Tag versions only when all tests pass.
+
+## 8. Security & Stability
+- **Test Security:** Include tests for input validation, authorization checks, and error handling.
+- **Edge-Case Coverage:** Ensure tests cover invalid inputs, timeouts, and failure scenarios.
+- **Error Handling Tests:** Verify exceptions are thrown or handled as expected.
+- **Code quality:** Always ask yourself if your solution is the simplest one to the problem, that it is DRY & YAGNI. Verify before implementing.
+```
+
+---
+
+*Document generated from the rules applied in Cursor. Workspace rule comes from `AGENTS.md`; user rules come from Cursor Settings → Rules.*
