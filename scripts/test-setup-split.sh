@@ -24,10 +24,12 @@ else
   fail "setup.sh help missing setup-doctor.sh reference"
 fi
 
-# 4) simple setup contains golden-path markers
+# 4) simple setup contains golden-path markers + credential mode UX
 grep -q "Simple setup (golden path)" scripts/setup.sh || fail "setup.sh not simplified"
 grep -q "auth add" scripts/setup.sh || fail "setup.sh missing auth add flow"
-pass "setup.sh appears to be golden-path"
+grep -q "Select \[1/2\]" scripts/setup.sh || fail "setup.sh missing explicit credential mode selector"
+grep -q -- "--credentials-stdin" scripts/setup.sh || fail "setup.sh missing --credentials-stdin option"
+pass "setup.sh appears to be golden-path with improved credential UX"
 
 # 5) doctor script retains advanced flags
 grep -q -- "--clean-reset" scripts/setup-doctor.sh || fail "setup-doctor.sh missing advanced flags"

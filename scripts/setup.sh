@@ -23,6 +23,7 @@ CLIENT="${GOG_CLIENT:-}"
 CREDENTIALS_PATH=""
 MANUAL=0
 NO_INPUT=0
+CREDENTIALS_STDIN=0
 
 usage() {
   cat <<EOF
@@ -36,12 +37,13 @@ Simple setup (golden path):
   5) validate Drive access
 
 Options:
-  --account <email>         Account email to authorize/use
-  --credentials <path>      Path to OAuth client JSON to import
-  --client <name>           Optional gog client profile
-  --manual                  Force manual auth flow
-  --no-input                Non-interactive mode (fails if prompts needed)
-  -h, --help                Show this help
+  --account <email>            Account email to authorize/use
+  --credentials <path>         Path to OAuth client JSON to import
+  --credentials-stdin          Read full OAuth JSON from stdin (non-interactive friendly)
+  --client <name>              Optional gog client profile
+  --manual                     Force manual auth flow
+  --no-input                   Non-interactive mode (fails if prompts needed)
+  -h, --help                   Show this help
 
 Advanced/repair workflow moved to:
   ./scripts/setup-doctor.sh
@@ -56,6 +58,7 @@ parse_args() {
       --account) ACCOUNT="${2:-}"; shift 2 ;;
       --credentials) CREDENTIALS_PATH="${2:-}"; shift 2 ;;
       --client) CLIENT="${2:-}"; shift 2 ;;
+      --credentials-stdin) CREDENTIALS_STDIN=1; shift ;;
       --manual) MANUAL=1; shift ;;
       --no-input) NO_INPUT=1; shift ;;
       -h|--help) usage; exit 0 ;;
@@ -85,6 +88,22 @@ build_and_install() {
   gog --version || true
 }
 
+import_pasted_credentials() {
+  local pasted_json tmp_creds
+  pasted_json="$(cat)"
+  [[ -n "$pasted_json" ]] || { err "No JSON provided."; exit 1; }
+
+  if ! printf '%s' "$pasted_json" | jq -e . >/dev/null 2>&1; then
+    err "Provided content is not valid JSON."
+    exit 1
+  fi
+
+  tmp_creds="$(mktemp /tmp/gog-credentials-XXXXXX.json)"
+  printf '%s' "$pasted_json" > "$tmp_creds"
+  gog_cmd auth credentials "$tmp_creds"
+  rm -f "$tmp_creds"
+}
+
 ensure_credentials() {
   if gog_cmd auth credentials list >/dev/null 2>&1; then
     local count
@@ -95,6 +114,12 @@ ensure_credentials() {
     fi
   fi
 
+  if [[ "$CREDENTIALS_STDIN" -eq 1 ]]; then
+    log "Reading OAuth credentials JSON from stdin..."
+    import_pasted_credentials
+    return 0
+  fi
+
   if [[ -n "$CREDENTIALS_PATH" ]]; then
     [[ -f "$CREDENTIALS_PATH" ]] || { err "Credentials file not found: $CREDENTIALS_PATH"; exit 1; }
     log "Importing OAuth credentials from: $CREDENTIALS_PATH"
@@ -103,47 +128,35 @@ ensure_credentials() {
   fi
 
   if [[ "$NO_INPUT" -eq 1 ]]; then
-    err "No credentials configured. Provide --credentials <path> in --no-input mode."
+    err "No credentials configured. Provide --credentials <path> or --credentials-stdin in --no-input mode."
     exit 1
   fi
 
   echo
   echo -e "${BOLD}OAuth credentials required${RESET}"
-  echo "You can provide either:"
+  echo "Choose input mode:"
   echo "  1) Path to Desktop OAuth JSON file"
-  echo "  2) Paste raw JSON directly"
-  read -r -p "Credentials JSON path (leave empty to paste JSON): " CREDENTIALS_PATH
+  echo "  2) Paste full raw OAuth JSON"
+  read -r -p "Select [1/2] (default 1): " mode
+  mode="${mode:-1}"
 
-  if [[ -n "$CREDENTIALS_PATH" ]]; then
-    [[ -f "$CREDENTIALS_PATH" ]] || { err "Credentials file not found: $CREDENTIALS_PATH"; exit 1; }
-    gog_cmd auth credentials "$CREDENTIALS_PATH"
-    return 0
-  fi
-
-  # Paste mode
-  if [[ "$NO_INPUT" -eq 1 ]]; then
-    err "No credentials path provided in --no-input mode. Use --credentials <path>."
-    exit 1
-  fi
-
-  local pasted_json tmp_creds
-  echo "Paste full OAuth client JSON, then press Ctrl-D:"
-  pasted_json="$(cat)"
-  [[ -n "$pasted_json" ]] || { err "No JSON pasted."; exit 1; }
-
-  # Basic validation before passing to gog
-  if ! printf '%s' "$pasted_json" | jq -e . >/dev/null 2>&1; then
-    err "Pasted content is not valid JSON."
-    exit 1
-  fi
-
-  tmp_creds="$(mktemp /tmp/gog-credentials-XXXXXX.json)"
-  printf '%s' "$pasted_json" > "$tmp_creds"
-  trap 'rm -f "$tmp_creds"' RETURN
-
-  gog_cmd auth credentials "$tmp_creds"
-  rm -f "$tmp_creds"
-  trap - RETURN
+  case "$mode" in
+    1)
+      read -r -p "Credentials JSON path: " CREDENTIALS_PATH
+      [[ -f "$CREDENTIALS_PATH" ]] || { err "Credentials file not found: $CREDENTIALS_PATH"; exit 1; }
+      gog_cmd auth credentials "$CREDENTIALS_PATH"
+      return 0
+      ;;
+    2)
+      echo "Paste full OAuth client JSON, then press Ctrl-D:"
+      import_pasted_credentials
+      return 0
+      ;;
+    *)
+      err "Invalid selection: $mode (choose 1 or 2)"
+      exit 1
+      ;;
+  esac
 }
 
 pick_account_if_needed() {
