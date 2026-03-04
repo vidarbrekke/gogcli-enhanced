@@ -24,6 +24,7 @@ CREDENTIALS_PATH=""
 MANUAL=0
 NO_INPUT=0
 CREDENTIALS_STDIN=0
+CLI_ONLY=0
 
 usage() {
   cat <<EOF
@@ -43,6 +44,7 @@ Options:
   --client <name>              Optional gog client profile
   --manual                     Force manual auth flow
   --no-input                   Non-interactive mode (fails if prompts needed)
+  --cli-only                   CLI/cron-only mode (no MCP registration; use for backup scripts)
   -h, --help                   Show this help
 
 Advanced/repair workflow moved to:
@@ -61,6 +63,7 @@ parse_args() {
       --credentials-stdin) CREDENTIALS_STDIN=1; shift ;;
       --manual) MANUAL=1; shift ;;
       --no-input) NO_INPUT=1; shift ;;
+      --cli-only) CLI_ONLY=1; shift ;;
       -h|--help) usage; exit 0 ;;
       *) err "Unknown option: $1"; usage; exit 2 ;;
     esac
@@ -236,6 +239,7 @@ print_next_steps() {
   echo "  gog drive ls --account $ACCOUNT"
   echo "  gog drive upload /path/to/file --parent <folderId> --account $ACCOUNT"
   echo
+  [[ "$CLI_ONLY" -eq 1 ]] && echo "For cron/scripts: set GOG_KEYRING_PASSWORD or GOG_KEYRING_PASSWORD_FILE in the environment."
   echo "Advanced/repair workflows: ./scripts/setup-doctor.sh"
 }
 

@@ -515,6 +515,8 @@ PY
   fi
 
   if is_cloud_context; then
+    echo ""
+    echo -e "${BOLD}ACTION REQUIRED ON YOUR LOCAL MACHINE${RESET}"
     echo "A browser URL will be shown next. Open it, approve, then paste the redirect URL back here."
     step1_out="$("$gog_cmd" auth add "$email" --services user --remote --step 1 2>/dev/null)" || true
     auth_url=""
@@ -529,8 +531,10 @@ PY
     echo "Open this URL in your browser to authorize:"
     echo "  $auth_url"
     echo ""
+    echo "After you click Allow, paste the **entire** URL from your browser's address bar (it may start with https://localhost or similar)."
+    echo ""
     local redirect_url
-    prompt_line redirect_url "Paste the full redirect URL from your browser, then press Enter: "
+    prompt_line redirect_url "Paste the full redirect URL here, then press Enter: "
     if [[ -z "$redirect_url" ]]; then
       err "Redirect URL is required. Re-run and paste the URL after authorizing."
       return 1
@@ -941,6 +945,9 @@ enforce_token_ready_for_mcp() {
 
   if is_cloud_context; then
     local step1_out auth_url redirect_url
+    echo ""
+    echo -e "${BOLD}ACTION REQUIRED ON YOUR LOCAL MACHINE${RESET}"
+    echo "Open the URL below in your browser, then paste the redirect URL back here."
     step1_out="$("$gog_cmd" auth add "$email" --services user --remote --step 1 2>/dev/null)" || true
     auth_url="$(echo "$step1_out" | awk -F'\t' '$1=="auth_url"{print $2; exit}')"
     if [[ -z "$auth_url" ]]; then
@@ -951,7 +958,9 @@ enforce_token_ready_for_mcp() {
     echo "Open this URL in your browser:"
     echo "  $auth_url"
     echo
-    prompt_line redirect_url "Paste the full redirect URL, then press Enter: "
+    echo "After you click Allow, paste the **entire** URL from your browser's address bar."
+    echo
+    prompt_line redirect_url "Paste the full redirect URL here, then press Enter: "
     [[ -n "$redirect_url" ]] || { err "Redirect URL is required."; return 1; }
     "$gog_cmd" auth add "$email" --services user --remote --step 2 --auth-url "$redirect_url" >/tmp/gog-auth-gate-step2.out 2>/tmp/gog-auth-gate-step2.err || {
       err "Auth step 2 failed. See /tmp/gog-auth-gate-step2.err"

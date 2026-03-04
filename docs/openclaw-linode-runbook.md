@@ -7,6 +7,7 @@ Use this when running OpenClaw on a Linode server and want the agent to create/e
 **No manual config is required** if you run the repo’s setup script where OpenClaw can see the config:
 
 - **Command:** From the repo root, run `./scripts/setup.sh`.
+- **CLI-only (backup scripts / cron):** If you only need the `gog` CLI (e.g. for a backup script or cron job) and not the MCP/OpenClaw agent, run `./scripts/setup.sh --cli-only`. This skips MCP registration, mcporter, and TOOLS.md; you still get build, OAuth, keyring, and account auth. For cron, set `GOG_KEYRING_PASSWORD` or `GOG_KEYRING_PASSWORD_FILE` in the environment (setup reminds you after keyring setup).
 - **What it does:** The script builds/installs `gog`, runs auth setup, and **registers the gog MCP server automatically** by writing (or merging) a `gog-agentic` entry into `config/mcporter.json` under a detected “workspace” directory.
 - **Workspace detection:**
   - If `OPENCLAW_WORKSPACE` is set, that path is used.
