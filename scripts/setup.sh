@@ -197,6 +197,22 @@ authorize_account() {
         gog_cmd auth add "$ACCOUNT" --services user --manual
       fi
     fi
+    
+    # For manual auth, we need to handle the redirect URL
+    if [[ "$MANUAL" -eq 1 ]]; then
+      echo
+      echo "${BOLD}Manual OAuth flow${RESET}"
+      echo "1. Open this URL in your browser:"
+      echo "   $(gog_cmd auth add "$ACCOUNT" --services user --manual --step 1 2>/dev/null | grep -o 'https://[^ ]*')"
+      echo "2. After authenticating, copy the FULL redirect URL from your browser"
+      echo "   (e.g., https://localhost:8080/oauth2/callback?code=...&state=...)"
+      echo "3. Paste it here when ready:"
+      read -r -p "Paste redirect URL: " REDIRECT_URL
+      [[ -n "$REDIRECT_URL" ]] || { err "No redirect URL provided."; exit 1; }
+      
+      # Complete manual auth
+      gog_cmd auth add "$ACCOUNT" --services user --manual --step 2 --auth-url "$REDIRECT_URL"
+    fi
   fi
 
   # Set alias 'default' for easier non-interactive operations
