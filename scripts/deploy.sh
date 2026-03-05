@@ -24,6 +24,7 @@ for arg in "$@"; do
       echo "Usage: $0 [--no-pull] [--yes]"
       echo "  --no-pull            Skip git pull (e.g. already pulled)."
       echo "  --yes, --non-interactive  Non-interactive; skip confirmation prompts (for automation)."
+      echo "                         If the working tree has local changes, stashes them before pull and restores after."
       echo "  WORKSPACE_DIR=/path  Set mcporter config directory (default: auto-detect from repo path)."
       echo "  RESTART_GATEWAY=1    Also restart openclaw-gateway after daemon restart."
       exit 0
@@ -36,10 +37,22 @@ log() { echo "[deploy] $*"; }
 # Ensure scripts we call are executable (e.g. if clone/copy didn't preserve execute bits).
 chmod +x "$ROOT_DIR/scripts/install.sh" "$ROOT_DIR/scripts/ensure-mcp-daemon.sh" 2>/dev/null || true
 
+STASH_POP=0
 if [[ "$DO_PULL" -eq 1 ]]; then
   status_line=$(git status -s 2>/dev/null || true)
   if [[ -n "$status_line" ]]; then
     log "Pre-pull git status: $status_line"
+    if [[ "$NON_INTERACTIVE" -eq 1 ]]; then
+      log "Stashing local changes so pull can proceed..."
+      git stash push -m "deploy.sh pre-pull $(date +%Y%m%d-%H%M%S)"
+      STASH_POP=1
+    else
+      log "ERROR: Working tree has local changes; git pull would fail or overwrite them."
+      echo "  Commit, stash, or discard changes, then re-run. Or run with --no-pull after stashing:"
+      echo "    git stash && ./scripts/deploy.sh --no-pull"
+      echo "  To stash automatically in non-interactive mode, use: ./scripts/deploy.sh --yes"
+      exit 1
+    fi
   else
     log "Pre-pull git status: working tree clean"
   fi
@@ -74,5 +87,10 @@ fi
 
 log "Restarting mcporter daemon..."
 WORKSPACE_DIR="${WORKSPACE_DIR:-}" ./scripts/ensure-mcp-daemon.sh
+
+if [[ "${STASH_POP:-0}" -eq 1 ]]; then
+  log "Restoring stashed local changes..."
+  git stash pop || log "WARNING: stash pop had conflicts; resolve manually (git stash list)"
+fi
 
 log "Deploy done."
