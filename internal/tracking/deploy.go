@@ -175,8 +175,11 @@ func writeWranglerConfig(workerDir, workerName, dbName, dbID string) (string, er
 }
 
 func replaceTomlString(content, key, value string) string {
+	// Escape value for TOML double-quoted string (backslash and quote).
+	escaped := strings.ReplaceAll(value, "\\", "\\\\")
+	escaped = strings.ReplaceAll(escaped, "\"", "\\\"")
 	re := regexp.MustCompile(fmt.Sprintf(`(?m)^%s\s*=\s*\".*\"\s*$`, regexp.QuoteMeta(key)))
-	return re.ReplaceAllString(content, fmt.Sprintf(`%s = \"%s\"`, key, value))
+	return re.ReplaceAllString(content, fmt.Sprintf(`%s = "%s"`, key, escaped))
 }
 
 func runWranglerCommand(ctx context.Context, dir string, stdin io.Reader, args ...string) error {

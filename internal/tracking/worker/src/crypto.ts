@@ -30,7 +30,11 @@ export async function decrypt(blob: string, key: CryptoKey): Promise<PixelPayloa
   );
 
   const text = new TextDecoder().decode(decrypted);
-  return JSON.parse(text) as PixelPayload;
+  const parsed = JSON.parse(text) as Record<string, unknown>;
+  if (typeof parsed.r !== 'string' || typeof parsed.s !== 'string' || typeof parsed.t !== 'number') {
+    throw new Error('invalid payload: missing r, s, or t');
+  }
+  return { r: parsed.r, s: parsed.s, t: parsed.t };
 }
 
 export async function encrypt(payload: PixelPayload, key: CryptoKey): Promise<string> {

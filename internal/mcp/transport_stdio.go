@@ -206,10 +206,11 @@ func mcpDebugLog(method string, extra map[string]int) {
 	if err != nil {
 		return
 	}
+	defer f.Close()
 	line := time.Now().UTC().Format(time.RFC3339) + " " + method
 	for k, v := range extra {
 		line += fmt.Sprintf(" %s=%d", k, v)
 	}
 	_, _ = f.WriteString(line + "\n")
-	_ = f.Close()
+	return
 }

@@ -78,16 +78,22 @@ func TestReplaceTomlString(t *testing.T) {
 	content = replaceTomlString(content, "name", "new")
 	content = replaceTomlString(content, "database_id", "new-id")
 
-	if !strings.Contains(content, `name = \"new\"`) {
+	if !strings.Contains(content, `name = "new"`) {
 		t.Fatalf("expected name replacement, got %q", content)
 	}
 
-	if !strings.Contains(content, `database_id = \"new-id\"`) {
+	if !strings.Contains(content, `database_id = "new-id"`) {
 		t.Fatalf("expected id replacement, got %q", content)
 	}
 
 	if !strings.Contains(content, `database_name = "old-db"`) {
 		t.Fatalf("unexpected database_name replacement: %q", content)
+	}
+
+	// Escaping: value with quote produces valid TOML
+	content = replaceTomlString(`key = "orig"`, "key", `a"b`)
+	if !strings.Contains(content, `key = "a\"b"`) {
+		t.Fatalf("expected escaped quote in value, got %q", content)
 	}
 }
 
