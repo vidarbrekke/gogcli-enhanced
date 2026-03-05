@@ -72,19 +72,19 @@ func Register(s *server.Server, executor Executor) {
 	p := &provider{exec: executor}
 	toolSpecs := []server.ToolSpec{
 		{
-		Name:        "docs.planBatch",
-		Description: "Validate and plan a Docs batch update request without applying changes.",
+			Name:        "docs_planBatch",
+			Description: "Validate and plan a Docs batch update request without applying changes.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
-		InputSchema: map[string]any{
-			"type":     "object",
-			"required": []string{"docId", "request"},
-			"properties": map[string]any{
-				"docId":   map[string]any{"type": "string"},
-				"request": map[string]any{"type": "object"},
-				"opId":    map[string]any{"type": "string"},
-				"requireRevisionId": map[string]any{"type": "string", "description": "Optional revision ID for optimistic concurrency"},
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"docId", "request"},
+				"properties": map[string]any{
+					"docId":             map[string]any{"type": "string"},
+					"request":           map[string]any{"type": "object"},
+					"opId":              map[string]any{"type": "string"},
+					"requireRevisionId": map[string]any{"type": "string", "description": "Optional revision ID for optimistic concurrency"},
 					"timeoutMs": map[string]any{
 						"type": "integer",
 					},
@@ -98,19 +98,19 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsPlanBatch,
 		}, {
-		Name:        "docs.executeBatch",
-		Description: "Execute a Docs batch update request.",
+			Name:        "docs_executeBatch",
+			Description: "Execute a Docs batch update request.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "write-heavy",
-		InputSchema: map[string]any{
-			"type":     "object",
-			"required": []string{"docId", "request"},
-			"properties": map[string]any{
-				"docId":   map[string]any{"type": "string"},
-				"request": map[string]any{"type": "object"},
-				"opId":    map[string]any{"type": "string"},
-				"requireRevisionId": map[string]any{"type": "string", "description": "Optional revision ID for optimistic concurrency"},
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"docId", "request"},
+				"properties": map[string]any{
+					"docId":             map[string]any{"type": "string"},
+					"request":           map[string]any{"type": "object"},
+					"opId":              map[string]any{"type": "string"},
+					"requireRevisionId": map[string]any{"type": "string", "description": "Optional revision ID for optimistic concurrency"},
 					"timeoutMs": map[string]any{
 						"type": "integer",
 					},
@@ -124,7 +124,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsExecuteBatch,
 		}, {
-			Name:        "docs.sed",
+			Name:        "docs_sed",
 			Description: "Run sed-like find-and-replace expressions on a Google Doc (sedmat).",
 			Tier:        "ga",
 			Version:     "v1",
@@ -147,7 +147,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsSed,
 		}, {
-			Name:        "docs.smartEdit",
+			Name:        "docs_smartEdit",
 			Description: "Smart Docs edit: route to batch or sedmat by intent; returns engineSelected, riskLevel, decisionReason.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -170,7 +170,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsSmartEdit,
 		}, {
-			Name:        "docs.create",
+			Name:        "docs_create",
 			Description: "Create a new Google Doc. Optionally place it in a Drive folder by parentId (e.g. from drive.ensureFolder).",
 			Tier:        "ga",
 			Version:     "v1",
@@ -190,7 +190,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsCreate,
 		}, {
-			Name:        "docs.createWithBody",
+			Name:        "docs_createWithBody",
 			Description: "Create a new Google Doc and optionally apply a batchUpdate in one call (faster than create + insertText). Use for creating a doc with initial content and/or formatting. parentId from drive.ensureFolder or drive.searchFiles.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -211,7 +211,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsCreateWithBody,
 		}, {
-			Name:        "docs.insertText",
+			Name:        "docs_insertText",
 			Description: "Insert text at a specific index in a Google Doc.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -234,7 +234,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsInsertText,
 		}, {
-			Name:        "docs.deleteRange",
+			Name:        "docs_deleteRange",
 			Description: "Delete a text range in a Google Doc.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -258,7 +258,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsDeleteRange,
 		}, {
-			Name:        "docs.replaceAllText",
+			Name:        "docs_replaceAllText",
 			Description: "Replace all text matches in a Google Doc.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -280,7 +280,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsReplaceAllText,
 		}, {
-			Name:        "docs.appendText",
+			Name:        "docs_appendText",
 			Description: "Append text to the end of a Google Doc.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -300,7 +300,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsAppendText,
 		}, {
-			Name:        "docs.insertTable",
+			Name:        "docs_insertTable",
 			Description: "Insert a table in a Google Doc.",
 			Tier:        "beta",
 			Version:     "v1",
@@ -322,7 +322,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsInsertTable,
 		}, {
-			Name:        "docs.insertImage",
+			Name:        "docs_insertImage",
 			Description: "Insert an image into a Google Doc.",
 			Tier:        "beta",
 			Version:     "v1",
@@ -345,7 +345,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsInsertImage,
 		}, {
-			Name:        "docs.locatorEdit",
+			Name:        "docs_locatorEdit",
 			Description: "Apply anchor or marker-based edits in a Google Doc.",
 			Tier:        "beta",
 			Version:     "v1",
@@ -369,7 +369,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsLocatorEdit,
 		}, {
-			Name:        "docs.mergeData",
+			Name:        "docs_mergeData",
 			Description: "Generate Google Docs from a template using JSON data (mail-merge). Use validateOnly to preview operations without creating files.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -390,7 +390,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsMergeData,
 		}, {
-			Name:        "docs.get",
+			Name:        "docs_get",
 			Description: "Get Google Doc metadata and revision (thin wrapper around gog docs info). Returns id, name, revisionId, webViewLink.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -405,7 +405,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsGet,
 		}, {
-			Name:        "docs.cat",
+			Name:        "docs_cat",
 			Description: "Extract plain text from a Google Doc (thin wrapper around gog docs cat). Use maxBytes to limit size; tab or allTabs for multi-tab docs.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -423,7 +423,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsCat,
 		}, {
-			Name:        "docs.listTabs",
+			Name:        "docs_listTabs",
 			Description: "List all tabs in a Google Doc with id, title, index (thin wrapper around gog docs list-tabs).",
 			Tier:        "ga",
 			Version:     "v1",
@@ -438,7 +438,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsListTabs,
 		}, {
-			Name:        "docs.positionsEnd",
+			Name:        "docs_positionsEnd",
 			Description: "Return the append index for a Google Doc (1-based position after last content). Use before docs.insertText or append to know where to insert.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -453,7 +453,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsPositionsEnd,
 		}, {
-			Name:        "docs.positionsSearch",
+			Name:        "docs_positionsSearch",
 			Description: "Search for text in a Google Doc and return startIndex/endIndex ranges (UTF-16). Use for precise insert/delete.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -463,14 +463,14 @@ func Register(s *server.Server, executor Executor) {
 				"required": []string{"docId", "text"},
 				"properties": map[string]any{
 					"docId":     map[string]any{"type": "string"},
-					"text":     map[string]any{"type": "string"},
+					"text":      map[string]any{"type": "string"},
 					"matchCase": map[string]any{"type": "boolean"},
 					"account":   map[string]any{"type": "string"},
 				},
 			},
 			Handler: p.docsPositionsSearch,
 		}, {
-			Name:        "docs.positionsHeadings",
+			Name:        "docs_positionsHeadings",
 			Description: "Return positions of HEADING_1..HEADING_6 paragraphs in a Google Doc (startIndex, endIndex, style, text).",
 			Tier:        "ga",
 			Version:     "v1",
@@ -485,7 +485,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.docsPositionsHeadings,
 		}, {
-			Name:        "sheets.planBatch",
+			Name:        "sheets_planBatch",
 			Description: "Validate and plan a Sheets batch update request without applying changes.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -506,7 +506,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.sheetsPlanBatch,
 		}, {
-			Name:        "sheets.executeBatch",
+			Name:        "sheets_executeBatch",
 			Description: "Execute a Sheets batch update request.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -525,7 +525,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.sheetsExecuteBatch,
 		}, {
-			Name:        "sheets.valuesUpdate",
+			Name:        "sheets_valuesUpdate",
 			Description: "Update values in a Sheets range.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -547,7 +547,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.sheetsValuesUpdate,
 		}, {
-			Name:        "sheets.valuesAppend",
+			Name:        "sheets_valuesAppend",
 			Description: "Append values in a Sheets range.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -570,7 +570,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.sheetsValuesAppend,
 		}, {
-			Name:        "sheets.links",
+			Name:        "sheets_links",
 			Description: "Get hyperlinks from a Sheets range.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -590,7 +590,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.sheetsLinks,
 		}, {
-			Name:        "slides.planBatch",
+			Name:        "slides_planBatch",
 			Description: "Validate and plan a Slides batch update request without applying changes.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -609,7 +609,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.slidesPlanBatch,
 		}, {
-			Name:        "slides.executeBatch",
+			Name:        "slides_executeBatch",
 			Description: "Execute a Slides batch update request.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -628,7 +628,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.slidesExecuteBatch,
 		}, {
-			Name:        "slides.replaceText",
+			Name:        "slides_replaceText",
 			Description: "Find and replace text across slides.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -650,7 +650,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.slidesReplaceText,
 		}, {
-			Name:        "slides.createSlide",
+			Name:        "slides_createSlide",
 			Description: "Create a new slide in a presentation.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -671,15 +671,15 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.slidesCreateSlide,
 		}, {
-		Name:        "drive.ensureFolder",
-		Description: "Ensure a folder path exists in Drive; create missing segments.",
+			Name:        "drive_ensureFolder",
+			Description: "Ensure a folder path exists in Drive; create missing segments.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "write-safe",
-		InputSchema: map[string]any{
-			"type":     "object",
-			"required": []string{"path"},
-			"properties": map[string]any{
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"path"},
+				"properties": map[string]any{
 					"path":           map[string]any{"type": "string"},
 					"parentId":       map[string]any{"type": "string"},
 					"account":        map[string]any{"type": "string"},
@@ -691,15 +691,15 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveEnsureFolder,
 		}, {
-		Name:        "drive.untrash",
-		Description: "Restore a trashed Drive file.",
+			Name:        "drive_untrash",
+			Description: "Restore a trashed Drive file.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "write-safe",
-		InputSchema: map[string]any{
-			"type":     "object",
-			"required": []string{"fileId"},
-			"properties": map[string]any{
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"fileId"},
+				"properties": map[string]any{
 					"fileId":         map[string]any{"type": "string"},
 					"account":        map[string]any{"type": "string"},
 					"opId":           map[string]any{"type": "string"},
@@ -710,15 +710,15 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveUntrash,
 		}, {
-		Name:        "drive.getPermission",
-		Description: "Get one permission entry for a Drive file.",
+			Name:        "drive_getPermission",
+			Description: "Get one permission entry for a Drive file.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
-		InputSchema: map[string]any{
-			"type":     "object",
-			"required": []string{"fileId", "permissionId"},
-			"properties": map[string]any{
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"fileId", "permissionId"},
+				"properties": map[string]any{
 					"fileId":         map[string]any{"type": "string"},
 					"permissionId":   map[string]any{"type": "string"},
 					"account":        map[string]any{"type": "string"},
@@ -730,7 +730,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveGetPermission,
 		}, {
-			Name:        "drive.listFiles",
+			Name:        "drive_listFiles",
 			Description: "List files and folders in a Drive folder (default root). Returns one page (default 4 items) + nextPageToken. When the user asks for 'first N' items (e.g. first 15), always include \"max\" or \"maxResults\": N in the request. Use page or pageToken (from previous nextPageToken) for next page. Set global=true to list across all accessible files (cannot combine with parentId). For 'list all folders' use drive.searchFiles with query mimeType = 'application/vnd.google-apps.folder' and rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -738,9 +738,9 @@ func Register(s *server.Server, executor Executor) {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"parentId": map[string]any{"type": "string"},
-					"query":    map[string]any{"type": "string"},
-					"max":      map[string]any{"type": "integer"},
+					"parentId":   map[string]any{"type": "string"},
+					"query":      map[string]any{"type": "string"},
+					"max":        map[string]any{"type": "integer"},
 					"page":       map[string]any{"type": "string"},
 					"pageToken":  map[string]any{"type": "string"},
 					"maxResults": map[string]any{"type": "integer"},
@@ -757,8 +757,8 @@ func Register(s *server.Server, executor Executor) {
 				},
 			},
 			Handler: p.driveListFiles,
-		}, 		{
-			Name:        "drive.searchFiles",
+		}, {
+			Name:        "drive_searchFiles",
 			Description: "Search files and folders in Google Drive. Returns one page (default 4 items) + nextPageToken. When the user asks for 'first N' items (e.g. first 15), always include \"max\" or \"maxResults\": N in the request. Use page or pageToken (from previous nextPageToken) for next page. For 'list all folders' use query mimeType = 'application/vnd.google-apps.folder' with rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -770,11 +770,11 @@ func Register(s *server.Server, executor Executor) {
 					"query":          map[string]any{"type": "string"},
 					"rawQuery":       map[string]any{"type": "boolean"},
 					"max":            map[string]any{"type": "integer"},
-					"page":       map[string]any{"type": "string"},
-					"pageToken":  map[string]any{"type": "string"},
-					"maxResults": map[string]any{"type": "integer"},
-					"pageSize":   map[string]any{"type": "integer"},
-					"allDrives":  map[string]any{"type": "boolean"},
+					"page":           map[string]any{"type": "string"},
+					"pageToken":      map[string]any{"type": "string"},
+					"maxResults":     map[string]any{"type": "integer"},
+					"pageSize":       map[string]any{"type": "integer"},
+					"allDrives":      map[string]any{"type": "boolean"},
 					"account":        map[string]any{"type": "string"},
 					"opId":           map[string]any{"type": "string"},
 					"timeoutMs":      map[string]any{"type": "integer"},
@@ -784,7 +784,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveSearchFiles,
 		}, {
-			Name:        "drive.getFile",
+			Name:        "drive_getFile",
 			Description: "Get Drive file metadata.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -803,7 +803,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveGetFile,
 		}, {
-			Name:        "drive.uploadFile",
+			Name:        "drive_uploadFile",
 			Description: "Upload a local file to Google Drive. Use for backups: localPath is the path on the server where gog runs (e.g. on Linode use a path like /var/backups/file.tar.gz). Optionally set parentId (folder ID), name (Drive filename), or replaceFileId to overwrite an existing file.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -821,7 +821,7 @@ func Register(s *server.Server, executor Executor) {
 					},
 					"mimeType":            map[string]any{"type": "string"},
 					"convert":             map[string]any{"type": "boolean"},
-					"convertTo":            map[string]any{"type": "string"},
+					"convertTo":           map[string]any{"type": "string"},
 					"keepRevisionForever": map[string]any{"type": "boolean", "description": "Keep this revision forever (e.g. for backup retention)"},
 					"account":             map[string]any{"type": "string"},
 					"opId":                map[string]any{"type": "string"},
@@ -832,7 +832,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveUploadFile,
 		}, {
-			Name:        "drive.downloadFile",
+			Name:        "drive_downloadFile",
 			Description: "Download Drive file by ID.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -853,7 +853,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveDownloadFile,
 		}, {
-			Name:        "drive.listPermissions",
+			Name:        "drive_listPermissions",
 			Description: "List permissions on a Drive file.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -874,7 +874,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveListPermissions,
 		}, {
-			Name:        "drive.listComments",
+			Name:        "drive_listComments",
 			Description: "List comments on a Drive file.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -898,7 +898,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveListComments,
 		}, {
-			Name:        "drive.deleteFile",
+			Name:        "drive_deleteFile",
 			Description: "Delete or trash a Drive file.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -920,7 +920,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveDeleteFile,
 		}, {
-			Name:        "drive.moveFile",
+			Name:        "drive_moveFile",
 			Description: "Move a Drive file to a different folder (thin wrapper around gog drive move).",
 			Tier:        "ga",
 			Version:     "v1",
@@ -936,7 +936,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveMoveFile,
 		}, {
-			Name:        "drive.renameFile",
+			Name:        "drive_renameFile",
 			Description: "Rename a Drive file or folder (thin wrapper around gog drive rename).",
 			Tier:        "ga",
 			Version:     "v1",
@@ -952,7 +952,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveRenameFile,
 		}, {
-			Name:        "drive.shareFile",
+			Name:        "drive_shareFile",
 			Description: "Share a Drive file (add permission). Use to: anyone (link), user (email), or domain. Role: reader or writer.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -972,7 +972,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveShareFile,
 		}, {
-			Name:        "drive.unshare",
+			Name:        "drive_unshare",
 			Description: "Remove a permission from a Drive file (thin wrapper around gog drive unshare). Requires force=true to skip confirmation.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -990,7 +990,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveUnshare,
 		}, {
-			Name:        "drive.createComment",
+			Name:        "drive_createComment",
 			Description: "Create a comment on a Drive file (thin wrapper around gog drive comments create). Optional quoted text for Docs.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -1007,7 +1007,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveCreateComment,
 		}, {
-			Name:        "drive.deleteComment",
+			Name:        "drive_deleteComment",
 			Description: "Delete a comment on a Drive file (thin wrapper around gog drive comments delete). Requires force=true to skip confirmation.",
 			Tier:        "ga",
 			Version:     "v1",
@@ -1016,16 +1016,16 @@ func Register(s *server.Server, executor Executor) {
 				"type":     "object",
 				"required": []string{"fileId", "commentId"},
 				"properties": map[string]any{
-					"fileId":    map[string]any{"type": "string"},
-					"commentId": map[string]any{"type": "string"},
-					"force":     map[string]any{"type": "boolean"},
+					"fileId":       map[string]any{"type": "string"},
+					"commentId":    map[string]any{"type": "string"},
+					"force":        map[string]any{"type": "boolean"},
 					"validateOnly": map[string]any{"type": "boolean", "description": "If true, return planned action without executing"},
-					"account":   map[string]any{"type": "string"},
+					"account":      map[string]any{"type": "string"},
 				},
 			},
 			Handler: p.driveDeleteComment,
 		}, {
-			Name:        "drive.copyFile",
+			Name:        "drive_copyFile",
 			Description: "Copy a Drive file to a new name and optionally to a folder (thin wrapper around gog drive copy).",
 			Tier:        "ga",
 			Version:     "v1",
@@ -1042,7 +1042,7 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.driveCopyFile,
 		}, {
-			Name:        "drive.bulkExecute",
+			Name:        "drive_bulkExecute",
 			Description: "Execute a bounded list of Drive operations (move, rename, share, delete). Use validateOnly to preview without executing. Max 50 operations per call.",
 			Tier:        "ga",
 			Version:     "v1",

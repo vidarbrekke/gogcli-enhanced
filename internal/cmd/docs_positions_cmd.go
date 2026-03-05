@@ -61,8 +61,8 @@ func (c *DocsPositionsEndCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 // DocsPositionsSearchCmd searches for text and returns matching ranges.
 type DocsPositionsSearchCmd struct {
-	DocID    string `arg:"" name:"docId" help:"Doc ID"`
-	Text     string `name:"text" short:"t" help:"Text to search for" required:""`
+	DocID     string `arg:"" name:"docId" help:"Doc ID"`
+	Text      string `name:"text" short:"t" help:"Text to search for" required:""`
 	MatchCase bool   `name:"match-case" help:"Case-sensitive match"`
 }
 

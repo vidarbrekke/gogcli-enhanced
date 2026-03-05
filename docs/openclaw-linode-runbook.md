@@ -22,16 +22,16 @@ After setup, the script has already started the mcporter daemon and restarted Op
 ## 2. Why it failed before
 
 - **No browser:** Linode is headless; gog needs a **refresh token** (no interactive OAuth).
-- **Missing tool:** The MCP layer had no `docs.create`; the agent could create a folder with `drive.ensureFolder` but could not create a Doc. That is now added: use `docs.create` with optional `parentId` (from `drive.ensureFolder`).
+- **Missing tool:** The MCP layer had no `docs_create`; the agent could create a folder with `drive_ensureFolder` but could not create a Doc. That is now added: use `docs_create` with optional `parentId` (from `drive_ensureFolder`).
 
 ## 3. Why the agent gave manual steps instead of using tools
 
 If the agent responds with “create the folder manually” or suggests CLI commands instead of calling MCP tools, usually:
 
-- **MCP not connected:** OpenClaw is not configured to use the gog MCP server, so it never sees `drive.ensureFolder` or `docs.create`.
+- **MCP not connected:** OpenClaw is not configured to use the gog MCP server, so it never sees `drive_ensureFolder` or `docs_create`.
 - **Credentials missing:** gog is not configured on the server (no keyring / refresh token), so even if the agent called the tools, they would fail and the agent may fall back to manual instructions.
 
-To have the agent **use the tools**, ensure (1) OpenClaw’s MCP config runs `gog mcp serve` and (2) gog has valid credentials on the Linode host (see §4 and §5 below). You can also add a system or project instruction that when the user asks to create a folder or Doc, the agent should call `drive.ensureFolder` and `docs.create` (and use the returned `folderId` as `parentId`) rather than giving manual steps.
+To have the agent **use the tools**, ensure (1) OpenClaw’s MCP config runs `gog mcp serve` and (2) gog has valid credentials on the Linode host (see §4 and §5 below). You can also add a system or project instruction that when the user asks to create a folder or Doc, the agent should call `drive_ensureFolder` and `docs_create` (and use the returned `folderId` as `parentId`) rather than giving manual steps.
 
 ## 4. One-time credential setup on Linode
 
@@ -72,20 +72,20 @@ OpenClaw must run the gog MCP server so it can call `drive.*` and `docs.*` tools
   - Set `GOG_KEYRING_BACKEND=file` and `GOG_KEYRING_PASSWORD_FILE=/path/to/password-file` in the gog-agentic `env` in mcporter.json (recommended for headless; see §4 Option A2).
 - **Working directory:** Run `gog` from the repo or a directory where the `gog` binary and config/keyring are available.
 
-After that, the agent should see tools such as `drive.ensureFolder`, `docs.create`, `docs.insertText`, etc., in `tools/list`.
+After that, the agent should see tools such as `drive_ensureFolder`, `docs_create`, `docs_insertText`, etc., in `tools/list`.
 
 ## 6. Tool sequence for “Create a Doc in a new folder”
 
 The intended flow:
 
 1. **Create folder (idempotent):**  
-   `drive.ensureFolder` with `path: "testing123"` (and optional `parentId` for a parent folder).  
+   `drive_ensureFolder` with `path: "testing123"` (and optional `parentId` for a parent folder).  
    Response includes `folderId` (and `path`, `created`).
 
 2. **Create Doc in that folder:**  
-   `docs.create` with `title: "Test1"` and `parentId: "<folderId from step 1>"`.
+   `docs_create` with `title: "Test1"` and `parentId: "<folderId from step 1>"`.
 
-So the agent should call `drive.ensureFolder` first, read `folderId` from the result, then call `docs.create` with that `parentId`. With `docs.create` now available in MCP, this flow is supported end-to-end.
+So the agent should call `drive_ensureFolder` first, read `folderId` from the result, then call `docs_create` with that `parentId`. With `docs_create` now available in MCP, this flow is supported end-to-end.
 
 ### 6.1 Prefer gog-agentic MCP first (automatic via setup)
 
@@ -94,7 +94,7 @@ Setup **automatically** injects a directive into the OpenClaw workspace bootstra
 - **What setup does:** Creates or appends to `$workspace_dir/TOOLS.md` a section *"Google Drive and Docs (gog-agentic MCP)"* that instructs the agent to call gog-agentic MCP tools directly and **not** to try mcporter-to-CLI, browser automation, or GOG_KEYRING_PASSWORD—so the agent does not waste time and tokens probing those paths. Idempotent: re-running setup does not duplicate the section.
 - **If you need to add it manually** (e.g. different workspace or TOOLS.md was removed), add a system or project instruction with this text:
 
-> For Google Drive and Google Docs actions (create folder, create document, edit document, list files, etc.), **use the gog-agentic MCP tools first.** Call `drive.ensureFolder` for folders, `docs.create` for new docs (with `parentId` from the folder result), `docs.insertText`, `docs.replaceAllText`, and other `drive.*` / `docs.*` tools. Do not try mcporter to run the gog CLI, browser automation, or GOG_KEYRING_PASSWORD—use MCP tools directly. Only if gog-agentic tools are missing from your tool list, report that gog-agentic is unavailable. If a tool call fails, report the error and do not fall back to gog CLI or exec.
+> For Google Drive and Google Docs actions (create folder, create document, edit document, list files, etc.), **use the gog-agentic MCP tools first.** Call `drive_ensureFolder` for folders, `docs_create` for new docs (with `parentId` from the folder result), `docs_insertText`, `docs_replaceAllText`, and other `drive.*` / `docs.*` tools. Do not try mcporter to run the gog CLI, browser automation, or GOG_KEYRING_PASSWORD—use MCP tools directly. Only if gog-agentic tools are missing from your tool list, report that gog-agentic is unavailable. If a tool call fails, report the error and do not fall back to gog CLI or exec.
 
 *Why TOOLS.md:* OpenClaw injects bootstrap files (e.g. `TOOLS.md`) into the system prompt automatically. Writing the directive during setup gives zero manual steps and scales to all users.
 
@@ -102,11 +102,11 @@ This reduces ambiguity and keeps behavior consistent with the headless setup (ke
 
 ### 6.2 Faster flows (fewer round-trips, fewer tokens)
 
-To reduce latency and token usage use: `docs.createWithBody` when creating a doc with initial content (one tool call); `docs.executeBatch` to insert text and apply styling in one batch; `drive.searchFiles` with `query` to get folder ID when the folder may already exist. Setup injects this into `TOOLS.md` (§6.1).
+To reduce latency and token usage use: `docs_createWithBody` when creating a doc with initial content (one tool call); `docs.executeBatch` to insert text and apply styling in one batch; `drive_searchFiles` with `query` to get folder ID when the folder may already exist. Setup injects this into `TOOLS.md` (§6.1).
 
 ### 6.3 Agent says a folder “does not exist” but you see it in Drive
 
-Tools use the default account in the keyring. If the folder exists under a **different Google account** than the one on the server, the agent will not see it—add that account on the server or pass `account` to the tool. Use `drive.searchFiles` with the folder name as `query`; search includes My Drive and shared drives by default.
+Tools use the default account in the keyring. If the folder exists under a **different Google account** than the one on the server, the agent will not see it—add that account on the server or pass `account` to the tool. Use `drive_searchFiles` with the folder name as `query`; search includes My Drive and shared drives by default.
 
 ## 7. Verify
 
@@ -180,7 +180,7 @@ If the agent reads TOOLS.md but reports that gog-agentic tools are not in its to
 
 | # | Why | Answer |
 |---|-----|--------|
-| **1** | Why does the agent say the tools aren't in its list? | The tool list the agent receives from the gateway does not include `drive.listFiles`, `drive.searchFiles`, etc. |
+| **1** | Why does the agent say the tools aren't in its list? | The tool list the agent receives from the gateway does not include `drive_listFiles`, `drive_searchFiles`, etc. |
 | **2** | Why would that list not include those tools? | Either (a) the gateway never asked mcporter for gog-agentic's tools, (b) the gateway asked but got no/empty list (daemon not running, wrong socket, or gog process crashed), or (c) the gateway got them but did not expose them to the agent (filtering, wrong workspace, or bug). |
 | **3** | Why would the gateway not ask, or not get, or not expose? | (a) Gateway's MCP config does not include gog-agentic (wrong config file or path). (b) Daemon not running, or gateway connects to a different daemon/socket, or the gog child process in the daemon failed. (c) OpenClaw merges tools per workspace/profile; the active one may not have gog-agentic. |
 | **4** | Why would the gateway's config not include gog-agentic or connect to the wrong daemon? | We write to workspace `config/mcporter.json`, fallbacks, and `~/.mcporter/mcporter.json`. We do not control which config path the OpenClaw gateway uses at runtime; it may be started with a path we never write to, or a different workspace may be active. |
@@ -319,7 +319,7 @@ Many OpenClaw installs use the default mcporter config path `~/.mcporter/mcporte
 
 ## 8.9 Agent says “gog-agentic tools are not in my tool list” (OpenClaw design: exec + mcporter)
 
-**What OpenClaw actually does:** In many setups, the OpenClaw gateway does **not** inject MCP server tools (e.g. `drive.listFiles`, `docs.create`) as first-class tools into the agent’s tool list. MCP is used via the **mcporter skill**: the agent has the **exec** tool and is expected to run `mcporter call gog-agentic.<toolName> --args '<JSON>'` when it needs Drive/Docs. The gateway’s `gateway.config` / config JSON does not list MCP servers; they are defined only in `config/mcporter.json`. So the agent’s “tool list” may legitimately not contain `drive.*` / `docs.*`—that does not mean the config is missing.
+**What OpenClaw actually does:** In many setups, the OpenClaw gateway does **not** inject MCP server tools (e.g. `drive_listFiles`, `docs_create`) as first-class tools into the agent’s tool list. MCP is used via the **mcporter skill**: the agent has the **exec** tool and is expected to run `mcporter call gog-agentic.<toolName> --args '<JSON>'` when it needs Drive/Docs. The gateway’s `gateway.config` / config JSON does not list MCP servers; they are defined only in `config/mcporter.json`. So the agent’s “tool list” may legitimately not contain `drive.*` / `docs.*`—that does not mean the config is missing.
 
 **What must be true for the agent to use gog-agentic:**
 
@@ -327,7 +327,7 @@ Many OpenClaw installs use the default mcporter config path `~/.mcporter/mcporte
    The main agent (and any subagent that handles Drive/Docs) must have the **exec** tool allowed. Default OpenClaw config usually allows exec; if you use a strict `tools.profile` or `tools.deny`, ensure exec is not denied.
 
 2. **TOOLS.md tells the agent to use exec + mcporter when direct tools are missing**  
-   Setup injects a section into `$workspace_dir/TOOLS.md` that says: if `drive.*` / `docs.*` are not in your tool list, use **exec** with `mcporter call gog-agentic.drive.listFiles --args '{}'` (and similar for other tools). Ensure that file exists in the workspace and contains that directive (see §6.1). Without it, the agent may conclude “tools are unavailable” instead of trying exec + mcporter.
+   Setup injects a section into `$workspace_dir/TOOLS.md` that says: if `drive.*` / `docs.*` are not in your tool list, use **exec** with `mcporter call gog-agentic.drive_listFiles --args '{}'` (and similar for other tools). Ensure that file exists in the workspace and contains that directive (see §6.1). Without it, the agent may conclude “tools are unavailable” instead of trying exec + mcporter.
 
 3. **Exec environment has mcporter and MCPORTER_CONFIG**  
    When the agent runs a command via exec, the shell must see `mcporter` on PATH and `MCPORTER_CONFIG` pointing at the workspace mcporter config (so `mcporter call gog-agentic.*` uses the same config as the daemon). The gateway inherits env from systemd/process; if you override `HOME`, ensure `env.vars` in `openclaw.json` includes `MCPORTER_CONFIG` so exec children get it:
@@ -347,30 +347,30 @@ Many OpenClaw installs use the default mcporter config path `~/.mcporter/mcporte
    Run the §8.0 checklist: diagnostic script, then `mcporter --config <that config> daemon restart`, then restart the gateway.
 
 **Verification:** As the gateway user, run:
-`mcporter --config /path/to/workspace/config/mcporter.json call --server gog-agentic --tool drive.listFiles --args '{}' --output json`  
+`mcporter --config /path/to/workspace/config/mcporter.json call --server gog-agentic --tool drive_listFiles --args '{}' --output json`  
 If that returns `"ok": true` and a `result` with files, the agent can do the same via exec. If the agent still says tools are unavailable, ensure it has exec and TOOLS.md instructs it to use `mcporter call gog-agentic.*` when direct tools are missing.
 
 ## 8.10 Drive list/search returns only first page (e.g. “only 4 folders”)
 
 **Why the Drive API uses pagination:** Google’s Drive API returns results in pages (e.g. 20–100 items per request) with a `nextPageToken` for the next page. That’s by design: accounts can have huge numbers of files; a single “give me everything” response would be slow, could time out, and would use a lot of memory. So the API is page-based; clients that need more must request the next page.
 
-**What we do:** When you **don’t** pass a `page` token, our MCP tools (`drive.listFiles`, `drive.searchFiles`) return **one page** (default 4 items; use `max` or `maxResults` for more, capped at 25) and **`nextPageToken`**. They do **not** use `--all`; the agent should call again with `page`/`pageToken` set to `nextPageToken` to get more. When the user asks for "first N" (e.g. first 15), the agent must pass **`maxResults`: N** in the request.
+**What we do:** When you **don’t** pass a `page` token, our MCP tools (`drive_listFiles`, `drive_searchFiles`) return **one page** (default 4 items; use `max` or `maxResults` for more, capped at 25) and **`nextPageToken`**. They do **not** use `--all`; the agent should call again with `page`/`pageToken` set to `nextPageToken` to get more. When the user asks for "first N" (e.g. first 15), the agent must pass **`maxResults`: N** in the request.
 
 **Verify after deploy:** From the server, run:
-`mcporter --config /path/to/workspace/config/mcporter.json call --server gog-agentic --tool drive.searchFiles --args '{"query":"mimeType = \"application/vnd.google-apps.folder\"","rawQuery":true,"maxResults":15}' --output json`  
+`mcporter --config /path/to/workspace/config/mcporter.json call --server gog-agentic --tool drive_searchFiles --args '{"query":"mimeType = \"application/vnd.google-apps.folder\"","rawQuery":true,"maxResults":15}' --output json`  
 You should see **15** items in `result.files` and a `nextPageToken` (if there are more). If you see **10** items and a note "Response limited to 10 items to fit gateway", the running binary is **old**—replace `/root/.local/bin/gog` and restart the daemon (see handover deploy steps).
 
 **Smoke tests (after deploy):** Run these to confirm each tool family responds. Replace `$MCP_CFG` with your mcporter config path and use a valid docId/fileId where required.
 
 | Tool family | Command |
 |-------------|--------|
-| Docs read | `mcporter --config $MCP_CFG call --server gog-agentic --tool docs.get --args '{"docId":"<docId>"}' --output json` |
-| Docs cat | `mcporter --config $MCP_CFG call --server gog-agentic --tool docs.cat --args '{"docId":"<docId>"}' --output json` |
-| Docs list tabs | `mcporter --config $MCP_CFG call --server gog-agentic --tool docs.listTabs --args '{"docId":"<docId>"}' --output json` |
-| Drive list | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive.listFiles --args '{"maxResults":5}' --output json` |
-| Drive search | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive.searchFiles --args '{"query":"mimeType = \"application/vnd.google-apps.folder\"","rawQuery":true,"maxResults":5}' --output json` |
-| Drive permissions | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive.listPermissions --args '{"fileId":"<fileId>"}' --output json` |
-| Drive upload (backup) | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive.uploadFile --args '{"localPath":"/tmp/smoke-upload.txt","parentId":"<folderId>"}' --output json` (create file or expect file-not-found) |
+| Docs read | `mcporter --config $MCP_CFG call --server gog-agentic --tool docs_get --args '{"docId":"<docId>"}' --output json` |
+| Docs cat | `mcporter --config $MCP_CFG call --server gog-agentic --tool docs_cat --args '{"docId":"<docId>"}' --output json` |
+| Docs list tabs | `mcporter --config $MCP_CFG call --server gog-agentic --tool docs_listTabs --args '{"docId":"<docId>"}' --output json` |
+| Drive list | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive_listFiles --args '{"maxResults":5}' --output json` |
+| Drive search | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive_searchFiles --args '{"query":"mimeType = \"application/vnd.google-apps.folder\"","rawQuery":true,"maxResults":5}' --output json` |
+| Drive permissions | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive_listPermissions --args '{"fileId":"<fileId>"}' --output json` |
+| Drive upload (backup) | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive_uploadFile --args '{"localPath":"/tmp/smoke-upload.txt","parentId":"<folderId>"}' --output json` (create file or expect file-not-found) |
 
 Expect `"ok": true` and a `result` object; errors indicate auth or binary issues (see §8.0).
 
@@ -384,13 +384,13 @@ Expect `"ok": true` and a `result` object; errors indicate auth or binary issues
 mcporter --config /path/to/workspace/config/mcporter.json daemon restart
 ```
 
-Or from the repo: `./scripts/ensure-mcp-daemon.sh` (and optionally `RESTART_GATEWAY=1 ./scripts/ensure-mcp-daemon.sh`). For listing all folders, the agent should call drive.searchFiles (folders query) and then call again with page set to the returned nextPageToken until there is no token.
+Or from the repo: `./scripts/ensure-mcp-daemon.sh` (and optionally `RESTART_GATEWAY=1 ./scripts/ensure-mcp-daemon.sh`). For listing all folders, the agent should call drive_searchFiles (folders query) and then call again with page set to the returned nextPageToken until there is no token.
 
-When the user asks for "all folders" only, the agent should use **drive.searchFiles** with `rawQuery: true` and query `mimeType = 'application/vnd.google-apps.folder'` (see TOOLS.md "List only folders" command). That returns only folders.
+When the user asks for "all folders" only, the agent should use **drive_searchFiles** with `rawQuery: true` and query `mimeType = 'application/vnd.google-apps.folder'` (see TOOLS.md "List only folders" command). That returns only folders.
 
 **Root cause of "only 4 folders" (5 Whys):** (1) User sees only 4 → agent received only 4 items. (2) Why only 4? gog returns up to 10; something downstream truncates. (3) Where? Our MCP server returns the full JSON (no truncation in gog or transport_stdio). Truncation happens in the gateway or when the agent uses the **exec** tool to run `mcporter call ...` — then the tool result is exec’s stdout, and many gateways limit exec/tool result length. (4) Why 4? Likely a byte limit (e.g. ~1KB); 4 compact folder objects fit in that. (5) Root cause: **gateway (or exec tool) enforces a max length on tool result content**; we cannot change that. So we keep each response small: MCP drive list/search use **paginated mode** (no --all) with **page size 4** and return **nextPageToken**. Each response fits the limit; the agent calls again with `page: nextPageToken` until no token to get all folders.
 
-**Chosen fix:** From MCP, drive.listFiles and drive.searchFiles do not use --all. They request one page of 4 items (--max 4, --compact) and return nextPageToken. For "list all folders" the agent should call once, then repeatedly with page set to the returned nextPageToken until nextPageToken is missing.
+**Chosen fix:** From MCP, drive_listFiles and drive_searchFiles do not use --all. They request one page of 4 items (--max 4, --compact) and return nextPageToken. For "list all folders" the agent should call once, then repeatedly with page set to the returned nextPageToken until nextPageToken is missing.
 
 **Parameter names:** The tools accept **page** (and alias **pageToken**) for the next-page token, and **max** (and aliases **maxResults**, **pageSize**) for page size; maxResults/pageSize are capped at 25 so responses still fit the gateway. Agents that use Drive API-style args (maxResults, pageToken) will work without change.
 
@@ -400,10 +400,10 @@ When the agent creates a folder or document, it is not always obvious whether it
 
 **How to tell:**
 
-- **MCP was used** if the conversation or OpenClaw’s tool-call log shows invocations of **gog-agentic** tools such as `drive.ensureFolder`, `docs.create`, `docs.insertText`, etc. Some UIs show “Tool: drive.ensureFolder” or similar in the thread.
-- **Unclear / possibly not MCP** if the agent only says something like “I’ll create it programmatically using the Google Workspace” or “using the API” without naming `drive.ensureFolder` or `docs.create`. That can mean another integration (e.g. another MCP server or a built-in Google API) was used.
+- **MCP was used** if the conversation or OpenClaw’s tool-call log shows invocations of **gog-agentic** tools such as `drive_ensureFolder`, `docs_create`, `docs_insertText`, etc. Some UIs show “Tool: drive_ensureFolder” or similar in the thread.
+- **Unclear / possibly not MCP** if the agent only says something like “I’ll create it programmatically using the Google Workspace” or “using the API” without naming `drive_ensureFolder` or `docs_create`. That can mean another integration (e.g. another MCP server or a built-in Google API) was used.
 
-**To enforce MCP usage:** Setup injects the directive into `TOOLS.md` by default (§6.1). If your UI exposes tool calls, you can confirm MCP was used by seeing `drive.ensureFolder` and `docs.create` (or other `drive.*` / `docs.*` tools) in the conversation or logs.
+**To enforce MCP usage:** Setup injects the directive into `TOOLS.md` by default (§6.1). If your UI exposes tool calls, you can confirm MCP was used by seeing `drive_ensureFolder` and `docs_create` (or other `drive.*` / `docs.*` tools) in the conversation or logs.
 
 ### 9.1 Never expose keyring password in agent responses
 

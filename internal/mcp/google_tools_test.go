@@ -16,7 +16,7 @@ func TestGoogleTools_DocsPlanBatch(t *testing.T) {
 		return `{"validateOnly":true,"valid":true,"requestHash":"abc","opId":"mcp-docs-plan-1"}`, "", nil
 	})
 
-	env := s.ExecuteTool(context.Background(), "docs.planBatch", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_planBatch", map[string]any{
 		"opId":  "mcp-docs-plan-1",
 		"docId": "d1",
 		"request": map[string]any{
@@ -44,7 +44,7 @@ func TestGoogleTools_DriveEnsureFolder_InvalidInput(t *testing.T) {
 		return "{}", "", nil
 	})
 
-	env := s.ExecuteTool(context.Background(), "drive.ensureFolder", map[string]any{})
+	env := s.ExecuteTool(context.Background(), "drive_ensureFolder", map[string]any{})
 	if env.OK {
 		t.Fatal("expected invalid_argument")
 	}
@@ -60,11 +60,11 @@ func TestGoogleTools_DriveUploadFile_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"id":"f1","name":"backup.tar.gz"}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.uploadFile", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_uploadFile", map[string]any{
 		"localPath":           "/var/backups/backup.tar.gz",
-		"parentId":             "pid1",
-		"name":                 "backup.tar.gz",
-		"keepRevisionForever":  true,
+		"parentId":            "pid1",
+		"name":                "backup.tar.gz",
+		"keepRevisionForever": true,
 	})
 	if !env.OK {
 		t.Fatalf("expected success, got error: %#v", env.Error)
@@ -89,7 +89,7 @@ func TestGoogleTools_DocsInsertText_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"documentId":"d1","insertedChars":5}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.insertText", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_insertText", map[string]any{
 		"docId":        "d1",
 		"text":         "hello",
 		"index":        float64(3),
@@ -121,7 +121,7 @@ func TestGoogleTools_DriveSearchFiles_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"files":[]}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.searchFiles", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_searchFiles", map[string]any{
 		"query":          "budget q1",
 		"rawQuery":       true,
 		"allDrives":      false,
@@ -155,7 +155,7 @@ func TestGoogleTools_DriveSearchFiles_NoPage_UsesPaginatedMode(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"files":[],"nextPageToken":""}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.searchFiles", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_searchFiles", map[string]any{
 		"query":    "mimeType = 'application/vnd.google-apps.folder'",
 		"rawQuery": true,
 	})
@@ -187,9 +187,9 @@ func TestGoogleTools_DriveSearchFiles_PageTokenMaxResultsAliases(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"files":[],"nextPageToken":""}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.searchFiles", map[string]any{
-		"query":       "mimeType = 'application/vnd.google-apps.folder'",
-		"rawQuery":    true,
+	env := s.ExecuteTool(context.Background(), "drive_searchFiles", map[string]any{
+		"query":      "mimeType = 'application/vnd.google-apps.folder'",
+		"rawQuery":   true,
 		"pageToken":  "token-from-drive-api",
 		"maxResults": float64(25),
 	})
@@ -215,7 +215,7 @@ func TestGoogleTools_DriveListFiles_Global_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"files":[]}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.listFiles", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_listFiles", map[string]any{
 		"global":         true,
 		"maxResults":     float64(15),
 		"retryBackoffMs": float64(700),
@@ -235,7 +235,7 @@ func TestGoogleTools_DriveListFiles_GlobalAndParent_Invalid(t *testing.T) {
 	s := NewGoogleServer(func(args []string) (string, string, error) {
 		return `{"files":[]}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.listFiles", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_listFiles", map[string]any{
 		"global":   true,
 		"parentId": "root",
 	})
@@ -253,7 +253,7 @@ func TestGoogleTools_SheetsValuesUpdate_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"updatedCells":2}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "sheets.valuesUpdate", map[string]any{
+	env := s.ExecuteTool(context.Background(), "sheets_valuesUpdate", map[string]any{
 		"spreadsheetId": "s1",
 		"range":         "Sheet1!A1:B1",
 		"values":        []any{[]any{"a", "b"}},
@@ -274,7 +274,7 @@ func TestGoogleTools_SheetsLinks_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"spreadsheetId":"s1","range":"Sheet1!A1:B10","links":[]}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "sheets.links", map[string]any{
+	env := s.ExecuteTool(context.Background(), "sheets_links", map[string]any{
 		"spreadsheetId":  "s1",
 		"range":          "Sheet1!A1:B10",
 		"account":        "a@example.com",
@@ -300,7 +300,7 @@ func TestGoogleTools_SlidesReplaceText_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"occurrencesChanged":1}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "slides.replaceText", map[string]any{
+	env := s.ExecuteTool(context.Background(), "slides_replaceText", map[string]any{
 		"presentationId": "p1",
 		"find":           "Draft",
 		"replace":        "Final",
@@ -324,7 +324,7 @@ func TestGoogleTools_DocsSed_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"status":"ok","docId":"d1","replaced":1,"engine":"sedmat"}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.sed", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_sed", map[string]any{
 		"docId":      "d1",
 		"expression": "s/foo/bar/",
 		"dryRun":     false,
@@ -354,7 +354,7 @@ func TestGoogleTools_DocsSed_InvalidInput(t *testing.T) {
 	s := NewGoogleServer(func(args []string) (string, string, error) {
 		return "{}", "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.sed", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_sed", map[string]any{
 		"expression": "s/foo/bar/",
 	})
 	if env.OK {
@@ -369,7 +369,7 @@ func TestGoogleTools_DocsSmartEdit_RoutingAndEnvelope(t *testing.T) {
 	s := NewGoogleServer(func(args []string) (string, string, error) {
 		return `{"status":"ok","docId":"d1","replaced":1,"engine":"sedmat"}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.smartEdit", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_smartEdit", map[string]any{
 		"docId":        "d1",
 		"intentType":   "sed",
 		"expressions":  []any{"s/foo/bar/"},
@@ -398,7 +398,7 @@ func TestGoogleTools_DocsSmartEdit_ValidateOnlyHighRisk(t *testing.T) {
 		executorCalls++
 		return "{}", "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.smartEdit", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_smartEdit", map[string]any{
 		"docId":        "d1",
 		"intentType":   "sed",
 		"expressions":  []any{"d/delete-me/"},
@@ -423,7 +423,7 @@ func TestGoogleTools_DocsCreate_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"file":{"id":"newDocId","name":"Test1","mimeType":"application/vnd.google-apps.document"}}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.create", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_create", map[string]any{
 		"title":    "Test1",
 		"parentId": "folderIdFromEnsure",
 		"opId":     "op-create-1",
@@ -446,7 +446,7 @@ func TestGoogleTools_DocsCreateWithBody_NoRequest_ReturnsCreateResult(t *testing
 	s := NewGoogleServer(func(args []string) (string, string, error) {
 		return `{"file":{"id":"doc1","name":"Test1","mimeType":"application/vnd.google-apps.document"}}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.createWithBody", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_createWithBody", map[string]any{
 		"title": "Test1",
 	})
 	if !env.OK {
@@ -469,7 +469,7 @@ func TestGoogleTools_DocsCreateWithBody_WithRequest_CallsCreateThenBatch(t *test
 		}
 		return `{"documentId":"doc1","operations":1,"replies":[]}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.createWithBody", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_createWithBody", map[string]any{
 		"title": "Test1",
 		"request": map[string]any{
 			"requests": []map[string]any{
@@ -491,7 +491,7 @@ func TestGoogleTools_DocsGet_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"file":{"id":"d1","name":"Doc1"},"document":{"documentId":"d1","title":"Doc1","revisionId":"rev1"}}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.get", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_get", map[string]any{
 		"docId":   "d1",
 		"account": "a@example.com",
 	})
@@ -511,7 +511,7 @@ func TestGoogleTools_DocsGet_MapsArgs(t *testing.T) {
 
 func TestGoogleTools_DocsGet_MissingDocId(t *testing.T) {
 	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
-	env := s.ExecuteTool(context.Background(), "docs.get", map[string]any{})
+	env := s.ExecuteTool(context.Background(), "docs_get", map[string]any{})
 	if env.OK {
 		t.Fatal("expected invalid_argument when docId missing")
 	}
@@ -526,7 +526,7 @@ func TestGoogleTools_DocsCat_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"text":"Hello world"}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.cat", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_cat", map[string]any{
 		"docId":    "d1",
 		"maxBytes": float64(50000),
 		"tab":      "Sheet1",
@@ -552,7 +552,7 @@ func TestGoogleTools_DocsCat_AllTabs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"tabs":[{"id":"t1","text":"x"}]}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.cat", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_cat", map[string]any{
 		"docId":   "d1",
 		"allTabs": true,
 	})
@@ -570,7 +570,7 @@ func TestGoogleTools_DocsListTabs_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"tabs":[{"id":"t1","title":"Tab 1","index":0}]}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.listTabs", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_listTabs", map[string]any{
 		"docId": "d1",
 	})
 	if !env.OK {
@@ -589,7 +589,7 @@ func TestGoogleTools_DocsListTabs_MapsArgs(t *testing.T) {
 
 func TestGoogleTools_DocsListTabs_MissingDocId(t *testing.T) {
 	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
-	env := s.ExecuteTool(context.Background(), "docs.listTabs", map[string]any{})
+	env := s.ExecuteTool(context.Background(), "docs_listTabs", map[string]any{})
 	if env.OK {
 		t.Fatal("expected invalid_argument when docId missing")
 	}
@@ -604,7 +604,7 @@ func TestGoogleTools_DocsPositionsEnd_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"docId":"d1","appendIndex":42}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.positionsEnd", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_positionsEnd", map[string]any{
 		"docId":   "d1",
 		"account": "a@example.com",
 	})
@@ -628,7 +628,7 @@ func TestGoogleTools_DocsPositionsSearch_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"docId":"d1","text":"foo","ranges":[{"startIndex":1,"endIndex":4}]}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.positionsSearch", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_positionsSearch", map[string]any{
 		"docId":     "d1",
 		"text":      "foo",
 		"matchCase": true,
@@ -650,7 +650,7 @@ func TestGoogleTools_DocsPositionsSearch_MapsArgs(t *testing.T) {
 
 func TestGoogleTools_DocsPositionsSearch_MissingText(t *testing.T) {
 	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
-	env := s.ExecuteTool(context.Background(), "docs.positionsSearch", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_positionsSearch", map[string]any{
 		"docId": "d1",
 	})
 	if env.OK {
@@ -667,7 +667,7 @@ func TestGoogleTools_DocsPositionsHeadings_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"docId":"d1","headings":[{"startIndex":1,"endIndex":10,"style":"HEADING_1","text":"Title"}]}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "docs.positionsHeadings", map[string]any{
+	env := s.ExecuteTool(context.Background(), "docs_positionsHeadings", map[string]any{
 		"docId": "d1",
 	})
 	if !env.OK {
@@ -686,7 +686,7 @@ func TestGoogleTools_DocsPositionsHeadings_MapsArgs(t *testing.T) {
 
 func TestGoogleTools_DocsPositionsHeadings_MissingDocId(t *testing.T) {
 	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
-	env := s.ExecuteTool(context.Background(), "docs.positionsHeadings", map[string]any{})
+	env := s.ExecuteTool(context.Background(), "docs_positionsHeadings", map[string]any{})
 	if env.OK {
 		t.Fatal("expected invalid_argument when docId missing")
 	}
@@ -701,7 +701,7 @@ func TestGoogleTools_DriveMoveFile_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"file":{"id":"f1","name":"x","parents":["p2"]}}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.moveFile", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_moveFile", map[string]any{
 		"fileId":   "f1",
 		"parentId": "p2",
 		"account":  "a@example.com",
@@ -723,7 +723,7 @@ func TestGoogleTools_DriveRenameFile_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"file":{"id":"f1","name":"NewName"}}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.renameFile", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_renameFile", map[string]any{
 		"fileId": "f1",
 		"name":   "NewName",
 	})
@@ -741,7 +741,7 @@ func TestGoogleTools_DriveShareFile_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"permissionId":"perm1","link":"https://drive.google.com/..."}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.shareFile", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_shareFile", map[string]any{
 		"fileId": "f1",
 		"to":     "user",
 		"email":  "u@example.com",
@@ -764,7 +764,7 @@ func TestGoogleTools_DriveUnshare_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.unshare", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_unshare", map[string]any{
 		"fileId":       "f1",
 		"permissionId": "perm1",
 		"force":        true,
@@ -783,7 +783,7 @@ func TestGoogleTools_DriveCreateComment_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"comment":{"id":"c1","content":"Hello"}}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.createComment", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_createComment", map[string]any{
 		"fileId":  "f1",
 		"content": "Hello",
 		"quoted":  "anchor text",
@@ -802,7 +802,7 @@ func TestGoogleTools_DriveCopyFile_MapsArgs(t *testing.T) {
 		gotArgs = append([]string{}, args...)
 		return `{"file":{"id":"copy1","name":"Copy of x"}}`, "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.copyFile", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_copyFile", map[string]any{
 		"fileId":   "f1",
 		"name":     "Copy of x",
 		"parentId": "folder1",
@@ -825,10 +825,10 @@ func TestGoogleTools_SuccessEnvelope_HasServiceAndOperation(t *testing.T) {
 		tool string
 		args map[string]any
 	}{
-		{"docs_get", "docs.get", map[string]any{"docId": "d1"}},
-		{"drive_listFiles", "drive.listFiles", map[string]any{"parentId": "root", "max": float64(5)}},
-		{"drive_uploadFile", "drive.uploadFile", map[string]any{"localPath": "/tmp/upload-test.txt"}},
-		{"sheets_links", "sheets.links", map[string]any{"spreadsheetId": "s1", "range": "A1"}},
+		{"docs_get", "docs_get", map[string]any{"docId": "d1"}},
+		{"drive_listFiles", "drive_listFiles", map[string]any{"parentId": "root", "max": float64(5)}},
+		{"drive_uploadFile", "drive_uploadFile", map[string]any{"localPath": "/tmp/upload-test.txt"}},
+		{"sheets_links", "sheets_links", map[string]any{"spreadsheetId": "s1", "range": "A1"}},
 	}
 	for _, tt := range tools {
 		t.Run(tt.name, func(t *testing.T) {
@@ -855,7 +855,7 @@ func TestGoogleTools_DriveDeleteFile_ValidateOnly_ReturnsPlanned(t *testing.T) {
 		called = true
 		return "{}", "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.deleteFile", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_deleteFile", map[string]any{
 		"fileId":       "f1",
 		"validateOnly": true,
 		"permanent":    true,
@@ -881,7 +881,7 @@ func TestGoogleTools_DriveUnshare_ValidateOnly_ReturnsPlanned(t *testing.T) {
 		called = true
 		return "{}", "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.unshare", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_unshare", map[string]any{
 		"fileId":       "f1",
 		"permissionId": "perm1",
 		"validateOnly": true,
@@ -904,7 +904,7 @@ func TestGoogleTools_DriveDeleteComment_ValidateOnly_ReturnsPlanned(t *testing.T
 		called = true
 		return "{}", "", nil
 	})
-	env := s.ExecuteTool(context.Background(), "drive.deleteComment", map[string]any{
+	env := s.ExecuteTool(context.Background(), "drive_deleteComment", map[string]any{
 		"fileId":       "f1",
 		"commentId":    "c1",
 		"validateOnly": true,

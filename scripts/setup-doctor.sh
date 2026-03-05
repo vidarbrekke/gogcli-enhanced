@@ -677,26 +677,21 @@ tools_path = sys.argv[1]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-**Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names contain dots so you MUST use `--server gog-agentic --tool <toolName>` — do NOT use the `gog-agentic.drive.listFiles` dot-selector (it splits on the first dot and fails with "tool not found").
+**Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names use underscores (e.g. drive_listFiles, docs_create). You can use: `mcporter call gog-agentic.drive_listFiles --args '{}'` or `mcporter call --server gog-agentic --tool drive_listFiles --args '{}'`.
 
-- **List Drive root (files and folders):** `mcporter call --server gog-agentic --tool drive.listFiles --args '{}' --output json`
-- **List all accessible Drive files (global):** `mcporter call --server gog-agentic --tool drive.listFiles --args '{"global":true,"maxResults":20}' --output json` (cannot combine `global:true` with `parentId`)
-- **List only folders (use when user asks for "folders" or "all folders"):** `mcporter call --server gog-agentic --tool drive.searchFiles --args '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\"\",\"rawQuery\":true}' --output json` — returns one page + nextPageToken. **When user asks for \"first N\" (e.g. first 15), add \"maxResults\": N to the args**, e.g. \"maxResults\":15. To get all folders, call again with \"page\": \"<nextPageToken>\" until the response has no nextPageToken.
-- **Create folder:** `mcporter call --server gog-agentic --tool drive.ensureFolder --args '{"path":"FolderName"}' --output json`
-- **Create doc:** `mcporter call --server gog-agentic --tool docs.create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
-- **Search files:** `mcporter call --server gog-agentic --tool drive.searchFiles --args '{"query":"name or text"}' --output json`
+- **List Drive root (files and folders):** `mcporter call gog-agentic.drive_listFiles --args '{}' --output json`
+- **List all accessible Drive files (global):** `mcporter call gog-agentic.drive_listFiles --args '{"global":true,"maxResults":20}' --output json` (cannot combine `global:true` with `parentId`)
+- **List only folders (use when user asks for "folders" or "all folders"):** `mcporter call gog-agentic.drive_searchFiles --args '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\"\",\"rawQuery\":true}' --output json` — returns one page + nextPageToken. **When user asks for \"first N\" (e.g. first 15), add \"maxResults\": N to the args**, e.g. \"maxResults\":15. To get all folders, call again with \"page\": \"<nextPageToken>\" until the response has no nextPageToken.
+- **Create folder:** `mcporter call gog-agentic.drive_ensureFolder --args '{"path":"FolderName"}' --output json`
+- **Create doc:** `mcporter call gog-agentic.docs_create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
+- **Search files:** `mcporter call gog-agentic.drive_searchFiles --args '{"query":"name or text"}' --output json`
 
 OAuth is already set up. If the exec call fails (e.g. command not found or error output), report the error and then suggest the user ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0). Never reveal the keyring password or credentials.
 
 Never invent or assume folder or file names. Only report what the API returned. If you got only N items, say so and offer to fetch more with page/pageToken; do not make up names.
 
-For "create folder then doc": run ensureFolder first, then docs.create with the returned folderId as parentId.
+For "create folder then doc": run drive_ensureFolder first, then docs_create with the returned folderId as parentId.
 """
-existing = ""
-if os.path.isfile(tools_path):
-    with open(tools_path, "r", encoding="utf-8") as f:
-        existing = f.read()
-heading = "## Google Drive and Docs (gog-agentic MCP)"
 pattern = r'(?ms)^## Google Drive and Docs \(gog-agentic MCP\)\n.*?(?=^## |\Z)'
 canonical = section.strip() + "\n"
 if re.search(pattern, existing):
@@ -754,20 +749,20 @@ tools_path = sys.argv[1]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-**Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names contain dots so you MUST use `--server gog-agentic --tool <toolName>` — do NOT use the `gog-agentic.drive.listFiles` dot-selector (it splits on the first dot and fails with "tool not found").
+**Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names use underscores (e.g. drive_listFiles, docs_create). You can use: `mcporter call gog-agentic.drive_listFiles --args '{}'` or `mcporter call --server gog-agentic --tool drive_listFiles --args '{}'`.
 
-- **List Drive root (files and folders):** `mcporter call --server gog-agentic --tool drive.listFiles --args '{}' --output json`
-- **List all accessible Drive files (global):** `mcporter call --server gog-agentic --tool drive.listFiles --args '{"global":true,"maxResults":20}' --output json` (cannot combine `global:true` with `parentId`)
-- **List only folders (use when user asks for "folders" or "all folders"):** `mcporter call --server gog-agentic --tool drive.searchFiles --args '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\"\",\"rawQuery\":true}' --output json` — returns one page + nextPageToken. **When user asks for \"first N\" (e.g. first 15), add \"maxResults\": N to the args**, e.g. \"maxResults\":15. To get all folders, call again with \"page\": \"<nextPageToken>\" until the response has no nextPageToken.
-- **Create folder:** `mcporter call --server gog-agentic --tool drive.ensureFolder --args '{"path":"FolderName"}' --output json`
-- **Create doc:** `mcporter call --server gog-agentic --tool docs.create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
-- **Search files:** `mcporter call --server gog-agentic --tool drive.searchFiles --args '{"query":"name or text"}' --output json`
+- **List Drive root (files and folders):** `mcporter call gog-agentic.drive_listFiles --args '{}' --output json`
+- **List all accessible Drive files (global):** `mcporter call gog-agentic.drive_listFiles --args '{"global":true,"maxResults":20}' --output json` (cannot combine `global:true` with `parentId`)
+- **List only folders (use when user asks for "folders" or "all folders"):** `mcporter call gog-agentic.drive_searchFiles --args '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\"\",\"rawQuery\":true}' --output json` — returns one page + nextPageToken. **When user asks for \"first N\" (e.g. first 15), add \"maxResults\": N to the args**, e.g. \"maxResults\":15. To get all folders, call again with \"page\": \"<nextPageToken>\" until the response has no nextPageToken.
+- **Create folder:** `mcporter call gog-agentic.drive_ensureFolder --args '{"path":"FolderName"}' --output json`
+- **Create doc:** `mcporter call gog-agentic.docs_create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
+- **Search files:** `mcporter call gog-agentic.drive_searchFiles --args '{"query":"name or text"}' --output json`
 
 OAuth is already set up. If the exec call fails (e.g. command not found or error output), report the error and then suggest the user ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0). Never reveal the keyring password or credentials.
 
 Never invent or assume folder or file names. Only report what the API returned. If you got only N items, say so and offer to fetch more with page/pageToken; do not make up names.
 
-For "create folder then doc": run ensureFolder first, then docs.create with the returned folderId as parentId.
+For "create folder then doc": run drive_ensureFolder first, then docs_create with the returned folderId as parentId.
 """
 existing = ""
 if os.path.isfile(tools_path):
