@@ -252,7 +252,7 @@ The gog MCP server talks over **stdio** (stdin/stdout). If the MCP host spawns i
 
 After this, `mcporter daemon status` should list gog-agentic and `mcporter list gog-agentic` should return tools. The gog CLI (e.g. `gog drive ls`) works in a separate process with a TTY; MCP only works when the host (or daemon) keeps the gog process attached and pipes stdio.
 
-**After deploy (git pull):** From the repo on the server, run `./scripts/ensure-mcp-daemon.sh` to restart the daemon (and optionally `RESTART_GATEWAY=1 ./scripts/ensure-mcp-daemon.sh` to also restart the OpenClaw gateway). That prevents "tools not in list" when the gateway was restarted without the daemon.
+**After deploy (git pull):** From the repo on the server, run **`./scripts/deploy.sh`** to build, copy the binary to `~/.local/bin/gog`, and restart the mcporter daemon in one step. On Linode (workspace elsewhere), use `WORKSPACE_DIR=/root/openclaw-stock-home/.openclaw/workspace ./scripts/deploy.sh`. Optional: `./scripts/deploy.sh --no-pull` if you already pulled; `RESTART_GATEWAY=1 ./scripts/deploy.sh` to also restart the OpenClaw gateway. Alternatively, run `./scripts/ensure-mcp-daemon.sh` after building and copying the binary manually.
 
 ### 8.6 Agent says "gog CLI needs to be authenticated" or "no tokens stored" (5-whys root cause)
 
@@ -376,7 +376,7 @@ Expect `"ok": true` and a `result` object; errors indicate auth or binary issues
 
 **Never invent folder or file names.** If the API returns only N items, report those N and offer to fetch more with `pageToken`; do not make up names for positions N+1 and beyond.
 
-**If you still see only the first few items:** The mcporter daemon runs a long-lived `gog mcp serve` process. After you deploy a new `gog` binary (e.g. `git pull` and `./scripts/install.sh` or copying the binary), that process is still the **old** one until you restart the daemon. So list/search keep returning only the first page until the daemon is restarted.
+**If you still see only the first few items:** The mcporter daemon runs a long-lived `gog mcp serve` process. After you deploy a new `gog` binary (e.g. `git pull` and `./scripts/install.sh` or copying the binary), that process is still the **old** one until you restart the daemon. Run **`./scripts/deploy.sh`** from the repo to do pull, build, copy, and daemon restart in one step; or restart the daemon manually (see below).
 
 **Fix:** After every deploy that updates the `gog` binary, restart the mcporter daemon so the new binary is used:
 
