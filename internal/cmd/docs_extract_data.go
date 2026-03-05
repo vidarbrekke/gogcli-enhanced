@@ -22,7 +22,10 @@ func (c *DocsExtractDataCmd) Run(ctx context.Context, flags *RootFlags) error {
 	if docID == "" {
 		return usage("empty docId")
 	}
-	sections := parseExtractSections(c.Sections)
+	sections, err := parseExtractSections(c.Sections)
+	if err != nil {
+		return err
+	}
 
 	account, err := requireAccount(flags)
 	if err != nil {
@@ -57,9 +60,6 @@ func (c *DocsExtractDataCmd) Run(ctx context.Context, flags *RootFlags) error {
 		out["links"] = extractLinks(doc)
 	}
 
-	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, out)
-	}
 	return outfmt.WriteJSON(ctx, os.Stdout, out)
 }
 
@@ -67,14 +67,21 @@ type extractSections struct {
 	outline, tables, links bool
 }
 
-func parseExtractSections(s string) extractSections {
+var errExtractSectionsInvalid = fmt.Errorf("valid sections: outline, tables, links, or all")
+
+// parseExtractSections parses --sections and validates. Returns error on unknown tokens or when no section is selected.
+func parseExtractSections(s string) (extractSections, error) {
 	s = strings.TrimSpace(strings.ToLower(s))
 	if s == "" || s == "all" {
-		return extractSections{outline: true, tables: true, links: true}
+		return extractSections{outline: true, tables: true, links: true}, nil
 	}
 	var sec extractSections
+	var unknown []string
 	for _, part := range strings.Split(s, ",") {
 		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
 		switch part {
 		case "outline":
 			sec.outline = true
@@ -83,10 +90,18 @@ func parseExtractSections(s string) extractSections {
 		case "links":
 			sec.links = true
 		case "all":
-			return extractSections{outline: true, tables: true, links: true}
+			return extractSections{outline: true, tables: true, links: true}, nil
+		default:
+			unknown = append(unknown, part)
 		}
 	}
-	return sec
+	if len(unknown) > 0 {
+		return extractSections{}, fmt.Errorf("invalid section(s) %q: %w", strings.Join(unknown, ","), errExtractSectionsInvalid)
+	}
+	if !sec.outline && !sec.tables && !sec.links {
+		return extractSections{}, fmt.Errorf("at least one section required: %w", errExtractSectionsInvalid)
+	}
+	return sec, nil
 }
 
 func extractOutline(doc *docs.Document) []map[string]any {
@@ -126,11 +141,22 @@ func extractTables(doc *docs.Document) []map[string]any {
 }
 
 func extractLinks(doc *docs.Document) []map[string]any {
-	if doc.Body == nil {
+	if doc == nil || doc.Body == nil {
+		return nil
+	}
+	return collectLinksFromContent(doc.Body.Content)
+}
+
+// collectLinksFromContent recursively walks structural elements (body or table cell content) and collects all link entries.
+func collectLinksFromContent(content []*docs.StructuralElement) []map[string]any {
+	if len(content) == 0 {
 		return nil
 	}
 	var links []map[string]any
-	for _, el := range doc.Body.Content {
+	for _, el := range content {
+		if el == nil {
+			continue
+		}
 		if el.Paragraph != nil {
 			for _, pe := range el.Paragraph.Elements {
 				if pe.TextRun != nil && pe.TextRun.TextStyle != nil && pe.TextRun.TextStyle.Link != nil {
@@ -149,22 +175,8 @@ func extractLinks(doc *docs.Document) []map[string]any {
 		if el.Table != nil {
 			for _, row := range el.Table.TableRows {
 				for _, cell := range row.TableCells {
-					for _, cont := range cell.Content {
-						if cont.Paragraph != nil {
-							for _, pe := range cont.Paragraph.Elements {
-								if pe.TextRun != nil && pe.TextRun.TextStyle != nil && pe.TextRun.TextStyle.Link != nil {
-									link := pe.TextRun.TextStyle.Link
-									entry := map[string]any{"text": strings.TrimSpace(pe.TextRun.Content)}
-									if link.Url != "" {
-										entry["url"] = link.Url
-									}
-									if link.BookmarkId != "" {
-										entry["bookmarkId"] = link.BookmarkId
-									}
-									links = append(links, entry)
-								}
-							}
-						}
+					if cell != nil {
+						links = append(links, collectLinksFromContent(cell.Content)...)
 					}
 				}
 			}
