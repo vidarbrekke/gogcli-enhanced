@@ -6,6 +6,7 @@
 #   ./scripts/deploy.sh
 #   WORKSPACE_DIR=/path/to/workspace ./scripts/deploy.sh   # mcporter config path (default: parent of repositories/ or repo root)
 #   ./scripts/deploy.sh --no-pull                          # Skip git pull (already pulled)
+#   ./scripts/deploy.sh --yes                              # Non-interactive (skip any confirmation prompts; for CI/automation)
 #   RESTART_GATEWAY=1 ./scripts/deploy.sh                  # Also restart openclaw-gateway (systemd user)
 set -euo pipefail
 
@@ -14,11 +15,15 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
 DO_PULL=1
+NON_INTERACTIVE=0
 for arg in "$@"; do
   case "$arg" in
     --no-pull) DO_PULL=0 ;;
+    --yes|--non-interactive) NON_INTERACTIVE=1 ;;
     -h|--help)
-      echo "Usage: $0 [--no-pull]"
+      echo "Usage: $0 [--no-pull] [--yes]"
+      echo "  --no-pull            Skip git pull (e.g. already pulled)."
+      echo "  --yes, --non-interactive  Non-interactive; skip confirmation prompts (for automation)."
       echo "  WORKSPACE_DIR=/path  Set mcporter config directory (default: auto-detect from repo path)."
       echo "  RESTART_GATEWAY=1    Also restart openclaw-gateway after daemon restart."
       exit 0
@@ -32,6 +37,12 @@ log() { echo "[deploy] $*"; }
 chmod +x "$ROOT_DIR/scripts/install.sh" "$ROOT_DIR/scripts/ensure-mcp-daemon.sh" 2>/dev/null || true
 
 if [[ "$DO_PULL" -eq 1 ]]; then
+  status_line=$(git status -s 2>/dev/null || true)
+  if [[ -n "$status_line" ]]; then
+    log "Pre-pull git status: $status_line"
+  else
+    log "Pre-pull git status: working tree clean"
+  fi
   log "Running git pull..."
   git pull
 fi
