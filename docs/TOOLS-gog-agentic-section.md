@@ -2,6 +2,8 @@
 
 **Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names use **underscores** (e.g. `drive_listFiles`, `docs_create`). You can use: `mcporter call gog-agentic.drive_listFiles --args '{}'` or `mcporter call --server gog-agentic --tool drive_listFiles --args '{}'`.
 
+**Comparison with gateway proxies (e.g. Maton):** See [maton-vs-gog-parity.md](maton-vs-gog-parity.md) for capability parity and a quick Maton→gog mapping.
+
 ### Tool reference (all available via MCP)
 
 - **Docs read:** `docs_get` (metadata/revision), `docs_cat` (plain text; optional maxBytes, tab, allTabs), `docs_listTabs`, `docs_positionsEnd`, `docs_positionsSearch` (text + matchCase), `docs_positionsHeadings`

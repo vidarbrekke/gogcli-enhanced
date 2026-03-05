@@ -1047,6 +1047,28 @@ func TestGoogleTools_DriveCopyFile_MapsArgs(t *testing.T) {
 	}
 }
 
+// expectedSheetsTools is the full list of sheet tool names that must be registered.
+// If the deployed binary shows only 6 sheet tools, it was built from an older commit—run deploy.sh on the server.
+var expectedSheetsTools = []string{
+	"sheets_applyFormula", "sheets_dedupeRows", "sheets_executeBatch", "sheets_filterCopyRows",
+	"sheets_links", "sheets_moveRows", "sheets_planBatch", "sheets_sortRange", "sheets_summarize",
+	"sheets_upsertRows", "sheets_valuesAppend", "sheets_valuesGet", "sheets_valuesRead", "sheets_valuesUpdate",
+}
+
+func TestGoogleTools_SheetsToolsRegistered(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
+	specs := s.ListToolSpecs()
+	names := make(map[string]bool)
+	for _, spec := range specs {
+		names[spec.Name] = true
+	}
+	for _, want := range expectedSheetsTools {
+		if !names[want] {
+			t.Errorf("sheet tool %q not registered; only %d sheet tools in binary (expected %d). Deploy with ./scripts/deploy.sh on the server.", want, len(names), len(expectedSheetsTools))
+		}
+	}
+}
+
 // TestGoogleTools_SuccessEnvelope_HasServiceAndOperation asserts all successful MCP tool responses include service and operation (envelope contract).
 func TestGoogleTools_SuccessEnvelope_HasServiceAndOperation(t *testing.T) {
 	tools := []struct {

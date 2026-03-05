@@ -60,6 +60,10 @@
 - Parse JSON stderr error envelopes and branch on `error.error_code` (avoid message-string matching where possible).
 - Persist `requestHash`, `doc_id`, and request file path in agent logs for replayability and audit trails.
 
+### Third-party comparison (Maton)
+
+- For Maton vs gog parity (both use native Google APIs; gog adds MCP/convenience tools), see `docs/maton-vs-gog-parity.md`.
+
 ### When to use batch vs sedmat (MCP / CLI)
 
 - **Batch (`docs.planBatch` / `docs.executeBatch`, or `gog docs edit batch`):** Use for structured, multi-op Docs API requests when you need `requestHash`, revision safety, and a strict validate → approve → execute flow. Best for deterministic agent runs and audit trails.

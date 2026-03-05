@@ -385,6 +385,12 @@ You should see **15** items in `result.files` and a `nextPageToken` (if there ar
 
 **List tools after deploy:** Run `mcporter --config $MCP_CFG list gog-agentic` (with `$MCP_CFG` set to your workspace mcporter config path, e.g. `/root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json`). Confirm **sheets_valuesGet** appears in the output. If it is missing, the daemon may be using an old binary—run `./scripts/deploy.sh` from the repo and restart the gateway so the tool list refreshes. To filter the list (e.g. in scripts), pipe through grep: `mcporter list gog-agentic | grep sheets_valuesGet`.
 
+**New sheet tools (sheets_sortRange, sheets_dedupeRows, etc.) not in list:** If the agent or `mcporter list gog-agentic` only shows the older subset (e.g. `sheets_executeBatch`, `sheets_links`, `sheets_planBatch`, `sheets_valuesAppend`, `sheets_valuesGet`, `sheets_valuesUpdate`) and not `sheets_sortRange`, `sheets_dedupeRows`, `sheets_filterCopyRows`, `sheets_upsertRows`, `sheets_moveRows`, `sheets_applyFormula`, or `sheets_summarize`, the MCP server is running an **old gog binary**. Restarting the daemon alone does **not** replace the binary—it only re-launches the same binary. You must **deploy** so the new binary is built and used:
+
+1. On the Linode server, from the repo root: `./scripts/deploy.sh` (or `WORKSPACE_DIR=/path/to/workspace ./scripts/deploy.sh`). This runs git pull, builds gog, copies the binary to `~/.local/bin/gog` (or the path used by mcporter), and restarts the mcporter daemon.
+2. Restart the OpenClaw gateway so it re-fetches the tool list: `systemctl --user restart openclaw-gateway` (or your normal gateway restart).
+3. Verify: `mcporter --config $MCP_CFG list gog-agentic | grep -E 'sheets_sortRange|sheets_dedupeRows'`. You should see both. If not, confirm the `command` in mcporter.json for gog-agentic points at the binary you updated (e.g. `gog` from PATH or full path to `bin/gog` in the repo).
+
 **Smoke tests (after deploy):** Run these to confirm each tool family responds. Replace `$MCP_CFG` with your mcporter config path and use a valid docId/fileId where required.
 
 | Tool family | Command |

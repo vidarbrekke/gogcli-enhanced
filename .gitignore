@@ -40,3 +40,6 @@ bin/
 
 # Node (optional dev scripts)
 node_modules/
+
+# Maton capability capture (run script output; may contain session data)
+docs/maton-capture/
