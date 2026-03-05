@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/steipete/gogcli/docs/merge/schemas/gmail-labels-get.json",
+  "title": "gog gmail labels get (--json)",
+  "description": "Native gog output for: gog --json gmail labels get <idOrName>",
+  "type": "object",
+  "required": ["label"],
+  "properties": {
+    "label": { "$ref": "#/$defs/labelWithCounts" }
+  },
+  "$defs": {
+    "labelWithCounts": {
+      "type": "object",
+      "required": ["id", "name", "type"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["system", "user"] },
+        "messageListVisibility": { "type": "string" },
+        "labelListVisibility": { "type": "string" },
+        "messagesTotal": { "type": "integer" },
+        "messagesUnread": { "type": "integer" },
+        "threadsTotal": { "type": "integer" },
+        "threadsUnread": { "type": "integer" }
+      }
+    }
+  }
+}

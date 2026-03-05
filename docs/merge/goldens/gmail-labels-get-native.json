@@ -1,0 +1,11 @@
+{
+  "label": {
+    "id": "INBOX",
+    "name": "INBOX",
+    "type": "system",
+    "messagesTotal": 123,
+    "messagesUnread": 7,
+    "threadsTotal": 50,
+    "threadsUnread": 3
+  }
+}

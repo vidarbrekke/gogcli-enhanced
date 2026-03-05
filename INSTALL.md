@@ -244,6 +244,14 @@ For more on auth, keyring, service accounts, and scopes, see **README.md** → A
 
 ---
 
+## 7. Optional: Google Workspace CLI (gws)
+
+If you also use or evaluate **gws** (Google Workspace CLI) on this repo—e.g. for the [gog/gws merge plan](docs/merge/command-migration-matrix.md) or to run gws on a Linode/OpenClaw server—see **[docs/gws-on-linode.md](docs/gws-on-linode.md)**.
+
+**Easier setup:** With the [Google Cloud SDK (gcloud)](https://cloud.google.com/sdk/docs/install) installed, run `gws auth setup` once. It creates the GCP project and OAuth client for you and opens the browser to sign in, so you skip manual project creation and downloading `client_secret.json` from the Console. The doc lists this as the recommended path; the manual Console flow is the fallback if you don’t use gcloud.
+
+---
+
 ## Quick reference
 
 | Step | Command |

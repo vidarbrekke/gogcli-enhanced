@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/steipete/gogcli/docs/merge/schemas/drive-ls.json",
+  "title": "gog drive ls (--json)",
+  "description": "Native gog output for: gog --json drive ls [--parent <id>] [--max N] [--page <token>]",
+  "type": "object",
+  "required": ["files"],
+  "properties": {
+    "files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/file" }
+    },
+    "nextPageToken": { "type": "string", "description": "Present when more results exist; empty or absent on last page" }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "size": { "type": "string", "description": "Drive API returns size as string" },
+        "modifiedTime": { "type": "string", "format": "date-time" },
+        "createdTime": { "type": "string", "format": "date-time" },
+        "trashed": { "type": "boolean" },
+        "parents": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

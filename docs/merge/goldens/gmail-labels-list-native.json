@@ -1,0 +1,14 @@
+{
+  "labels": [
+    {
+      "id": "INBOX",
+      "name": "INBOX",
+      "type": "system"
+    },
+    {
+      "id": "Label_1",
+      "name": "Custom",
+      "type": "user"
+    }
+  ]
+}

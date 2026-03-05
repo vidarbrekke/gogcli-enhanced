@@ -4,6 +4,8 @@ Use this when running OpenClaw on a Linode server and want the agent to create/e
 
 **Install/upgrade:** For cloning, building, and putting `gog` on PATH, see **[INSTALL.md](../INSTALL.md)** (quick ref: clone gogcli-enhanced → `make` → copy `bin/gog` to PATH; no `make install` or `make clean`). On the server, use **`./scripts/deploy.sh`** to pull, build, copy binary, and restart the MCP daemon.
 
+**Optional — gws on Linode:** If you also want the Google Workspace CLI (`gws`) on this server (e.g. for parity goldens or merge-plan work), see **[gws-on-linode.md](gws-on-linode.md)**. The recommended setup is **gcloud + `gws auth setup`** on your laptop so you skip manual GCP project and OAuth client creation; the doc has the full flow.
+
 ## 1. Automatic MCP registration during setup
 
 **No manual config is required** if you run the repo’s setup script where OpenClaw can see the config:

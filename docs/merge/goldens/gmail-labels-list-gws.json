@@ -1,0 +1,657 @@
+{
+  "labels": [
+    {
+      "id": "CHAT",
+      "labelListVisibility": "labelHide",
+      "messageListVisibility": "hide",
+      "name": "CHAT",
+      "type": "system"
+    },
+    {
+      "id": "SENT",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "SENT",
+      "type": "system"
+    },
+    {
+      "id": "INBOX",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "INBOX",
+      "type": "system"
+    },
+    {
+      "id": "IMPORTANT",
+      "labelListVisibility": "labelHide",
+      "messageListVisibility": "hide",
+      "name": "IMPORTANT",
+      "type": "system"
+    },
+    {
+      "id": "TRASH",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "TRASH",
+      "type": "system"
+    },
+    {
+      "id": "DRAFT",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "DRAFT",
+      "type": "system"
+    },
+    {
+      "id": "SPAM",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "SPAM",
+      "type": "system"
+    },
+    {
+      "id": "CATEGORY_FORUMS",
+      "name": "CATEGORY_FORUMS",
+      "type": "system"
+    },
+    {
+      "id": "CATEGORY_UPDATES",
+      "name": "CATEGORY_UPDATES",
+      "type": "system"
+    },
+    {
+      "id": "CATEGORY_PERSONAL",
+      "name": "CATEGORY_PERSONAL",
+      "type": "system"
+    },
+    {
+      "id": "CATEGORY_PROMOTIONS",
+      "name": "CATEGORY_PROMOTIONS",
+      "type": "system"
+    },
+    {
+      "id": "CATEGORY_SOCIAL",
+      "name": "CATEGORY_SOCIAL",
+      "type": "system"
+    },
+    {
+      "id": "GREEN_CIRCLE",
+      "name": "GREEN_CIRCLE",
+      "type": "system"
+    },
+    {
+      "id": "RED_CIRCLE",
+      "name": "RED_CIRCLE",
+      "type": "system"
+    },
+    {
+      "id": "BLUE_STAR",
+      "name": "BLUE_STAR",
+      "type": "system"
+    },
+    {
+      "id": "YELLOW_STAR",
+      "name": "YELLOW_STAR",
+      "type": "system"
+    },
+    {
+      "id": "STARRED",
+      "labelListVisibility": "labelHide",
+      "messageListVisibility": "hide",
+      "name": "STARRED",
+      "type": "system"
+    },
+    {
+      "id": "UNREAD",
+      "name": "UNREAD",
+      "type": "system"
+    },
+    {
+      "id": "Label_10",
+      "labelListVisibility": "labelHide",
+      "messageListVisibility": "show",
+      "name": "contract",
+      "type": "user"
+    },
+    {
+      "id": "Label_11",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Converseon",
+      "type": "user"
+    },
+    {
+      "id": "Label_12",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "craigslist",
+      "type": "user"
+    },
+    {
+      "id": "Label_13",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Daniel",
+      "type": "user"
+    },
+    {
+      "id": "Label_14",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Demos",
+      "type": "user"
+    },
+    {
+      "id": "Label_15",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "developer",
+      "type": "user"
+    },
+    {
+      "id": "Label_16",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "door3",
+      "type": "user"
+    },
+    {
+      "id": "Label_17",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "dotbox",
+      "type": "user"
+    },
+    {
+      "id": "Label_18",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Engague",
+      "type": "user"
+    },
+    {
+      "id": "Label_19",
+      "name": "Filtered",
+      "type": "user"
+    },
+    {
+      "id": "Label_2",
+      "name": "ad-buying",
+      "type": "user"
+    },
+    {
+      "id": "Label_20",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "Finish Rich",
+      "type": "user"
+    },
+    {
+      "id": "Label_21",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "followup",
+      "type": "user"
+    },
+    {
+      "id": "Label_2142474295668109304",
+      "name": "divorce",
+      "type": "user"
+    },
+    {
+      "id": "Label_22",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "git",
+      "type": "user"
+    },
+    {
+      "id": "Label_23",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "grand view",
+      "type": "user"
+    },
+    {
+      "id": "Label_24",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "GUI",
+      "type": "user"
+    },
+    {
+      "id": "Label_25",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "ideas",
+      "type": "user"
+    },
+    {
+      "id": "Label_26",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "interns",
+      "type": "user"
+    },
+    {
+      "id": "Label_27",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "investor-prospects",
+      "type": "user"
+    },
+    {
+      "id": "Label_28",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "Investor-response",
+      "type": "user"
+    },
+    {
+      "id": "Label_29",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "kindered spirits",
+      "type": "user"
+    },
+    {
+      "id": "Label_3",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Bill",
+      "type": "user"
+    },
+    {
+      "id": "Label_30",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Linkst. Website",
+      "type": "user"
+    },
+    {
+      "id": "Label_31",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Linkstorms",
+      "type": "user"
+    },
+    {
+      "id": "Label_32",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "marketing oppt.",
+      "type": "user"
+    },
+    {
+      "id": "Label_33",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "mastercard",
+      "type": "user"
+    },
+    {
+      "id": "Label_34",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "meeting",
+      "type": "user"
+    },
+    {
+      "id": "Label_35",
+      "labelListVisibility": "labelHide",
+      "messageListVisibility": "show",
+      "name": "Meetup",
+      "type": "user"
+    },
+    {
+      "id": "Label_36",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "MENG",
+      "type": "user"
+    },
+    {
+      "id": "Label_37",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "momentum",
+      "type": "user"
+    },
+    {
+      "id": "Label_38",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "myspace_dev",
+      "type": "user"
+    },
+    {
+      "id": "Label_39",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "newco",
+      "type": "user"
+    },
+    {
+      "id": "Label_4",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Bill attachment",
+      "type": "user"
+    },
+    {
+      "id": "Label_40",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "newco-sales",
+      "type": "user"
+    },
+    {
+      "id": "Label_41",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "NorthHighland",
+      "type": "user"
+    },
+    {
+      "id": "Label_42",
+      "name": "Notes",
+      "type": "user"
+    },
+    {
+      "id": "Label_43",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "OAM prospect",
+      "type": "user"
+    },
+    {
+      "id": "Label_44",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "opencoffee",
+      "type": "user"
+    },
+    {
+      "id": "Label_45",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "outsourcing inst.",
+      "type": "user"
+    },
+    {
+      "id": "Label_46",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "photo",
+      "type": "user"
+    },
+    {
+      "id": "Label_47",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "photobiz",
+      "type": "user"
+    },
+    {
+      "id": "Label_48",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Potential Partners",
+      "type": "user"
+    },
+    {
+      "id": "Label_49",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Prospect",
+      "type": "user"
+    },
+    {
+      "id": "Label_5",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Buddymedia",
+      "type": "user"
+    },
+    {
+      "id": "Label_50",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "rackspace",
+      "type": "user"
+    },
+    {
+      "id": "Label_51",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "recruiter",
+      "type": "user"
+    },
+    {
+      "id": "Label_52",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "recruiting",
+      "type": "user"
+    },
+    {
+      "id": "Label_53",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "reporters",
+      "type": "user"
+    },
+    {
+      "id": "Label_54",
+      "labelListVisibility": "labelHide",
+      "messageListVisibility": "show",
+      "name": "resumes",
+      "type": "user"
+    },
+    {
+      "id": "Label_55",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "RFP",
+      "type": "user"
+    },
+    {
+      "id": "Label_56",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "RT Football",
+      "type": "user"
+    },
+    {
+      "id": "Label_57",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "salespeople",
+      "type": "user"
+    },
+    {
+      "id": "Label_5703981576578893125",
+      "name": "Laurie",
+      "type": "user"
+    },
+    {
+      "id": "Label_58",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "SellARing",
+      "type": "user"
+    },
+    {
+      "color": {
+        "backgroundColor": "#eeeeee",
+        "textColor": "#222222"
+      },
+      "id": "Label_59",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "SocialIntent",
+      "type": "user"
+    },
+    {
+      "id": "Label_6",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "Clinique",
+      "type": "user"
+    },
+    {
+      "id": "Label_60",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "stats",
+      "type": "user"
+    },
+    {
+      "id": "Label_61",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "survey",
+      "type": "user"
+    },
+    {
+      "id": "Label_62",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "talked to",
+      "type": "user"
+    },
+    {
+      "id": "Label_63",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "techweb",
+      "type": "user"
+    },
+    {
+      "id": "Label_64",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "twitter account",
+      "type": "user"
+    },
+    {
+      "id": "Label_65",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "Valerie LaSusa",
+      "type": "user"
+    },
+    {
+      "id": "Label_66",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "verizon",
+      "type": "user"
+    },
+    {
+      "id": "Label_67",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "vineel",
+      "type": "user"
+    },
+    {
+      "id": "Label_68",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "yearnit",
+      "type": "user"
+    },
+    {
+      "id": "Label_69",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "hide",
+      "name": "zeta",
+      "type": "user"
+    },
+    {
+      "color": {
+        "backgroundColor": "#eeeeee",
+        "textColor": "#222222"
+      },
+      "id": "Label_7",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "coke",
+      "type": "user"
+    },
+    {
+      "id": "Label_70",
+      "name": "Unroll.me",
+      "type": "user"
+    },
+    {
+      "id": "Label_71",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "TEDx",
+      "type": "user"
+    },
+    {
+      "id": "Label_72",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "Homebrew",
+      "type": "user"
+    },
+    {
+      "id": "Label_73",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "diy",
+      "type": "user"
+    },
+    {
+      "id": "Label_74",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "Handle",
+      "type": "user"
+    },
+    {
+      "id": "Label_75",
+      "name": "Handle/Read Later",
+      "type": "user"
+    },
+    {
+      "id": "Label_76",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "travel",
+      "type": "user"
+    },
+    {
+      "id": "Label_77",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "SharpSpring",
+      "type": "user"
+    },
+    {
+      "id": "Label_78",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "sponsor",
+      "type": "user"
+    },
+    {
+      "id": "Label_8",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "confirmation",
+      "type": "user"
+    },
+    {
+      "id": "Label_9",
+      "labelListVisibility": "labelShow",
+      "messageListVisibility": "show",
+      "name": "confirmation/receipt",
+      "type": "user"
+    }
+  ]
+}
