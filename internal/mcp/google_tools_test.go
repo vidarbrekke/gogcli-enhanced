@@ -162,7 +162,7 @@ func TestGoogleTools_DriveSearchFiles_NoPage_UsesPaginatedMode(t *testing.T) {
 	if !env.OK {
 		t.Fatalf("expected success, got error: %#v", env.Error)
 	}
-	// No --all; one page of mcpDrivePageSize (4) + --compact so response fits gateway limit.
+	// No --all; one page of mcpDrivePageSize (25) + --compact so response fits gateway limit.
 	if slices.Contains(gotArgs, "--all") {
 		t.Fatalf("expected no --all (paginated mode), got %v", gotArgs)
 	}
@@ -174,8 +174,8 @@ func TestGoogleTools_DriveSearchFiles_NoPage_UsesPaginatedMode(t *testing.T) {
 	}
 	// Default page size should be 4
 	for i := range gotArgs {
-		if gotArgs[i] == "--max" && i+1 < len(gotArgs) && gotArgs[i+1] != "4" {
-			t.Fatalf("expected --max 4 when no page/max passed, got --max %s", gotArgs[i+1])
+		if gotArgs[i] == "--max" && i+1 < len(gotArgs) && gotArgs[i+1] != "25" {
+			t.Fatalf("expected --max 25 when no page/max passed, got --max %s", gotArgs[i+1])
 		}
 	}
 }
@@ -405,6 +405,60 @@ func TestGoogleTools_SheetsDedupeRows_MissingRange_ReturnsError(t *testing.T) {
 	})
 	if env.OK {
 		t.Fatal("expected error for missing range")
+	}
+	if env.Error == nil || env.Error.Code != "invalid_argument" {
+		t.Fatalf("unexpected error: %#v", env.Error)
+	}
+}
+
+func TestGoogleTools_SheetsFilterCopyRows_InvalidColumnOrOp(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
+	tests := []struct {
+		name string
+		args map[string]any
+	}{
+		{"missing column", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A1:B2", "targetSheet": "T", "op": "eq", "value": "x"}},
+		{"invalid op", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A1:B2", "targetSheet": "T", "column": float64(0), "op": "invalid", "value": "x"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := s.ExecuteTool(context.Background(), "sheets_filterCopyRows", tt.args)
+			if env.OK {
+				t.Fatal("expected invalid_argument")
+			}
+			if env.Error == nil || env.Error.Code != "invalid_argument" {
+				t.Fatalf("unexpected error: %#v", env.Error)
+			}
+		})
+	}
+}
+
+func TestGoogleTools_SheetsUpsertRows_InvalidKeyColumns(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
+	env := s.ExecuteTool(context.Background(), "sheets_upsertRows", map[string]any{
+		"spreadsheetId": "s1",
+		"range":         "Sheet1!A2:B10",
+		"keyColumns":    []any{"not", "ints"},
+		"rows":          []any{[]any{"a", "b"}},
+	})
+	if env.OK {
+		t.Fatal("expected invalid_argument for non-integer keyColumns")
+	}
+	if env.Error == nil || env.Error.Code != "invalid_argument" {
+		t.Fatalf("unexpected error: %#v", env.Error)
+	}
+}
+
+func TestGoogleTools_SheetsSummarize_InvalidGroupBy(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
+	env := s.ExecuteTool(context.Background(), "sheets_summarize", map[string]any{
+		"spreadsheetId": "s1",
+		"range":         "Sheet1!A2:B10",
+		"groupBy":       []any{},
+		"aggregate":     "count",
+	})
+	if env.OK {
+		t.Fatal("expected invalid_argument for empty groupBy")
 	}
 	if env.Error == nil || env.Error.Code != "invalid_argument" {
 		t.Fatalf("unexpected error: %#v", env.Error)
@@ -1062,10 +1116,50 @@ func TestGoogleTools_SheetsToolsRegistered(t *testing.T) {
 	for _, spec := range specs {
 		names[spec.Name] = true
 	}
+	// Regression: expect 57 tools total after provider modularization (docs + sheets + slides + drive).
+	if len(specs) != 57 {
+		t.Errorf("expected 57 registered tools, got %d", len(specs))
+	}
 	for _, want := range expectedSheetsTools {
 		if !names[want] {
 			t.Errorf("sheet tool %q not registered; only %d sheet tools in binary (expected %d). Deploy with ./scripts/deploy.sh on the server.", want, len(names), len(expectedSheetsTools))
 		}
+	}
+}
+
+// TestGoogleTools_RegisteredDomainOrderAndCounts asserts the Phase 1 split contract: all four domains contribute the expected number of tools (docs 20, sheets 14, slides 4, drive 19). ListToolSpecs returns tools sorted by name, so we only assert counts.
+func TestGoogleTools_RegisteredDomainOrderAndCounts(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
+	specs := s.ListToolSpecs()
+	if len(specs) != 57 {
+		t.Fatalf("expected 57 tools, got %d", len(specs))
+	}
+	var docs, sheets, slides, drive int
+	for _, spec := range specs {
+		switch {
+		case strings.HasPrefix(spec.Name, "docs_"):
+			docs++
+		case strings.HasPrefix(spec.Name, "sheets_"):
+			sheets++
+		case strings.HasPrefix(spec.Name, "slides_"):
+			slides++
+		case strings.HasPrefix(spec.Name, "drive_"):
+			drive++
+		default:
+			t.Errorf("unexpected tool prefix: %q", spec.Name)
+		}
+	}
+	if docs != 20 {
+		t.Errorf("expected 20 docs tools, got %d", docs)
+	}
+	if sheets != 14 {
+		t.Errorf("expected 14 sheets tools, got %d", sheets)
+	}
+	if slides != 4 {
+		t.Errorf("expected 4 slides tools, got %d", slides)
+	}
+	if drive != 19 {
+		t.Errorf("expected 19 drive tools, got %d", drive)
 	}
 }
 
