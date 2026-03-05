@@ -49,3 +49,32 @@ func TestParseA1Range(t *testing.T) {
 		}
 	})
 }
+
+func TestIndexToColLetters(t *testing.T) {
+	tests := []struct {
+		col  int
+		want string
+	}{
+		{1, "A"}, {2, "B"}, {26, "Z"}, {27, "AA"}, {52, "AZ"},
+	}
+	for _, tt := range tests {
+		got := indexToColLetters(tt.col)
+		if got != tt.want {
+			t.Errorf("indexToColLetters(%d)=%q want %q", tt.col, got, tt.want)
+		}
+	}
+	if indexToColLetters(0) != "" {
+		t.Errorf("indexToColLetters(0) should be empty")
+	}
+}
+
+func TestA1RangeString(t *testing.T) {
+	got := a1RangeString("Sheet1", 2, 5, 1, 3)
+	if got != "Sheet1!A2:C5" {
+		t.Errorf("a1RangeString got %q want Sheet1!A2:C5", got)
+	}
+	gotSingle := a1RangeString("S", 1, 1, 1, 1)
+	if gotSingle != "S!A1" {
+		t.Errorf("a1RangeString single cell got %q want S!A1", gotSingle)
+	}
+}

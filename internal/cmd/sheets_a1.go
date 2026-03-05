@@ -134,3 +134,26 @@ func colLettersToIndex(letters string) (int, error) {
 	}
 	return col, nil
 }
+
+// indexToColLetters returns A1 column letters for 1-based column index (1 = A, 27 = AA).
+func indexToColLetters(col1Based int) string {
+	if col1Based < 1 {
+		return ""
+	}
+	var b []byte
+	for col1Based > 0 {
+		col1Based--
+		b = append([]byte{byte('A' + col1Based%26)}, b...)
+		col1Based /= 26
+	}
+	return string(b)
+}
+
+// a1RangeString returns an A1-style range string for the given bounds (1-based rows and columns).
+func a1RangeString(sheetName string, startRow, endRow, startCol, endCol int) string {
+	s := sheetName + "!"
+	if startRow == endRow && startCol == endCol {
+		return s + indexToColLetters(startCol) + strconv.Itoa(startRow)
+	}
+	return s + indexToColLetters(startCol) + strconv.Itoa(startRow) + ":" + indexToColLetters(endCol) + strconv.Itoa(endRow)
+}

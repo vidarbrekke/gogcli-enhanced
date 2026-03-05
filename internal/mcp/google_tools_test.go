@@ -350,6 +350,179 @@ func TestGoogleTools_SheetsValuesGet_InvalidInput(t *testing.T) {
 	}
 }
 
+func TestGoogleTools_SheetsSortRange_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "sheets_sortRange", map[string]any{
+		"spreadsheetId": "s1",
+		"range":         "Sheet1!A2:J200",
+		"sortByColumn":  float64(1),
+		"desc":          true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	want := []string{"--json", "sheets", "sort", "s1", "Sheet1!A2:J200", "--by-column", "1", "--desc"}
+	for _, a := range want {
+		if !slices.Contains(gotArgs, a) {
+			t.Fatalf("expected args to contain %q, got %v", a, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_SheetsDedupeRows_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "sheets_dedupeRows", map[string]any{
+		"spreadsheetId": "s1",
+		"range":         "Sheet1!A2:J200",
+		"keyColumns":    []any{float64(0), float64(2)},
+		"keep":          "first",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	want := []string{"--json", "sheets", "dedupe", "s1", "Sheet1!A2:J200", "--key-columns", "0,2", "--keep", "first"}
+	for _, a := range want {
+		if !slices.Contains(gotArgs, a) {
+			t.Fatalf("expected args to contain %q, got %v", a, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_SheetsDedupeRows_MissingRange_ReturnsError(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		return "{}", "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "sheets_dedupeRows", map[string]any{
+		"spreadsheetId": "s1",
+	})
+	if env.OK {
+		t.Fatal("expected error for missing range")
+	}
+	if env.Error == nil || env.Error.Code != "invalid_argument" {
+		t.Fatalf("unexpected error: %#v", env.Error)
+	}
+}
+
+func TestGoogleTools_SheetsFilterCopyRows_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"rowsCopied":5}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "sheets_filterCopyRows", map[string]any{
+		"spreadsheetId":   "s1",
+		"range":           "Sheet1!A2:J200",
+		"targetSheet":     "Filtered",
+		"column":          float64(1),
+		"op":              "eq",
+		"value":           "yes",
+		"destinationCell": "A1",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	want := []string{"--json", "sheets", "filter-copy", "s1", "Sheet1!A2:J200", "Filtered", "--column", "1", "--op", "eq", "--value", "yes", "--destination-cell", "A1"}
+	for _, a := range want {
+		if !slices.Contains(gotArgs, a) {
+			t.Fatalf("expected args to contain %q, got %v", a, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_SheetsUpsertRows_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"updated":1,"appended":0}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "sheets_upsertRows", map[string]any{
+		"spreadsheetId": "s1",
+		"range":         "Sheet1!A2:B10",
+		"keyColumns":    []any{float64(0), float64(1)},
+		"rows":          []any{[]any{"a", "b"}, []any{"c", "d"}},
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "sheets") || !slices.Contains(gotArgs, "upsert") || !slices.Contains(gotArgs, "--key-columns") {
+		t.Fatalf("expected upsert args, got %v", gotArgs)
+	}
+}
+
+func TestGoogleTools_SheetsMoveRows_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"rowsMoved":3}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "sheets_moveRows", map[string]any{
+		"spreadsheetId": "s1",
+		"range":         "Sheet1!A2:J200",
+		"targetSheet":   "Out",
+		"column":        float64(0),
+		"op":            "eq",
+		"value":         "x",
+		"mode":          "move",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	want := []string{"sheets", "move-rows", "s1", "Sheet1!A2:J200", "Out", "--column", "0", "--op", "eq", "--value", "x", "--mode", "move"}
+	for _, a := range want {
+		if !slices.Contains(gotArgs, a) {
+			t.Fatalf("expected args to contain %q, got %v", a, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_SheetsApplyFormula_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"rowsUpdated":5}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "sheets_applyFormula", map[string]any{
+		"spreadsheetId": "s1",
+		"range":         "Sheet1!C2:C10",
+		"formula":       "=A{row}+B{row}",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "apply-formula") || !slices.Contains(gotArgs, "--formula") {
+		t.Fatalf("expected apply-formula args, got %v", gotArgs)
+	}
+}
+
+func TestGoogleTools_SheetsSummarize_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"rowCount":3}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "sheets_summarize", map[string]any{
+		"spreadsheetId": "s1",
+		"range":         "Sheet1!A2:B10",
+		"groupBy":       []any{float64(0)},
+		"metricColumn":  float64(1),
+		"aggregate":     "sum",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "summarize") || !slices.Contains(gotArgs, "--group-by") || !slices.Contains(gotArgs, "--aggregate") {
+		t.Fatalf("expected summarize args, got %v", gotArgs)
+	}
+}
+
 func TestGoogleTools_SlidesReplaceText_MapsArgs(t *testing.T) {
 	var gotArgs []string
 	s := NewGoogleServer(func(args []string) (string, string, error) {
@@ -886,6 +1059,13 @@ func TestGoogleTools_SuccessEnvelope_HasServiceAndOperation(t *testing.T) {
 		{"drive_uploadFile", "drive_uploadFile", map[string]any{"localPath": "/tmp/upload-test.txt"}},
 		{"sheets_links", "sheets_links", map[string]any{"spreadsheetId": "s1", "range": "A1"}},
 		{"sheets_valuesGet", "sheets_valuesGet", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A1"}},
+		{"sheets_sortRange", "sheets_sortRange", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A2:B10"}},
+		{"sheets_dedupeRows", "sheets_dedupeRows", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A2:B10"}},
+		{"sheets_filterCopyRows", "sheets_filterCopyRows", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A2:B10", "targetSheet": "Out", "column": float64(0), "op": "eq", "value": "x"}},
+		{"sheets_upsertRows", "sheets_upsertRows", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A2:B10", "keyColumns": []any{float64(0)}, "rows": []any{[]any{"a", "b"}}}},
+		{"sheets_moveRows", "sheets_moveRows", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A2:B10", "targetSheet": "Out", "column": float64(0), "op": "eq", "value": "x"}},
+		{"sheets_applyFormula", "sheets_applyFormula", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!C2:C10", "formula": "=A{row}+B{row}"}},
+		{"sheets_summarize", "sheets_summarize", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A2:B10", "groupBy": []any{float64(0)}, "aggregate": "count"}},
 	}
 	for _, tt := range tools {
 		t.Run(tt.name, func(t *testing.T) {

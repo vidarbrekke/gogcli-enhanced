@@ -612,6 +612,190 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.sheetsValuesGet,
 		}, {
+			Name:        "sheets_valuesRead",
+			Description: "Alias for sheets_valuesGet. Get cell values from a Sheets range (full spreadsheet data). Returns range and values (2D array).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "read-fast",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId", "range"},
+				"properties": map[string]any{
+					"spreadsheetId":     map[string]any{"type": "string"},
+					"range":             map[string]any{"type": "string"},
+					"majorDimension":    map[string]any{"type": "string", "description": "ROWS or COLUMNS"},
+					"valueRenderOption": map[string]any{"type": "string", "description": "FORMATTED_VALUE, UNFORMATTED_VALUE, or FORMULA"},
+					"account":           map[string]any{"type": "string"},
+					"opId":              map[string]any{"type": "string"},
+					"timeoutMs":         map[string]any{"type": "integer"},
+					"retries":           map[string]any{"type": "integer"},
+					"retryBackoffMs":    map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsValuesGet,
+		}, {
+			Name:        "sheets_sortRange",
+			Description: "Sort a Sheets range by column (e.g. sort by Due_Date). Uses zero-based column index (0 = column A).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId", "range"},
+				"properties": map[string]any{
+					"spreadsheetId":  map[string]any{"type": "string"},
+					"range":          map[string]any{"type": "string", "description": "A1 range including sheet name (e.g. Sheet1!A2:J200)"},
+					"sortByColumn":   map[string]any{"type": "integer", "description": "Zero-based column index to sort by (0 = A)"},
+					"desc":           map[string]any{"type": "boolean", "description": "Sort descending"},
+					"account":        map[string]any{"type": "string"},
+					"opId":           map[string]any{"type": "string"},
+					"timeoutMs":      map[string]any{"type": "integer"},
+					"retries":        map[string]any{"type": "integer"},
+					"retryBackoffMs": map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsSortRange,
+		}, {
+			Name:        "sheets_dedupeRows",
+			Description: "Remove duplicate rows in a Sheets range by key columns; keeps first occurrence.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId", "range"},
+				"properties": map[string]any{
+					"spreadsheetId":  map[string]any{"type": "string"},
+					"range":          map[string]any{"type": "string", "description": "A1 range including sheet name (e.g. Sheet1!A2:J200)"},
+					"keyColumns":     map[string]any{"type": "array", "items": map[string]any{"type": "integer"}, "description": "Zero-based column indices for duplicate key; omit to use all columns"},
+					"keep":           map[string]any{"type": "string", "description": "Which duplicate to keep: first (default)"},
+					"account":        map[string]any{"type": "string"},
+					"opId":           map[string]any{"type": "string"},
+					"timeoutMs":      map[string]any{"type": "integer"},
+					"retries":        map[string]any{"type": "integer"},
+					"retryBackoffMs": map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsDedupeRows,
+		}, {
+			Name:        "sheets_filterCopyRows",
+			Description: "Filter rows in a Sheets range by condition (column op value) and copy matching rows to another sheet.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId", "range", "targetSheet", "column", "op", "value"},
+				"properties": map[string]any{
+					"spreadsheetId":   map[string]any{"type": "string"},
+					"range":           map[string]any{"type": "string", "description": "Source A1 range including sheet name (e.g. Sheet1!A2:J200)"},
+					"targetSheet":     map[string]any{"type": "string", "description": "Destination sheet name"},
+					"column":          map[string]any{"type": "integer", "description": "Zero-based column index to filter on"},
+					"op":              map[string]any{"type": "string", "description": "Operator: eq, contains, gt, lt"},
+					"value":           map[string]any{"type": "string", "description": "Value to compare against"},
+					"destinationCell": map[string]any{"type": "string", "description": "Start cell on target sheet (default A1)"},
+					"account":         map[string]any{"type": "string"},
+					"opId":            map[string]any{"type": "string"},
+					"timeoutMs":       map[string]any{"type": "integer"},
+					"retries":         map[string]any{"type": "integer"},
+					"retryBackoffMs":  map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsFilterCopyRows,
+		}, {
+			Name:        "sheets_upsertRows",
+			Description: "Upsert rows by key columns: update matching rows in range, append rows with new keys.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId", "range", "keyColumns", "rows"},
+				"properties": map[string]any{
+					"spreadsheetId":  map[string]any{"type": "string"},
+					"range":          map[string]any{"type": "string", "description": "A1 range containing existing rows (e.g. Sheet1!A2:J200)"},
+					"keyColumns":     map[string]any{"type": "array", "items": map[string]any{"type": "integer"}, "description": "Zero-based column indices for row key"},
+					"rows":           map[string]any{"type": "array", "description": "Rows to upsert (2D array)"},
+					"account":        map[string]any{"type": "string"},
+					"opId":           map[string]any{"type": "string"},
+					"timeoutMs":      map[string]any{"type": "integer"},
+					"retries":        map[string]any{"type": "integer"},
+					"retryBackoffMs": map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsUpsertRows,
+		}, {
+			Name:        "sheets_moveRows",
+			Description: "Filter rows by condition (column op value) and copy or move matching rows to another sheet.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId", "range", "targetSheet", "column", "op", "value"},
+				"properties": map[string]any{
+					"spreadsheetId":   map[string]any{"type": "string"},
+					"range":           map[string]any{"type": "string", "description": "Source A1 range including sheet name"},
+					"targetSheet":     map[string]any{"type": "string", "description": "Destination sheet name"},
+					"column":          map[string]any{"type": "integer", "description": "Zero-based column index to filter on"},
+					"op":              map[string]any{"type": "string", "description": "Operator: eq, contains, gt, lt"},
+					"value":           map[string]any{"type": "string", "description": "Value to compare against"},
+					"mode":            map[string]any{"type": "string", "description": "copy (default) or move"},
+					"destinationCell": map[string]any{"type": "string", "description": "Start cell on target sheet (default A1)"},
+					"account":         map[string]any{"type": "string"},
+					"opId":            map[string]any{"type": "string"},
+					"timeoutMs":       map[string]any{"type": "integer"},
+					"retries":         map[string]any{"type": "integer"},
+					"retryBackoffMs":  map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsMoveRows,
+		}, {
+			Name:        "sheets_applyFormula",
+			Description: "Apply a formula to a column range; formula template may contain {row} for 1-based row number (fill down).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId", "range", "formula"},
+				"properties": map[string]any{
+					"spreadsheetId":  map[string]any{"type": "string"},
+					"range":          map[string]any{"type": "string", "description": "Target column range (e.g. Sheet1!C2:C10)"},
+					"formula":        map[string]any{"type": "string", "description": "Formula template with {row} placeholder (e.g. =A{row}+B{row})"},
+					"account":        map[string]any{"type": "string"},
+					"opId":           map[string]any{"type": "string"},
+					"timeoutMs":      map[string]any{"type": "integer"},
+					"retries":        map[string]any{"type": "integer"},
+					"retryBackoffMs": map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsApplyFormula,
+		}, {
+			Name:        "sheets_summarize",
+			Description: "Create a summary tab: group rows by columns and aggregate a metric column (count or sum).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId", "range", "groupBy", "aggregate"},
+				"properties": map[string]any{
+					"spreadsheetId":  map[string]any{"type": "string"},
+					"range":          map[string]any{"type": "string", "description": "Source A1 range (e.g. Sheet1!A2:D200)"},
+					"targetSheet":    map[string]any{"type": "string", "description": "Summary sheet name (default Summary)"},
+					"groupBy":        map[string]any{"type": "array", "items": map[string]any{"type": "integer"}, "description": "Zero-based column indices for grouping"},
+					"metricColumn":   map[string]any{"type": "integer", "description": "Zero-based column index for sum/count"},
+					"aggregate":      map[string]any{"type": "string", "description": "count or sum"},
+					"account":        map[string]any{"type": "string"},
+					"opId":           map[string]any{"type": "string"},
+					"timeoutMs":      map[string]any{"type": "integer"},
+					"retries":        map[string]any{"type": "integer"},
+					"retryBackoffMs": map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsSummarize,
+		}, {
 			Name:        "slides_planBatch",
 			Description: "Validate and plan a Slides batch update request without applying changes.",
 			Tier:        "ga",
@@ -1760,6 +1944,228 @@ func (p *provider) sheetsValuesGet(_ context.Context, input map[string]any) (map
 		args = append(args, "--render", v)
 	}
 	return p.runCLI(cleanArgs(args), "sheets", "valuesGet")
+}
+
+func (p *provider) sheetsSortRange(_ context.Context, input map[string]any) (map[string]any, error) {
+	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
+	rangeSpec := strings.TrimSpace(asString(input["range"]))
+	if spreadsheetID == "" {
+		return map[string]any{"service": "sheets", "operation": "sortRange", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+	}
+	if rangeSpec == "" {
+		return map[string]any{"service": "sheets", "operation": "sortRange", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
+	}
+	byColumn := int64(0)
+	if n, ok := asInt(input["sortByColumn"]); ok {
+		byColumn = n
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "sheets", "sort", spreadsheetID, rangeSpec)
+	if byColumn != 0 {
+		args = append(args, "--by-column", strconv.FormatInt(byColumn, 10))
+	}
+	if asBool(input["desc"]) {
+		args = append(args, "--desc")
+	}
+	return p.runCLI(cleanArgs(args), "sheets", "sortRange")
+}
+
+func (p *provider) sheetsDedupeRows(_ context.Context, input map[string]any) (map[string]any, error) {
+	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
+	rangeSpec := strings.TrimSpace(asString(input["range"]))
+	if spreadsheetID == "" {
+		return map[string]any{"service": "sheets", "operation": "dedupeRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+	}
+	if rangeSpec == "" {
+		return map[string]any{"service": "sheets", "operation": "dedupeRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "sheets", "dedupe", spreadsheetID, rangeSpec)
+	if keep := strings.TrimSpace(asString(input["keep"])); keep != "" {
+		args = append(args, "--keep", keep)
+	}
+	if keyCols, ok := input["keyColumns"]; ok {
+		switch v := keyCols.(type) {
+		case []any:
+			var parts []string
+			for _, x := range v {
+				if n, ok := asInt(x); ok {
+					parts = append(parts, strconv.FormatInt(n, 10))
+				}
+			}
+			if len(parts) > 0 {
+				args = append(args, "--key-columns", strings.Join(parts, ","))
+			}
+		case []int:
+			parts := make([]string, 0, len(v))
+			for _, n := range v {
+				parts = append(parts, strconv.Itoa(n))
+			}
+			if len(parts) > 0 {
+				args = append(args, "--key-columns", strings.Join(parts, ","))
+			}
+		}
+	}
+	return p.runCLI(cleanArgs(args), "sheets", "dedupeRows")
+}
+
+func (p *provider) sheetsFilterCopyRows(_ context.Context, input map[string]any) (map[string]any, error) {
+	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
+	rangeSpec := strings.TrimSpace(asString(input["range"]))
+	targetSheet := strings.TrimSpace(asString(input["targetSheet"]))
+	op := strings.TrimSpace(asString(input["op"]))
+	value := asString(input["value"])
+	if spreadsheetID == "" {
+		return map[string]any{"service": "sheets", "operation": "filterCopyRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+	}
+	if rangeSpec == "" {
+		return map[string]any{"service": "sheets", "operation": "filterCopyRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
+	}
+	if targetSheet == "" {
+		return map[string]any{"service": "sheets", "operation": "filterCopyRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing targetSheet"}, errors.New("missing targetSheet")
+	}
+	if op == "" {
+		return map[string]any{"service": "sheets", "operation": "filterCopyRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing op"}, errors.New("missing op")
+	}
+	col, _ := asInt(input["column"])
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "sheets", "filter-copy", spreadsheetID, rangeSpec, targetSheet, "--column", strconv.FormatInt(col, 10), "--op", op, "--value", value)
+	if dest := strings.TrimSpace(asString(input["destinationCell"])); dest != "" {
+		args = append(args, "--destination-cell", dest)
+	}
+	return p.runCLI(cleanArgs(args), "sheets", "filterCopyRows")
+}
+
+func (p *provider) sheetsUpsertRows(_ context.Context, input map[string]any) (map[string]any, error) {
+	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
+	rangeSpec := strings.TrimSpace(asString(input["range"]))
+	if spreadsheetID == "" {
+		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+	}
+	if rangeSpec == "" {
+		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
+	}
+	rows, ok := input["rows"].([]any)
+	if !ok || len(rows) == 0 {
+		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing or empty rows"}, errors.New("missing or empty rows")
+	}
+	keyCols, ok := input["keyColumns"].([]any)
+	if !ok || len(keyCols) == 0 {
+		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing or empty keyColumns"}, errors.New("missing or empty keyColumns")
+	}
+	var keyParts []string
+	for _, x := range keyCols {
+		n, _ := asInt(x)
+		keyParts = append(keyParts, strconv.FormatInt(n, 10))
+	}
+	rowsJSON, err := json.Marshal(input["rows"])
+	if err != nil {
+		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "invalid rows"}, err
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "sheets", "upsert", spreadsheetID, rangeSpec, "--key-columns", strings.Join(keyParts, ","), "--rows-json", string(rowsJSON))
+	return p.runCLI(cleanArgs(args), "sheets", "upsertRows")
+}
+
+func (p *provider) sheetsMoveRows(_ context.Context, input map[string]any) (map[string]any, error) {
+	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
+	rangeSpec := strings.TrimSpace(asString(input["range"]))
+	targetSheet := strings.TrimSpace(asString(input["targetSheet"]))
+	op := strings.TrimSpace(asString(input["op"]))
+	value := asString(input["value"])
+	if spreadsheetID == "" {
+		return map[string]any{"service": "sheets", "operation": "moveRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+	}
+	if rangeSpec == "" {
+		return map[string]any{"service": "sheets", "operation": "moveRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
+	}
+	if targetSheet == "" {
+		return map[string]any{"service": "sheets", "operation": "moveRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing targetSheet"}, errors.New("missing targetSheet")
+	}
+	if op == "" {
+		op = "eq"
+	}
+	col, _ := asInt(input["column"])
+	mode := strings.TrimSpace(asString(input["mode"]))
+	if mode == "" {
+		mode = "copy"
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "sheets", "move-rows", spreadsheetID, rangeSpec, targetSheet, "--column", strconv.FormatInt(col, 10), "--op", op, "--value", value, "--mode", mode)
+	if dest := strings.TrimSpace(asString(input["destinationCell"])); dest != "" {
+		args = append(args, "--destination-cell", dest)
+	}
+	return p.runCLI(cleanArgs(args), "sheets", "moveRows")
+}
+
+func (p *provider) sheetsApplyFormula(_ context.Context, input map[string]any) (map[string]any, error) {
+	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
+	rangeSpec := strings.TrimSpace(asString(input["range"]))
+	formula := strings.TrimSpace(asString(input["formula"]))
+	if spreadsheetID == "" {
+		return map[string]any{"service": "sheets", "operation": "applyFormula", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+	}
+	if rangeSpec == "" {
+		return map[string]any{"service": "sheets", "operation": "applyFormula", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
+	}
+	if formula == "" {
+		return map[string]any{"service": "sheets", "operation": "applyFormula", "error_code": server.ErrorCodeInvalidArgument, "message": "missing formula"}, errors.New("missing formula")
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "sheets", "apply-formula", spreadsheetID, rangeSpec, "--formula", formula)
+	return p.runCLI(cleanArgs(args), "sheets", "applyFormula")
+}
+
+func (p *provider) sheetsSummarize(_ context.Context, input map[string]any) (map[string]any, error) {
+	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
+	rangeSpec := strings.TrimSpace(asString(input["range"]))
+	if spreadsheetID == "" {
+		return map[string]any{"service": "sheets", "operation": "summarize", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+	}
+	if rangeSpec == "" {
+		return map[string]any{"service": "sheets", "operation": "summarize", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
+	}
+	groupBy, ok := input["groupBy"].([]any)
+	if !ok || len(groupBy) == 0 {
+		return map[string]any{"service": "sheets", "operation": "summarize", "error_code": server.ErrorCodeInvalidArgument, "message": "missing or empty groupBy"}, errors.New("missing or empty groupBy")
+	}
+	agg := strings.TrimSpace(asString(input["aggregate"]))
+	if agg == "" {
+		agg = "count"
+	}
+	var groupParts []string
+	for _, x := range groupBy {
+		n, _ := asInt(x)
+		groupParts = append(groupParts, strconv.FormatInt(n, 10))
+	}
+	metricCol, _ := asInt(input["metricColumn"])
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "sheets", "summarize", spreadsheetID, rangeSpec, "--group-by", strings.Join(groupParts, ","), "--metric-column", strconv.FormatInt(metricCol, 10), "--aggregate", agg)
+	if target := strings.TrimSpace(asString(input["targetSheet"])); target != "" {
+		args = append(args, "--target-sheet", target)
+	}
+	return p.runCLI(cleanArgs(args), "sheets", "summarize")
 }
 
 func (p *provider) slidesPlanBatch(_ context.Context, input map[string]any) (map[string]any, error) {

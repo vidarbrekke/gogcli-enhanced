@@ -137,6 +137,29 @@ gog docs create Test1 --parent 1abc... --json
 
 Alternatively you can use `gog drive mkdir testing123 --json` for step 1; the response shape may differ but you still must pass the returned folder **ID** to `docs create --parent`, not the folder name.
 
+### 7.1 Sheets smoke (dedupe, filter-copy)
+
+To verify batch 1 sheets workflows on Linode (replace `<spreadsheetId>` and range/sheet names with real values):
+
+- **Dedupe rows:** `gog sheets dedupe <spreadsheetId> "Sheet1!A2:J200" --key-columns 0,1 --json`
+- **Filter-copy to another sheet:** `gog sheets filter-copy <spreadsheetId> "Sheet1!A2:J200" Filtered --column 1 --op eq --value "yes" --json`
+
+MCP equivalents: `sheets_dedupeRows`, `sheets_filterCopyRows` (see TOOLS-gog-agentic-section.md).
+
+### 7.2 Sheets smoke (upsert, move-rows)
+
+- **Upsert rows:** `gog sheets upsert <spreadsheetId> "Sheet1!A2:B10" --key-columns 0,1 --rows-json '[["a","b"],["c","d"]]' --json`
+- **Move rows by condition:** `gog sheets move-rows <spreadsheetId> "Sheet1!A2:J200" Out --column 1 --op eq --value "yes" --mode move --json`
+
+MCP: `sheets_upsertRows`, `sheets_moveRows`.
+
+### 7.3 Sheets smoke (apply-formula, summarize)
+
+- **Apply formula:** `gog sheets apply-formula <spreadsheetId> "Sheet1!C2:C10" --formula "=A{row}+B{row}" --json`
+- **Summarize:** `gog sheets summarize <spreadsheetId> "Sheet1!A2:D200" --group-by 0 --metric-column 1 --aggregate sum --target-sheet Summary --json`
+
+MCP: `sheets_applyFormula`, `sheets_summarize`.
+
 ## 8. If gog-agentic is in mcporter.json but still doesn’t work
 
 When the MCP config file already lists **gog-agentic** but the agent doesn’t use the tools (or OpenClaw says there is no MCP server), check the following.
@@ -374,6 +397,7 @@ You should see **15** items in `result.files` and a `nextPageToken` (if there ar
 | Drive permissions | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive_listPermissions --args '{"fileId":"<fileId>"}' --output json` |
 | Drive upload (backup) | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive_uploadFile --args '{"localPath":"/tmp/smoke-upload.txt","parentId":"<folderId>"}' --output json` (create file or expect file-not-found) |
 | Sheets values get | `mcporter --config $MCP_CFG call --server gog-agentic --tool sheets_valuesGet --args '{"spreadsheetId":"<spreadsheetId>","range":"Sheet1!A1:B2"}' --output json` |
+| Sheets sort range | `mcporter --config $MCP_CFG call --server gog-agentic --tool sheets_sortRange --args '{"spreadsheetId":"<spreadsheetId>","range":"Sheet1!A2:B10","sortByColumn":0}' --output json` |
 
 Expect `"ok": true` and a `result` object; errors indicate auth or binary issues (see §8.0).
 

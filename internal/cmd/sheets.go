@@ -26,19 +26,26 @@ func cleanRange(r string) string {
 }
 
 type SheetsCmd struct {
-	Get      SheetsGetCmd      `cmd:"" name:"get" aliases:"read,show" help:"Get values from a range"`
-	Update   SheetsUpdateCmd   `cmd:"" name:"update" aliases:"edit,set" help:"Update values in a range"`
-	Append   SheetsAppendCmd   `cmd:"" name:"append" aliases:"add" help:"Append values to a range"`
-	Insert   SheetsInsertCmd   `cmd:"" name:"insert" help:"Insert empty rows or columns into a sheet"`
-	Clear    SheetsClearCmd    `cmd:"" name:"clear" help:"Clear values in a range"`
-	Format   SheetsFormatCmd   `cmd:"" name:"format" help:"Apply cell formatting to a range"`
-	Notes    SheetsNotesCmd    `cmd:"" name:"notes" help:"Get cell notes from a range"`
-	Links    SheetsLinksCmd    `cmd:"" name:"links" aliases:"hyperlinks" help:"Get cell hyperlinks from a range"`
-	Metadata SheetsMetadataCmd `cmd:"" name:"metadata" aliases:"info" help:"Get spreadsheet metadata"`
-	Create   SheetsCreateCmd   `cmd:"" name:"create" aliases:"new" help:"Create a new spreadsheet"`
-	Copy     SheetsCopyCmd     `cmd:"" name:"copy" aliases:"cp,duplicate" help:"Copy a Google Sheet"`
-	Export   SheetsExportCmd   `cmd:"" name:"export" aliases:"download,dl" help:"Export a Google Sheet (pdf|xlsx|csv) via Drive"`
-	Edit     SheetsEditCmd     `cmd:"" name:"edit" help:"Edit Google Sheet content with agentic safety"`
+	Get          SheetsGetCmd          `cmd:"" name:"get" aliases:"read,show" help:"Get values from a range"`
+	Update       SheetsUpdateCmd       `cmd:"" name:"update" aliases:"edit,set" help:"Update values in a range"`
+	Append       SheetsAppendCmd       `cmd:"" name:"append" aliases:"add" help:"Append values to a range"`
+	Insert       SheetsInsertCmd       `cmd:"" name:"insert" help:"Insert empty rows or columns into a sheet"`
+	Clear        SheetsClearCmd        `cmd:"" name:"clear" help:"Clear values in a range"`
+	Format       SheetsFormatCmd       `cmd:"" name:"format" help:"Apply cell formatting to a range"`
+	Notes        SheetsNotesCmd        `cmd:"" name:"notes" help:"Get cell notes from a range"`
+	Links        SheetsLinksCmd        `cmd:"" name:"links" aliases:"hyperlinks" help:"Get cell hyperlinks from a range"`
+	Metadata     SheetsMetadataCmd     `cmd:"" name:"metadata" aliases:"info" help:"Get spreadsheet metadata"`
+	Sort         SheetsSortCmd         `cmd:"" name:"sort" help:"Sort a range by column(s)"`
+	Dedupe       SheetsDedupeCmd       `cmd:"" name:"dedupe" help:"Remove duplicate rows by key columns (keep first)"`
+	FilterCopy   SheetsFilterCopyCmd   `cmd:"" name:"filter-copy" help:"Filter rows by condition and copy to another sheet"`
+	Upsert       SheetsUpsertCmd       `cmd:"" name:"upsert" help:"Upsert rows by key columns (update existing, append new)"`
+	MoveRows     SheetsMoveRowsCmd     `cmd:"" name:"move-rows" help:"Filter rows by condition and copy or move to another sheet"`
+	ApplyFormula SheetsApplyFormulaCmd `cmd:"" name:"apply-formula" help:"Apply a formula to a column range (fill down)"`
+	Summarize    SheetsSummarizeCmd    `cmd:"" name:"summarize" help:"Create summary tab (group by columns + aggregate)"`
+	Create       SheetsCreateCmd       `cmd:"" name:"create" aliases:"new" help:"Create a new spreadsheet"`
+	Copy         SheetsCopyCmd         `cmd:"" name:"copy" aliases:"cp,duplicate" help:"Copy a Google Sheet"`
+	Export       SheetsExportCmd       `cmd:"" name:"export" aliases:"download,dl" help:"Export a Google Sheet (pdf|xlsx|csv) via Drive"`
+	Edit         SheetsEditCmd         `cmd:"" name:"edit" help:"Edit Google Sheet content with agentic safety"`
 }
 
 type SheetsExportCmd struct {
