@@ -360,6 +360,8 @@ If that returns `"ok": true` and a `result` with files, the agent can do the sam
 `mcporter --config /path/to/workspace/config/mcporter.json call --server gog-agentic --tool drive_searchFiles --args '{"query":"mimeType = \"application/vnd.google-apps.folder\"","rawQuery":true,"maxResults":15}' --output json`  
 You should see **15** items in `result.files` and a `nextPageToken` (if there are more). If you see **10** items and a note "Response limited to 10 items to fit gateway", the running binary is **old**—replace `/root/.local/bin/gog` and restart the daemon (see handover deploy steps).
 
+**List tools after deploy:** Run `mcporter --config $MCP_CFG list gog-agentic` (with `$MCP_CFG` set to your workspace mcporter config path, e.g. `/root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json`). Confirm **sheets_valuesGet** appears in the output. If it is missing, the daemon may be using an old binary—run `./scripts/deploy.sh` from the repo and restart the gateway so the tool list refreshes.
+
 **Smoke tests (after deploy):** Run these to confirm each tool family responds. Replace `$MCP_CFG` with your mcporter config path and use a valid docId/fileId where required.
 
 | Tool family | Command |
@@ -371,6 +373,7 @@ You should see **15** items in `result.files` and a `nextPageToken` (if there ar
 | Drive search | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive_searchFiles --args '{"query":"mimeType = \"application/vnd.google-apps.folder\"","rawQuery":true,"maxResults":5}' --output json` |
 | Drive permissions | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive_listPermissions --args '{"fileId":"<fileId>"}' --output json` |
 | Drive upload (backup) | `mcporter --config $MCP_CFG call --server gog-agentic --tool drive_uploadFile --args '{"localPath":"/tmp/smoke-upload.txt","parentId":"<folderId>"}' --output json` (create file or expect file-not-found) |
+| Sheets values get | `mcporter --config $MCP_CFG call --server gog-agentic --tool sheets_valuesGet --args '{"spreadsheetId":"<spreadsheetId>","range":"Sheet1!A1:B2"}' --output json` |
 
 Expect `"ok": true` and a `result` object; errors indicate auth or binary issues (see §8.0).
 

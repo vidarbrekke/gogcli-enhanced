@@ -12,6 +12,8 @@
 - **Sheets read:** `sheets_valuesGet` (spreadsheetId, range; optional majorDimension, valueRenderOption), `sheets_links` (hyperlinks in range)
 - **Sheets write:** `sheets_planBatch`, `sheets_executeBatch`, `sheets_valuesUpdate`, `sheets_valuesAppend`
 
+**Sheets — full data:** To read full spreadsheet cell contents (not just hyperlinks), use **`sheets_valuesGet`**. It is available on the server. If your tool list only shows `sheets_links`, `sheets_valuesUpdate`, `sheets_valuesAppend`, call `sheets_valuesGet` anyway via exec (see example below); the gateway may be showing a cached list.
+
 **Backup (Linode → Drive):** Use `drive_uploadFile` with `localPath` set to the file path on the server where gog runs (e.g. `/var/backups/mybackup.tar.gz`), and `parentId` to the target Drive folder ID. Optional: `name` (Drive filename), `keepRevisionForever: true` for retention.
 
 Use `--args '{"key":"value"}'` with the appropriate JSON for each tool. Destructive tools (`drive_deleteFile`, `drive_unshare`, `drive_deleteComment`) accept `validateOnly: true` to return a planned action without executing.
