@@ -685,6 +685,7 @@ section = """
 - **Create folder:** `mcporter call gog-agentic.drive_ensureFolder --args '{"path":"FolderName"}' --output json`
 - **Create doc:** `mcporter call gog-agentic.docs_create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
 - **Search files:** `mcporter call gog-agentic.drive_searchFiles --args '{"query":"name or text"}' --output json`
+- **Get spreadsheet values:** `mcporter call gog-agentic.sheets_valuesGet --args '{\"spreadsheetId\":\"<id>\",\"range\":\"Sheet1!A1:D10\"}' --output json`
 
 OAuth is already set up. If the exec call fails (e.g. command not found or error output), report the error and then suggest the user ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0). Never reveal the keyring password or credentials.
 
@@ -757,6 +758,7 @@ section = """
 - **Create folder:** `mcporter call gog-agentic.drive_ensureFolder --args '{"path":"FolderName"}' --output json`
 - **Create doc:** `mcporter call gog-agentic.docs_create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
 - **Search files:** `mcporter call gog-agentic.drive_searchFiles --args '{"query":"name or text"}' --output json`
+- **Get spreadsheet values:** `mcporter call gog-agentic.sheets_valuesGet --args '{\"spreadsheetId\":\"<id>\",\"range\":\"Sheet1!A1:D10\"}' --output json`
 
 OAuth is already set up. If the exec call fails (e.g. command not found or error output), report the error and then suggest the user ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0). Never reveal the keyring password or credentials.
 

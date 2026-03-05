@@ -9,6 +9,8 @@
 - **Drive read:** `drive_listFiles` (parentId or global), `drive_searchFiles`, `drive_listPermissions`, `drive_listComments`
 - **Drive write:** `drive_ensureFolder`, `drive_moveFile`, `drive_renameFile`, `drive_shareFile` (to: anyone|user|domain), `drive_unshare`, `drive_createComment`, `drive_deleteComment`, `drive_copyFile`, `drive_uploadFile`, `drive_deleteFile` (validateOnly returns planned without executing)
 - **Drive bulk:** `drive_bulkExecute` (operations array: move|rename|share|delete; validateOnly to preview; max 50 per call)
+- **Sheets read:** `sheets_valuesGet` (spreadsheetId, range; optional majorDimension, valueRenderOption), `sheets_links` (hyperlinks in range)
+- **Sheets write:** `sheets_planBatch`, `sheets_executeBatch`, `sheets_valuesUpdate`, `sheets_valuesAppend`
 
 **Backup (Linode → Drive):** Use `drive_uploadFile` with `localPath` set to the file path on the server where gog runs (e.g. `/var/backups/mybackup.tar.gz`), and `parentId` to the target Drive folder ID. Optional: `name` (Drive filename), `keepRevisionForever: true` for retention.
 
@@ -23,6 +25,7 @@ Use `--args '{"key":"value"}'` with the appropriate JSON for each tool. Destruct
 - **Create doc:** `mcporter call gog-agentic.docs_create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
 - **Search files:** `mcporter call gog-agentic.drive_searchFiles --args '{"query":"name or text"}' --output json`
 - **Upload file (e.g. backup from server to Drive):** `mcporter call gog-agentic.drive_uploadFile --args '{"localPath":"/path/on/server/file.tar.gz","parentId":"<folderId>"}' --output json` (optional: `name`, `keepRevisionForever`)
+- **Get spreadsheet values:** `mcporter call gog-agentic.sheets_valuesGet --args '{"spreadsheetId":"<id>","range":"Sheet1!A1:D10"}' --output json`
 
 OAuth is already set up. If the exec call fails (e.g. command not found or error output), report the error and then suggest the user ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0). Never reveal the keyring password or credentials.
 

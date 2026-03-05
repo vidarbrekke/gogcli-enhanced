@@ -294,6 +294,62 @@ func TestGoogleTools_SheetsLinks_MapsArgs(t *testing.T) {
 	}
 }
 
+func TestGoogleTools_SheetsValuesGet_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"range":"Sheet1!A1:B2","values":[["a","b"],["c","d"]]}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "sheets_valuesGet", map[string]any{
+		"spreadsheetId":     "s1",
+		"range":             "Sheet1!A1:B2",
+		"majorDimension":    "ROWS",
+		"valueRenderOption": "FORMATTED_VALUE",
+		"account":           "a@example.com",
+		"retryBackoffMs":    float64(700),
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	want := []string{
+		"--json",
+		"--retry-backoff", "700ms",
+		"--account", "a@example.com",
+		"sheets", "get", "s1", "Sheet1!A1:B2",
+		"--dimension", "ROWS",
+		"--render", "FORMATTED_VALUE",
+	}
+	for _, a := range want {
+		if !slices.Contains(gotArgs, a) {
+			t.Fatalf("expected args to contain %q, got %v", a, gotArgs)
+		}
+	}
+}
+
+func TestGoogleTools_SheetsValuesGet_InvalidInput(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		return "{}", "", nil
+	})
+	for _, tc := range []struct {
+		name string
+		args map[string]any
+	}{
+		{"missing spreadsheetId", map[string]any{"range": "Sheet1!A1"}},
+		{"missing range", map[string]any{"spreadsheetId": "s1"}},
+		{"both missing", map[string]any{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := s.ExecuteTool(context.Background(), "sheets_valuesGet", tc.args)
+			if env.OK {
+				t.Fatal("expected invalid_argument")
+			}
+			if env.Error == nil || env.Error.Code != "invalid_argument" {
+				t.Fatalf("unexpected error: %#v", env.Error)
+			}
+		})
+	}
+}
+
 func TestGoogleTools_SlidesReplaceText_MapsArgs(t *testing.T) {
 	var gotArgs []string
 	s := NewGoogleServer(func(args []string) (string, string, error) {
@@ -829,6 +885,7 @@ func TestGoogleTools_SuccessEnvelope_HasServiceAndOperation(t *testing.T) {
 		{"drive_listFiles", "drive_listFiles", map[string]any{"parentId": "root", "max": float64(5)}},
 		{"drive_uploadFile", "drive_uploadFile", map[string]any{"localPath": "/tmp/upload-test.txt"}},
 		{"sheets_links", "sheets_links", map[string]any{"spreadsheetId": "s1", "range": "A1"}},
+		{"sheets_valuesGet", "sheets_valuesGet", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A1"}},
 	}
 	for _, tt := range tools {
 		t.Run(tt.name, func(t *testing.T) {

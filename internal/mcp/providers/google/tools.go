@@ -590,6 +590,28 @@ func Register(s *server.Server, executor Executor) {
 			},
 			Handler: p.sheetsLinks,
 		}, {
+			Name:        "sheets_valuesGet",
+			Description: "Get cell values from a Sheets range (full spreadsheet data). Returns range and values (2D array).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "read-fast",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId", "range"},
+				"properties": map[string]any{
+					"spreadsheetId":     map[string]any{"type": "string"},
+					"range":             map[string]any{"type": "string"},
+					"majorDimension":    map[string]any{"type": "string", "description": "ROWS or COLUMNS"},
+					"valueRenderOption": map[string]any{"type": "string", "description": "FORMATTED_VALUE, UNFORMATTED_VALUE, or FORMULA"},
+					"account":           map[string]any{"type": "string"},
+					"opId":              map[string]any{"type": "string"},
+					"timeoutMs":         map[string]any{"type": "integer"},
+					"retries":           map[string]any{"type": "integer"},
+					"retryBackoffMs":    map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsValuesGet,
+		}, {
 			Name:        "slides_planBatch",
 			Description: "Validate and plan a Slides batch update request without applying changes.",
 			Tier:        "ga",
@@ -1715,6 +1737,29 @@ func (p *provider) sheetsLinks(_ context.Context, input map[string]any) (map[str
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, "sheets", "links", spreadsheetID, rangeSpec)
 	return p.runCLI(cleanArgs(args), "sheets", "links")
+}
+
+func (p *provider) sheetsValuesGet(_ context.Context, input map[string]any) (map[string]any, error) {
+	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
+	rangeSpec := strings.TrimSpace(asString(input["range"]))
+	if spreadsheetID == "" {
+		return map[string]any{"service": "sheets", "operation": "valuesGet", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+	}
+	if rangeSpec == "" {
+		return map[string]any{"service": "sheets", "operation": "valuesGet", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, "sheets", "get", spreadsheetID, rangeSpec)
+	if v := strings.TrimSpace(asString(input["majorDimension"])); v != "" {
+		args = append(args, "--dimension", v)
+	}
+	if v := strings.TrimSpace(asString(input["valueRenderOption"])); v != "" {
+		args = append(args, "--render", v)
+	}
+	return p.runCLI(cleanArgs(args), "sheets", "valuesGet")
 }
 
 func (p *provider) slidesPlanBatch(_ context.Context, input map[string]any) (map[string]any, error) {
