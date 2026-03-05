@@ -419,6 +419,27 @@ func docsSpecs(p *provider) []server.ToolSpec {
 				},
 			},
 			Handler: p.docsPositionsHeadings,
+		}, {
+			Name:        "docs_export",
+			Description: "Export a Google Doc to a file (pdf, docx, or txt). If out is omitted, writes to a temp file and returns path in result.",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "read-fast",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"docId"},
+				"properties": map[string]any{
+					"docId":          map[string]any{"type": "string"},
+					"format":         map[string]any{"type": "string", "description": "pdf (default), docx, or txt"},
+					"out":            map[string]any{"type": "string", "description": "Output path; omit to write to temp and get path in result"},
+					"account":        map[string]any{"type": "string"},
+					"opId":           map[string]any{"type": "string"},
+					"timeoutMs":      map[string]any{"type": "integer"},
+					"retries":        map[string]any{"type": "integer"},
+					"retryBackoffMs": map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.docsExport,
 		},
 	}
 }

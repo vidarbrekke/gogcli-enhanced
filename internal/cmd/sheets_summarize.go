@@ -76,10 +76,10 @@ func (c *SheetsSummarizeCmd) Run(ctx context.Context, flags *RootFlags) error {
 				},
 			},
 		}
-		if _, err := svc.Spreadsheets.BatchUpdate(spreadsheetID, req).Context(ctx).Do(); err != nil {
-			return err
+		if _, updateErr := svc.Spreadsheets.BatchUpdate(spreadsheetID, req).Context(ctx).Do(); updateErr != nil {
+			return updateErr
 		}
-		sheetIDs, _ = fetchSheetIDMap(ctx, svc, spreadsheetID)
+		_, _ = fetchSheetIDMap(ctx, svc, spreadsheetID)
 	}
 
 	resp, err := svc.Spreadsheets.Values.Get(spreadsheetID, rangeSpec).Context(ctx).Do()

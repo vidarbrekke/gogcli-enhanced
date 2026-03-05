@@ -1522,3 +1522,42 @@ func TestExecute_DocsEditLocator_After_NotFound_JSONError(t *testing.T) {
 		t.Fatalf("unexpected error payload: %#v", errorObj)
 	}
 }
+
+func TestBuildApplyStyleRequest(t *testing.T) {
+	tests := []struct {
+		start, end int64
+		style      string
+		wantText   bool
+		wantPara   string
+		wantErr    bool
+	}{
+		{1, 5, "bold", true, "", false},
+		{1, 5, "italic", true, "", false},
+		{1, 5, "heading1", false, "HEADING_1", false},
+		{1, 5, "normal", false, "NORMAL", false},
+		{1, 5, "unknown", false, "", true},
+	}
+	for _, tt := range tests {
+		req, err := buildApplyStyleRequest(tt.start, tt.end, tt.style)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("buildApplyStyleRequest(%d, %d, %q) wanted error", tt.start, tt.end, tt.style)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("buildApplyStyleRequest(%d, %d, %q): %v", tt.start, tt.end, tt.style, err)
+			continue
+		}
+		if req == nil {
+			t.Errorf("buildApplyStyleRequest: nil request")
+			continue
+		}
+		if tt.wantText && req.UpdateTextStyle == nil {
+			t.Errorf("style %q: expected UpdateTextStyle", tt.style)
+		}
+		if tt.wantPara != "" && (req.UpdateParagraphStyle == nil || req.UpdateParagraphStyle.ParagraphStyle.NamedStyleType != tt.wantPara) {
+			t.Errorf("style %q: expected UpdateParagraphStyle namedStyleType=%q", tt.style, tt.wantPara)
+		}
+	}
+}

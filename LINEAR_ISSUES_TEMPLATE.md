@@ -505,7 +505,7 @@ gog sheets edit merge-data <template-id> --data-file reports.json --filename-for
 **Related Documentation:**
 - `CROSS_SERVICE_OPPORTUNITY_ANALYSIS.md` — Strategic context
 - `PHASE_3_IMPLEMENTATION_PLAN.md` — Detailed implementation guide
-- `DEVELOPER_HANDOFF.md` — Project overview
+- `handover.md` — Project overview and key docs
 
 ---
 

@@ -63,8 +63,8 @@ func ServeStdio(ctx context.Context, r io.Reader, w io.Writer, s *server.Server)
 		}
 		var req rpcRequest
 		if err := json.Unmarshal(line, &req); err != nil {
-			if writeErr := writeRPC(w, rpcResponse{JSONRPC: "2.0", Error: &rpcError{Code: -32700, Message: "parse error"}}); writeErr != nil {
-				return writeErr
+			if parseWriteErr := writeRPC(w, rpcResponse{JSONRPC: "2.0", Error: &rpcError{Code: -32700, Message: "parse error"}}); parseWriteErr != nil {
+				return parseWriteErr
 			}
 			continue
 		}

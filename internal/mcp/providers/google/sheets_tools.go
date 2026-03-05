@@ -317,6 +317,46 @@ func sheetsSpecs(p *provider) []server.ToolSpec {
 				},
 			},
 			Handler: p.sheetsSummarize,
+		}, {
+			Name:        "sheets_clear",
+			Description: "Clear values in a Sheets range (no format/data validation removal).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "write-safe",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId", "range"},
+				"properties": map[string]any{
+					"spreadsheetId":  map[string]any{"type": "string"},
+					"range":          map[string]any{"type": "string", "description": "A1 range (e.g. Sheet1!A1:B10)"},
+					"dryRun":         map[string]any{"type": "boolean"},
+					"account":        map[string]any{"type": "string"},
+					"opId":           map[string]any{"type": "string"},
+					"timeoutMs":      map[string]any{"type": "integer"},
+					"retries":        map[string]any{"type": "integer"},
+					"retryBackoffMs": map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsClear,
+		}, {
+			Name:        "sheets_metadata",
+			Description: "Get spreadsheet metadata (title, locale, timeZone, sheet list with id/title/rowCount/columnCount).",
+			Tier:        "ga",
+			Version:     "v1",
+			PolicyClass: "read-fast",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"spreadsheetId"},
+				"properties": map[string]any{
+					"spreadsheetId":  map[string]any{"type": "string"},
+					"account":        map[string]any{"type": "string"},
+					"opId":           map[string]any{"type": "string"},
+					"timeoutMs":      map[string]any{"type": "integer"},
+					"retries":        map[string]any{"type": "integer"},
+					"retryBackoffMs": map[string]any{"type": "integer"},
+				},
+			},
+			Handler: p.sheetsMetadata,
 		},
 	}
 }

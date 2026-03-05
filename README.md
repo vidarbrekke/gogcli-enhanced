@@ -19,7 +19,7 @@ Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Sli
 - **Forms** - create/get forms and inspect responses
 - **Apps Script** - create/get projects, inspect content, and run functions
 - **Docs/Slides** - export to PDF/DOCX/PPTX via Drive (plus create/copy, docs-to-text)
-- **Docs editing** - inline edit commands via `gog docs edit` (`replace`, `append`, `insert`, `delete`, `batch`, `merge-data`) with agentic safety controls
+- **Docs editing** - inline edit commands via `gog docs edit` (`replace`, `append`, `insert`, `delete`, `batch`, `apply-style`, `merge-data`) with agentic safety controls; `gog docs extract-data` for outline/tables/links
 - **People** - access profile information
 - **Keep (Workspace only)** - list/get/search notes and download attachments (service account + domain-wide delegation)
 - **Groups** - list groups you belong to, view group members (Google Workspace)

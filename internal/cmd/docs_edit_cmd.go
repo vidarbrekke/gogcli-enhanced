@@ -821,6 +821,149 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 	return nil
 }
 
+// DocsApplyStyleCmd applies a text or paragraph style to a range (1-based indices).
+type DocsApplyStyleCmd struct {
+	DocID      string                 `arg:"" name:"docId" help:"Doc ID"`
+	StartIndex int64                  `name:"start" help:"Start index of range (1-based, inclusive)"`
+	EndIndex   int64                  `name:"end" help:"End index of range (1-based, exclusive)"`
+	Style      string                 `name:"style" help:"Style: bold|italic|underline|strikethrough|heading1..heading6|normal" default:"bold"`
+	Safety     AgenticEditSafetyFlags `embed:""`
+}
+
+func (c *DocsApplyStyleCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	docID := strings.TrimSpace(c.DocID)
+	if docID == "" {
+		return newDocsEditError("apply-style", docID, "invalid_argument", "empty docId", usage("empty docId"))
+	}
+	style := strings.TrimSpace(strings.ToLower(c.Style))
+	if style == "" {
+		return newDocsEditError("apply-style", docID, "invalid_argument", "empty style", usage("empty style"))
+	}
+	if c.StartIndex < 1 || c.EndIndex <= c.StartIndex {
+		return newDocsEditError("apply-style", docID, "invalid_argument", "start must be >= 1 and end must be > start", usage("invalid range"))
+	}
+	req, err := buildApplyStyleRequest(c.StartIndex, c.EndIndex, style)
+	if err != nil {
+		return newDocsEditError("apply-style", docID, "invalid_argument", err.Error(), err)
+	}
+	batchReq := &docs.BatchUpdateDocumentRequest{Requests: []*docs.Request{req}}
+	if _, decErr := DecodeExecuteRequestIfProvided(c.Safety.ExecuteFromFile, batchReq); decErr != nil {
+		return newDocsEditError("apply-style", docID, "invalid_json", "decode execute-from-file failed", decErr)
+	}
+	applyDocsEditSafety(batchReq, c.Safety)
+	requestHash, hashErr := RequestHash(batchReq)
+	if hashErr != nil {
+		return newDocsEditError("apply-style", docID, "invalid_request", "failed to hash request", hashErr)
+	}
+	normalizedForJSON, normErr := NormalizedRequestForOutput(ctx, c.Safety.OutputRequestFile, batchReq)
+	if normErr != nil {
+		return newDocsEditError("apply-style", docID, "output_write_failed", "write normalized request failed", normErr)
+	}
+	if c.Safety.ValidateOnly {
+		payload := map[string]any{
+			"validateOnly": true,
+			"valid":        true,
+			"documentId":  docID,
+			"startIndex":  c.StartIndex,
+			"endIndex":    c.EndIndex,
+			"style":       style,
+			"requestHash": requestHash,
+		}
+		if normalizedForJSON != "" || c.Safety.Pretty {
+			if norm, nerr := NormalizedRequestString(batchReq); nerr == nil {
+				payload["normalizedRequest"] = norm
+			}
+		}
+		if outfmt.IsJSON(ctx) {
+			return writeAgentJSON(ctx, payload, batchReq)
+		}
+		u.Out().Printf("validate-only\ttrue")
+		u.Out().Printf("valid\ttrue")
+		u.Out().Printf("id\t%s", docID)
+		u.Out().Printf("style\t%s", style)
+		return nil
+	}
+	if isEditDryRun(flags, c.Safety) {
+		return DocsDryRunOutputWithOpts(ctx, u, docID, batchReq, map[string]any{
+			"startIndex":  c.StartIndex,
+			"endIndex":    c.EndIndex,
+			"style":       style,
+			"requestHash": requestHash,
+		}, c.Safety.Pretty)
+	}
+	account, accErr := requireAccount(flags)
+	if accErr != nil {
+		return accErr
+	}
+	svc, svcErr := newDocsService(ctx, account)
+	if svcErr != nil {
+		return newDocsEditError("apply-style", docID, "service_init_failed", "create docs service failed", svcErr)
+	}
+	if _, apiErr := svc.Documents.BatchUpdate(docID, batchReq).Context(ctx).Do(); apiErr != nil {
+		if isDocsNotFound(apiErr) {
+			return newDocsEditError("apply-style", docID, "doc_not_found", fmt.Sprintf("doc not found (id=%s)", docID), apiErr)
+		}
+		return newDocsEditError("apply-style", docID, "api_error", "apply-style failed", apiErr)
+	}
+	payload := map[string]any{"documentId": docID, "applied": true, "style": style}
+	if normalizedForJSON != "" {
+		payload["normalizedRequest"] = normalizedForJSON
+	}
+	if c.Safety.Pretty {
+		payload["requestHash"] = requestHash
+	}
+	if outfmt.IsJSON(ctx) {
+		return writeAgentJSON(ctx, payload, batchReq)
+	}
+	u.Out().Printf("id\t%s", docID)
+	u.Out().Printf("applied\ttrue")
+	u.Out().Printf("style\t%s", style)
+	return nil
+}
+
+func buildApplyStyleRequest(start, end int64, style string) (*docs.Request, error) {
+	namedStyles := map[string]string{
+		"heading1": "HEADING_1", "heading2": "HEADING_2", "heading3": "HEADING_3",
+		"heading4": "HEADING_4", "heading5": "HEADING_5", "heading6": "HEADING_6",
+		"normal": "NORMAL",
+	}
+	if named, ok := namedStyles[style]; ok {
+		return &docs.Request{
+			UpdateParagraphStyle: &docs.UpdateParagraphStyleRequest{
+				Range:          &docs.Range{StartIndex: start, EndIndex: end},
+				ParagraphStyle: &docs.ParagraphStyle{NamedStyleType: named},
+				Fields:         "namedStyleType",
+			},
+		}, nil
+	}
+	var ts *docs.TextStyle
+	var fields []string
+	switch style {
+	case "bold":
+		ts = &docs.TextStyle{Bold: true}
+		fields = []string{"bold"}
+	case "italic":
+		ts = &docs.TextStyle{Italic: true}
+		fields = []string{"italic"}
+	case "underline":
+		ts = &docs.TextStyle{Underline: true}
+		fields = []string{"underline"}
+	case "strikethrough":
+		ts = &docs.TextStyle{Strikethrough: true}
+		fields = []string{"strikethrough"}
+	default:
+		return nil, fmt.Errorf("unknown style %q; use bold|italic|underline|strikethrough|heading1..heading6|normal", style)
+	}
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Range:     &docs.Range{StartIndex: start, EndIndex: end},
+			TextStyle: ts,
+			Fields:    strings.Join(fields, ","),
+		},
+	}, nil
+}
+
 type DocsInsertTableCmd struct {
 	DocID  string                 `arg:"" name:"docId" help:"Doc ID"`
 	Rows   int64                  `name:"rows" help:"Number of rows in the table" default:"2"`

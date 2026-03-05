@@ -68,8 +68,8 @@ func (c *SheetsDedupeCmd) Run(ctx context.Context, flags *RootFlags) error {
 			if p == "" {
 				continue
 			}
-			col, err := strconv.ParseInt(p, 10, 64)
-			if err != nil || col < 0 {
+			col, parseErr := strconv.ParseInt(p, 10, 64)
+			if parseErr != nil || col < 0 {
 				return usagef("invalid key-column index %q", p)
 			}
 			comparisonColumns = append(comparisonColumns, &sheets.DimensionRange{

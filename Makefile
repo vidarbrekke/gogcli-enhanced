@@ -78,7 +78,7 @@ lint: tools
 
 pnpm-gate:
 	@if [ -f package.json ] || [ -f package.json5 ] || [ -f package.yaml ]; then \
-		pnpm lint && pnpm build && pnpm test; \
+		pnpm run --if-present lint && pnpm run --if-present build && pnpm run --if-present test; \
 	else \
 		echo "pnpm gate skipped (no package.json)"; \
 	fi

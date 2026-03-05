@@ -429,7 +429,7 @@ Total: 12.5 hours over 2 weeks
 
 ### Documentation
 - ✅ Each command has --help text
-- ✅ Implementation documented in DEVELOPER_HANDOFF.md
+- ✅ Implementation documented in handover.md
 - ✅ User guide examples in `docs/editing.md` (if exists)
 - ✅ Git history clean and searchable
 

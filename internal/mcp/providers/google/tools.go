@@ -53,17 +53,17 @@ func driveListSearchNormalizeInput(input map[string]any) {
 	if _, hasMax := input["max"]; hasMax {
 		return
 	}
-	cap := int64(mcpDriveMaxCap)
+	capVal := int64(mcpDriveMaxCap)
 	if n, ok := asInt(input["maxResults"]); ok && n > 0 {
-		if n > cap {
-			n = cap
+		if n > capVal {
+			n = capVal
 		}
 		input["max"] = n
 		return
 	}
 	if n, ok := asInt(input["pageSize"]); ok && n > 0 {
-		if n > cap {
-			n = cap
+		if n > capVal {
+			n = capVal
 		}
 		input["max"] = n
 	}
@@ -71,12 +71,15 @@ func driveListSearchNormalizeInput(input map[string]any) {
 
 func Register(s *server.Server, executor Executor) {
 	p := &provider{exec: executor}
-	// Tool specs are split by domain (docs, sheets, slides, drive) for maintainability; see docs_tools.go, sheets_tools.go, slides_tools.go, drive_tools.go.
-	toolSpecs := append(append(append(append([]server.ToolSpec{},
+	// Tool specs are split by domain (docs, sheets, slides, drive, gmail, calendar, contacts); see *_tools.go.
+	toolSpecs := append(append(append(append(append(append(append([]server.ToolSpec{},
 		docsSpecs(p)...),
 		sheetsSpecs(p)...),
 		slidesSpecs(p)...),
-		driveSpecs(p)...)
+		driveSpecs(p)...),
+		gmailSpecs(p)...),
+		calendarSpecs(p)...),
+		contactsSpecs(p)...)
 	for _, spec := range toolSpecs {
 		s.RegisterToolSpec(spec)
 	}
@@ -101,7 +104,8 @@ func (p *provider) docsPlanBatch(_ context.Context, input map[string]any) (map[s
 		return nil, err
 	}
 	defer os.Remove(path)
-	args := []string{"--json"}
+	args := make([]string, 0, 12)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
 	args = append(args, "docs", "edit", "batch", docID, "--requests-file", path, "--validate-only")
@@ -123,7 +127,8 @@ func (p *provider) docsExecuteBatch(_ context.Context, input map[string]any) (ma
 		return nil, err
 	}
 	defer os.Remove(path)
-	args := []string{"--json"}
+	args := make([]string, 0, 12)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
 	args = append(args, "docs", "edit", "batch", docID, "--requests-file", path)
@@ -530,7 +535,8 @@ func (p *provider) docsGet(_ context.Context, input map[string]any) (map[string]
 	if docID == "" {
 		return map[string]any{"service": "docs", "operation": "get", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 8)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, "docs", "info", docID)
@@ -613,6 +619,40 @@ func (p *provider) docsPositionsHeadings(_ context.Context, input map[string]any
 	return p.runCLI(cleanArgs(args), "docs", "positionsHeadings")
 }
 
+func (p *provider) docsExport(_ context.Context, input map[string]any) (map[string]any, error) {
+	docID := strings.TrimSpace(asString(input["docId"]))
+	if docID == "" {
+		return map[string]any{"service": "docs", "operation": "export", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
+	}
+	format := strings.TrimSpace(asString(input["format"]))
+	if format == "" {
+		format = "pdf"
+	}
+	outPath := strings.TrimSpace(asString(input["out"]))
+	if outPath == "" {
+		ext := ".pdf"
+		switch strings.ToLower(format) {
+		case "docx":
+			ext = ".docx"
+		case "txt":
+			ext = ".txt"
+		}
+		f, tmpErr := os.CreateTemp("", "gog-doc-*"+ext)
+		if tmpErr != nil {
+			return nil, fmt.Errorf("create temp path: %w", tmpErr)
+		}
+		outPath = f.Name()
+		_ = f.Close()
+		_ = os.Remove(outPath)
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, "docs", "export", docID, "--format", format, "--out", outPath)
+	return p.runCLI(cleanArgs(args), "docs", "export")
+}
+
 func (p *provider) sheetsPlanBatch(_ context.Context, input map[string]any) (map[string]any, error) {
 	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
 	if spreadsheetID == "" {
@@ -670,7 +710,7 @@ func (p *provider) sheetsValuesUpdate(_ context.Context, input map[string]any) (
 	}
 	valuesJSON, err := json.Marshal(values)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal values: %w", err)
 	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
@@ -700,7 +740,7 @@ func (p *provider) sheetsValuesAppend(_ context.Context, input map[string]any) (
 	}
 	valuesJSON, err := json.Marshal(values)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal values: %w", err)
 	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
@@ -887,7 +927,7 @@ func (p *provider) sheetsUpsertRows(_ context.Context, input map[string]any) (ma
 	}
 	rowsJSON, err := json.Marshal(input["rows"])
 	if err != nil {
-		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "invalid rows"}, err
+		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "invalid rows"}, fmt.Errorf("marshal rows: %w", err)
 	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
@@ -991,6 +1031,39 @@ func (p *provider) sheetsSummarize(_ context.Context, input map[string]any) (map
 		args = append(args, "--target-sheet", target)
 	}
 	return p.runCLI(cleanArgs(args), "sheets", "summarize")
+}
+
+func (p *provider) sheetsClear(_ context.Context, input map[string]any) (map[string]any, error) {
+	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
+	rangeSpec := strings.TrimSpace(asString(input["range"]))
+	if spreadsheetID == "" {
+		return map[string]any{"service": "sheets", "operation": "clear", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+	}
+	if rangeSpec == "" {
+		return map[string]any{"service": "sheets", "operation": "clear", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, "sheets", "clear", spreadsheetID, rangeSpec)
+	if asBool(input["dryRun"]) {
+		args = append(args, "--dry-run")
+	}
+	return p.runCLI(cleanArgs(args), "sheets", "clear")
+}
+
+func (p *provider) sheetsMetadata(_ context.Context, input map[string]any) (map[string]any, error) {
+	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
+	if spreadsheetID == "" {
+		return map[string]any{"service": "sheets", "operation": "metadata", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, "sheets", "metadata", spreadsheetID)
+	return p.runCLI(cleanArgs(args), "sheets", "metadata")
 }
 
 func (p *provider) slidesPlanBatch(_ context.Context, input map[string]any) (map[string]any, error) {
@@ -1137,7 +1210,7 @@ func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (ma
 	}
 	// Redirect to folders-only when: no query (agent often means "list folders" when using {}),
 	// or query is trashed=false / folder mimeType — so response has only folders and fits gateway.
-	redirectToFoldersOnly := false
+	var redirectToFoldersOnly bool
 	if !global && query == "" {
 		redirectToFoldersOnly = true
 	} else {
@@ -1169,8 +1242,8 @@ func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (ma
 	if query := strings.TrimSpace(asString(input["query"])); query != "" {
 		args = append(args, "--query", query)
 	}
-	if max, ok := asInt(input["max"]); ok && max > 0 {
-		args = append(args, "--max", strconv.FormatInt(max, 10))
+	if nMax, ok := asInt(input["max"]); ok && nMax > 0 {
+		args = append(args, "--max", strconv.FormatInt(nMax, 10))
 	}
 	pageVal := strings.TrimSpace(asString(input["page"]))
 	if pageVal != "" && !strings.EqualFold(pageVal, "null") {
@@ -1206,8 +1279,8 @@ func (p *provider) driveSearchFiles(_ context.Context, input map[string]any) (ma
 	if asBool(input["rawQuery"]) {
 		args = append(args, "--raw-query")
 	}
-	if max, ok := asInt(input["max"]); ok && max > 0 {
-		args = append(args, "--max", strconv.FormatInt(max, 10))
+	if nMax, ok := asInt(input["max"]); ok && nMax > 0 {
+		args = append(args, "--max", strconv.FormatInt(nMax, 10))
 	}
 	pageVal := strings.TrimSpace(asString(input["page"]))
 	if pageVal != "" && !strings.EqualFold(pageVal, "null") {
@@ -1305,8 +1378,8 @@ func (p *provider) driveListPermissions(_ context.Context, input map[string]any)
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
 	args = append(args, "drive", "permissions", fileID)
-	if max, ok := asInt(input["max"]); ok && max > 0 {
-		args = append(args, "--max", strconv.FormatInt(max, 10))
+	if nMax, ok := asInt(input["max"]); ok && nMax > 0 {
+		args = append(args, "--max", strconv.FormatInt(nMax, 10))
 	}
 	if page := strings.TrimSpace(asString(input["page"])); page != "" {
 		args = append(args, "--page", page)
@@ -1324,8 +1397,8 @@ func (p *provider) driveListComments(_ context.Context, input map[string]any) (m
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
 	args = append(args, "drive", "comments", "list", fileID)
-	if max, ok := asInt(input["max"]); ok && max > 0 {
-		args = append(args, "--max", strconv.FormatInt(max, 10))
+	if nMax, ok := asInt(input["max"]); ok && nMax > 0 {
+		args = append(args, "--max", strconv.FormatInt(nMax, 10))
 	}
 	if page := strings.TrimSpace(asString(input["page"])); page != "" {
 		args = append(args, "--page", page)
@@ -1557,10 +1630,7 @@ func (p *provider) driveBulkExecute(_ context.Context, input map[string]any) (ma
 		operations = append(operations, m)
 	}
 	if asBool(input["validateOnly"]) {
-		planned := make([]map[string]any, 0, len(operations))
-		for _, m := range operations {
-			planned = append(planned, m)
-		}
+		planned := append([]map[string]any(nil), operations...)
 		return map[string]any{
 			"service":      "drive",
 			"operation":    "bulkExecute",
@@ -1572,7 +1642,8 @@ func (p *provider) driveBulkExecute(_ context.Context, input map[string]any) (ma
 	if p == nil || p.exec == nil {
 		return map[string]any{"service": "drive", "operation": "bulkExecute", "error_code": server.ErrorCodeInternal, "message": "executor not configured"}, errExecutorNotConfigured
 	}
-	baseArgs := []string{"--json"}
+	baseArgs := make([]string, 0, 12)
+	baseArgs = append(baseArgs, "--json")
 	baseArgs = append(baseArgs, policyArgs(input)...)
 	baseArgs = append(baseArgs, maybeAccountArgs(input)...)
 	var results []map[string]any
@@ -1589,7 +1660,7 @@ func (p *provider) driveBulkExecute(_ context.Context, input map[string]any) (ma
 				failed++
 				continue
 			}
-			args = append(append(append([]string{}, baseArgs...), "drive", "move", fileID, "--parent", parentID))
+			args = append(append([]string{}, baseArgs...), "drive", "move", fileID, "--parent", parentID)
 		case "rename":
 			name := strings.TrimSpace(asString(m["name"]))
 			if name == "" {
@@ -1597,7 +1668,7 @@ func (p *provider) driveBulkExecute(_ context.Context, input map[string]any) (ma
 				failed++
 				continue
 			}
-			args = append(append(append([]string{}, baseArgs...), "drive", "rename", fileID, name))
+			args = append(append([]string{}, baseArgs...), "drive", "rename", fileID, name)
 		case "share":
 			to := strings.TrimSpace(asString(m["to"]))
 			if to == "" {
@@ -1616,7 +1687,7 @@ func (p *provider) driveBulkExecute(_ context.Context, input map[string]any) (ma
 				args = append(args, "--role", role)
 			}
 		case "delete":
-			args = append(append(append([]string{}, baseArgs...), "drive", "delete", fileID))
+			args = append(append([]string{}, baseArgs...), "drive", "delete", fileID)
 			if asBool(m["permanent"]) {
 				args = append(args, "--permanent")
 			}
@@ -1647,6 +1718,107 @@ func (p *provider) driveBulkExecute(_ context.Context, input map[string]any) (ma
 		"succeeded": succeeded,
 		"failed":    failed,
 	}, nil
+}
+
+func (p *provider) gmailSearch(_ context.Context, input map[string]any) (map[string]any, error) {
+	query := strings.TrimSpace(asString(input["query"]))
+	if query == "" {
+		return map[string]any{"service": "gmail", "operation": "search", "error_code": server.ErrorCodeInvalidArgument, "message": "missing query"}, errMissingQuery
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, "gmail", "search", query)
+	if nMax, ok := asInt(input["max"]); ok && nMax > 0 {
+		args = append(args, "--max", strconv.FormatInt(nMax, 10))
+	}
+	if page := strings.TrimSpace(asString(input["page"])); page != "" {
+		args = append(args, "--page", page)
+	}
+	return p.runCLI(cleanArgs(args), "gmail", "search")
+}
+
+func (p *provider) gmailSend(_ context.Context, input map[string]any) (map[string]any, error) {
+	to := strings.TrimSpace(asString(input["to"]))
+	subject := strings.TrimSpace(asString(input["subject"]))
+	body := strings.TrimSpace(asString(input["body"]))
+	bodyHTML := strings.TrimSpace(asString(input["bodyHtml"]))
+	if to == "" {
+		return map[string]any{"service": "gmail", "operation": "send", "error_code": server.ErrorCodeInvalidArgument, "message": "missing to"}, errMissingQuery
+	}
+	if subject == "" {
+		return map[string]any{"service": "gmail", "operation": "send", "error_code": server.ErrorCodeInvalidArgument, "message": "missing subject"}, errMissingQuery
+	}
+	if body == "" && bodyHTML == "" {
+		return map[string]any{"service": "gmail", "operation": "send", "error_code": server.ErrorCodeInvalidArgument, "message": "missing body or bodyHtml"}, errMissingText
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, "gmail", "send", "--to", to, "--subject", subject)
+	if bodyHTML != "" {
+		args = append(args, "--body-html", bodyHTML)
+	} else {
+		args = append(args, "--body", body)
+	}
+	if cc := strings.TrimSpace(asString(input["cc"])); cc != "" {
+		args = append(args, "--cc", cc)
+	}
+	if bcc := strings.TrimSpace(asString(input["bcc"])); bcc != "" {
+		args = append(args, "--bcc", bcc)
+	}
+	if from := strings.TrimSpace(asString(input["from"])); from != "" {
+		args = append(args, "--from", from)
+	}
+	return p.runCLI(cleanArgs(args), "gmail", "send")
+}
+
+func (p *provider) calendarEvents(_ context.Context, input map[string]any) (map[string]any, error) {
+	from := strings.TrimSpace(asString(input["from"]))
+	to := strings.TrimSpace(asString(input["to"]))
+	if from == "" {
+		return map[string]any{"service": "calendar", "operation": "events", "error_code": server.ErrorCodeInvalidArgument, "message": "missing from"}, errMissingQuery
+	}
+	if to == "" {
+		return map[string]any{"service": "calendar", "operation": "events", "error_code": server.ErrorCodeInvalidArgument, "message": "missing to"}, errMissingQuery
+	}
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	calendarID := strings.TrimSpace(asString(input["calendarId"]))
+	if calendarID != "" {
+		args = append(args, "calendar", "events", calendarID, "--from", from, "--to", to)
+	} else {
+		args = append(args, "calendar", "events", "--from", from, "--to", to)
+	}
+	if nMax, ok := asInt(input["max"]); ok && nMax > 0 {
+		args = append(args, "--max", strconv.FormatInt(nMax, 10))
+	}
+	if page := strings.TrimSpace(asString(input["page"])); page != "" {
+		args = append(args, "--page", page)
+	}
+	if q := strings.TrimSpace(asString(input["query"])); q != "" {
+		args = append(args, "--query", q)
+	}
+	return p.runCLI(cleanArgs(args), "calendar", "events")
+}
+
+func (p *provider) contactsList(_ context.Context, input map[string]any) (map[string]any, error) {
+	args := []string{"--json"}
+	args = append(args, policyArgs(input)...)
+	args = append(args, maybeAccountArgs(input)...)
+	args = append(args, maybeOpIDArgs(input)...)
+	args = append(args, "contacts", "list")
+	if nMax, ok := asInt(input["max"]); ok && nMax > 0 {
+		args = append(args, "--max", strconv.FormatInt(nMax, 10))
+	}
+	if page := strings.TrimSpace(asString(input["page"])); page != "" {
+		args = append(args, "--page", page)
+	}
+	return p.runCLI(cleanArgs(args), "contacts", "list")
 }
 
 func (p *provider) runCLI(args []string, service, operation string) (map[string]any, error) {

@@ -405,6 +405,10 @@ You should see **15** items in `result.files` and a `nextPageToken` (if there ar
 | Sheets values get | `mcporter --config $MCP_CFG call --server gog-agentic --tool sheets_valuesGet --args '{"spreadsheetId":"<spreadsheetId>","range":"Sheet1!A1:B2"}' --output json` |
 | Sheets sort range | `mcporter --config $MCP_CFG call --server gog-agentic --tool sheets_sortRange --args '{"spreadsheetId":"<spreadsheetId>","range":"Sheet1!A2:B10","sortByColumn":0}' --output json` |
 
+| Gmail search | `mcporter --config $MCP_CFG call --server gog-agentic --tool gmail_search --args '{"query":"is:unread","max":5}' --output json` |
+| Calendar events | `mcporter --config $MCP_CFG call --server gog-agentic --tool calendar_events --args '{"from":"2025-01-01T00:00:00Z","to":"2025-01-02T00:00:00Z","max":5}' --output json` |
+| Contacts list | `mcporter --config $MCP_CFG call --server gog-agentic --tool contacts_list --args '{"max":5}' --output json` |
+
 Expect `"ok": true` and a `result` object; errors indicate auth or binary issues (see §8.0).
 
 **Never invent folder or file names.** If the API returns only N items, report those N and offer to fetch more with `pageToken`; do not make up names for positions N+1 and beyond.

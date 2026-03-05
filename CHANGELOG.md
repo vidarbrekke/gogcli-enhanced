@@ -3,6 +3,9 @@
 ## 0.12.0 - Unreleased
 
 ### Added
+- Docs: add `gog docs edit apply-style` to apply text or paragraph style to a range (e.g. bold, italic, heading1..heading6, normal). Supports `--start`, `--end`, `--style`, and agentic flags (`--validate-only`, `--dry-run`, `--output-request-file`).
+- Docs: add `gog docs extract-data <docId>` to extract outline (headings), tables, and links as JSON. Optional `--sections outline,tables,links` or `all` (default).
+- Docs/Sheets/Slides: document Slides batch in `docs/editing.md` (Google Slides Editing Guide) with same agentic safety pattern as Docs and Sheets.
 - Docs: add `gog docs edit merge-data` for mail-merge (template + JSON data file → one Doc per record via Drive copy + ReplaceAllText). Supports `--data-file`, `--filename-format`, `--output-folder-id`, `--include-timestamp`, and agentic flags (`--validate-only`, `--dry-run`). (VID-115)
 - Sheets: add `gog sheets edit merge-data` for mail-merge (template + JSON data file → one Sheet per record via Drive copy + FindReplace all sheets). Same flags as Docs merge-data; value cells only (no formula replacement). (VID-116)
 - Gmail: add `--exclude-labels` to `watch serve` (defaults: `SPAM,TRASH`). (#194) — thanks @salmonumbrella.

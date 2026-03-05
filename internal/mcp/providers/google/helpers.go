@@ -200,5 +200,5 @@ func validateSheetOp(input map[string]any, key, svc, op string) (map[string]any,
 			"message":    fmt.Sprintf("invalid %s %q (use eq, contains, gt, lt)", key, v),
 		}, errMissingIndex
 	}
-	return nil, nil
+	return map[string]any{}, nil
 }

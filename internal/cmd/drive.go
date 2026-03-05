@@ -137,12 +137,12 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 			PageToken(pageToken).
 			OrderBy("modifiedTime desc")
 		call = driveFilesListCallWithDriveSupport(call, c.AllDrives)
-		resp, err := call.
+		resp, callErr := call.
 			Fields(gapi.Field(fields)).
 			Context(ctx).
 			Do()
-		if err != nil {
-			return nil, "", err
+		if callErr != nil {
+			return nil, "", callErr
 		}
 		return resp.Files, resp.NextPageToken, nil
 	}
@@ -151,13 +151,12 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 		var allFiles []*drive.File
 		pageToken := c.Page
 		for {
-			files, nextToken, err := fetchPage(pageToken)
-			if err != nil {
-				return err
+			files, nextToken, fetchErr := fetchPage(pageToken)
+			if fetchErr != nil {
+				return fetchErr
 			}
 			allFiles = append(allFiles, files...)
 			if nextToken == "" || int64(len(allFiles)) >= driveListAllMaxItems {
-				pageToken = ""
 				break
 			}
 			pageToken = nextToken
@@ -268,12 +267,12 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			PageToken(pageToken).
 			OrderBy("modifiedTime desc")
 		call = driveFilesListCallWithDriveSupport(call, c.AllDrives)
-		resp, err := call.
+		resp, callErr := call.
 			Fields(gapi.Field(fields)).
 			Context(ctx).
 			Do()
-		if err != nil {
-			return nil, "", err
+		if callErr != nil {
+			return nil, "", callErr
 		}
 		return resp.Files, resp.NextPageToken, nil
 	}
@@ -282,13 +281,12 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		var allFiles []*drive.File
 		pageToken := c.Page
 		for {
-			files, nextToken, err := fetchPage(pageToken)
-			if err != nil {
-				return err
+			files, nextToken, fetchErr := fetchPage(pageToken)
+			if fetchErr != nil {
+				return fetchErr
 			}
 			allFiles = append(allFiles, files...)
 			if nextToken == "" || int64(len(allFiles)) >= driveListAllMaxItems {
-				pageToken = ""
 				break
 			}
 			pageToken = nextToken

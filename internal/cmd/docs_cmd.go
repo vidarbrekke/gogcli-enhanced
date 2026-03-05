@@ -16,6 +16,7 @@ type DocsCmd struct {
 	Comments    DocsCommentsCmd          `cmd:"" name:"comments" help:"Manage comments on a Google Doc"`
 	ListTabs    DocsListTabsCmd          `cmd:"" name:"list-tabs" help:"List all tabs in a Google Doc"`
 	Positions   DocsPositionsCmd         `cmd:"" name:"positions" help:"Return position helpers (end index, search ranges, headings)"`
+	ExtractData DocsExtractDataCmd       `cmd:"" name:"extract-data" help:"Extract outline (headings), tables, and links from a Google Doc as JSON"`
 	Write       DocsWriteCmd             `cmd:"" name:"write" help:"Write content to a Google Doc"`
 	Insert      DocsInlineInsertCmd      `cmd:"" name:"insert" help:"Insert text at a specific position"`
 	Delete      DocsInlineDeleteCmd      `cmd:"" name:"delete" help:"Delete text range from document"`
@@ -37,6 +38,7 @@ type DocsEditCmd struct {
 	MergeData    DocsEditMergeDataCmd `cmd:"" name:"merge-data" help:"Generate docs from template using JSON data (mail-merge)"`
 	Replace      DocsReplaceCmd       `cmd:"" name:"replace" help:"Replace text throughout a Google Doc"`
 	ReplaceImage DocsReplaceImageCmd  `cmd:"" name:"replace-image" help:"Replace an image in a Google Doc with a new image"`
+	ApplyStyle   DocsApplyStyleCmd    `cmd:"" name:"apply-style" help:"Apply text or paragraph style to a range (e.g. bold, heading1)"`
 }
 
 // DocsEditSafetyFlags is the shared agentic safety flags for Docs edit commands.

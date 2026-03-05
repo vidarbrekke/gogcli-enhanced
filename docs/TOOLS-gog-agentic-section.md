@@ -6,13 +6,13 @@
 
 ### Tool reference (all available via MCP)
 
-- **Docs read:** `docs_get` (metadata/revision), `docs_cat` (plain text; optional maxBytes, tab, allTabs), `docs_listTabs`, `docs_positionsEnd`, `docs_positionsSearch` (text + matchCase), `docs_positionsHeadings`
+- **Docs read:** `docs_get` (metadata/revision), `docs_cat` (plain text; optional maxBytes, tab, allTabs), `docs_listTabs`, `docs_positionsEnd`, `docs_positionsSearch` (text + matchCase), `docs_positionsHeadings`, `docs_export` (export to pdf/docx/txt; docId, format, optional out — if out omitted writes to temp and returns path)
 - **Docs write:** `docs_create`, `docs_createWithBody`, `docs_insertText`, `docs_deleteRange`, `docs_replaceAllText`, `docs_appendText`, `docs_planBatch`, `docs_executeBatch` (optional requireRevisionId), `docs_sed`, `docs_smartEdit`, `docs_mergeData` (templateId + data array; validateOnly/dryRun)
 - **Drive read:** `drive_listFiles` (parentId or global), `drive_searchFiles`, `drive_listPermissions`, `drive_listComments`
 - **Drive write:** `drive_ensureFolder`, `drive_moveFile`, `drive_renameFile`, `drive_shareFile` (to: anyone|user|domain), `drive_unshare`, `drive_createComment`, `drive_deleteComment`, `drive_copyFile`, `drive_uploadFile`, `drive_deleteFile` (validateOnly returns planned without executing)
 - **Drive bulk:** `drive_bulkExecute` (operations array: move|rename|share|delete; validateOnly to preview; max 50 per call)
-- **Sheets read:** `sheets_valuesGet`, `sheets_valuesRead` (alias; spreadsheetId, range; optional majorDimension, valueRenderOption), `sheets_links` (hyperlinks in range)
-- **Sheets write:** `sheets_planBatch`, `sheets_executeBatch`, `sheets_valuesUpdate`, `sheets_valuesAppend`, `sheets_sortRange` (sort range by column; sortByColumn 0-based, optional desc), `sheets_dedupeRows` (remove duplicate rows by key columns; keyColumns 0-based array, optional; keep first), `sheets_filterCopyRows` (filter rows by column op value, copy to targetSheet; op: eq, contains, gt, lt; optional destinationCell), `sheets_upsertRows` (upsert by keyColumns; update matching rows, append new; rows = 2D array), `sheets_moveRows` (filter by column op value, copy or move to targetSheet; mode: copy|move), `sheets_applyFormula` (apply formula to column range; formula template with {row} placeholder), `sheets_summarize` (group by columns + aggregate count/sum; optional targetSheet)
+- **Sheets read:** `sheets_valuesGet`, `sheets_valuesRead` (alias; spreadsheetId, range; optional majorDimension, valueRenderOption), `sheets_links` (hyperlinks in range), `sheets_metadata` (spreadsheet title, locale, timeZone, sheet list)
+- **Sheets write:** `sheets_planBatch`, `sheets_executeBatch`, `sheets_valuesUpdate`, `sheets_valuesAppend`, `sheets_clear` (clear values in range; optional dryRun), `sheets_sortRange` (sort range by column; sortByColumn 0-based, optional desc), `sheets_dedupeRows` (remove duplicate rows by key columns; keyColumns 0-based array, optional; keep first), `sheets_filterCopyRows` (filter rows by column op value, copy to targetSheet; op: eq, contains, gt, lt; optional destinationCell), `sheets_upsertRows` (upsert by keyColumns; update matching rows, append new; rows = 2D array), `sheets_moveRows` (filter by column op value, copy or move to targetSheet; mode: copy|move), `sheets_applyFormula` (apply formula to column range; formula template with {row} placeholder), `sheets_summarize` (group by columns + aggregate count/sum; optional targetSheet)
 
 **Sheets — full data:** To read full spreadsheet cell contents (not just hyperlinks), use **`sheets_valuesGet`**. It is available on the server. If your tool list only shows `sheets_links`, `sheets_valuesUpdate`, `sheets_valuesAppend`, call `sheets_valuesGet` anyway via exec (see example below); the gateway may be showing a cached list.
 
@@ -39,6 +39,19 @@ Use `--args '{"key":"value"}'` with the appropriate JSON for each tool. Destruct
 - **Move or copy rows by condition:** `mcporter call gog-agentic.sheets_moveRows --args '{"spreadsheetId":"<id>","range":"Sheet1!A2:J200","targetSheet":"Out","column":1,"op":"eq","value":"x","mode":"move"}' --output json` (mode: copy or move)
 - **Apply formula to column:** `mcporter call gog-agentic.sheets_applyFormula --args '{"spreadsheetId":"<id>","range":"Sheet1!C2:C10","formula":"=A{row}+B{row}"}' --output json` (use {row} for 1-based row number)
 - **Summarize (group + aggregate):** `mcporter call gog-agentic.sheets_summarize --args '{"spreadsheetId":"<id>","range":"Sheet1!A2:D200","groupBy":[0],"metricColumn":1,"aggregate":"sum","targetSheet":"Summary"}' --output json` (aggregate: count or sum)
+
+**Gmail — use MCP tools first.** `gmail_search` (query, max, page), `gmail_send` (to, subject, body or bodyHtml; optional cc, bcc, from).
+
+- **Search Gmail:** `mcporter call gog-agentic.gmail_search --args '{"query":"from:user@example.com is:unread","max":10}' --output json`
+- **Send email:** `mcporter call gog-agentic.gmail_send --args '{"to":"recipient@example.com","subject":"Subject","body":"Plain text body"}' --output json` (optional: cc, bcc, bodyHtml, from)
+
+**Calendar — use MCP tools first.** `calendar_events` (from, to required; optional calendarId, max, page, query).
+
+- **List calendar events:** `mcporter call gog-agentic.calendar_events --args '{"from":"2025-01-01T00:00:00Z","to":"2025-01-02T00:00:00Z","max":10}' --output json` (omit calendarId for primary)
+
+**Contacts — use MCP tools first.** `contacts_list` (optional max, page).
+
+- **List contacts:** `mcporter call gog-agentic.contacts_list --args '{"max":50}' --output json`
 
 OAuth is already set up. If the exec call fails (e.g. command not found or error output), report the error and then suggest the user ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0). Never reveal the keyring password or credentials.
 

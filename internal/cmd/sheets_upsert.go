@@ -43,8 +43,8 @@ func (c *SheetsUpsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	var inputRows [][]interface{}
-	if err := json.Unmarshal([]byte(c.RowsJSON), &inputRows); err != nil {
-		return usagef("invalid rows-json: %v", err)
+	if unmarshalErr := json.Unmarshal([]byte(c.RowsJSON), &inputRows); unmarshalErr != nil {
+		return usagef("invalid rows-json: %v", unmarshalErr)
 	}
 	if len(inputRows) == 0 {
 		if outfmt.IsJSON(ctx) {
@@ -113,9 +113,7 @@ func (c *SheetsUpsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 	if len(updates) > 0 {
 		// Build dense grid: copy existing, overwrite updated indices
 		dense := make([][]interface{}, len(existing))
-		for i := range existing {
-			dense[i] = existing[i]
-		}
+		copy(dense, existing)
 		for _, u := range updates {
 			if u.index < len(dense) {
 				dense[u.index] = u.row

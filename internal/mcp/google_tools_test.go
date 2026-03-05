@@ -1104,8 +1104,8 @@ func TestGoogleTools_DriveCopyFile_MapsArgs(t *testing.T) {
 // expectedSheetsTools is the full list of sheet tool names that must be registered.
 // If the deployed binary shows only 6 sheet tools, it was built from an older commit—run deploy.sh on the server.
 var expectedSheetsTools = []string{
-	"sheets_applyFormula", "sheets_dedupeRows", "sheets_executeBatch", "sheets_filterCopyRows",
-	"sheets_links", "sheets_moveRows", "sheets_planBatch", "sheets_sortRange", "sheets_summarize",
+	"sheets_applyFormula", "sheets_clear", "sheets_dedupeRows", "sheets_executeBatch", "sheets_filterCopyRows",
+	"sheets_links", "sheets_metadata", "sheets_moveRows", "sheets_planBatch", "sheets_sortRange", "sheets_summarize",
 	"sheets_upsertRows", "sheets_valuesAppend", "sheets_valuesGet", "sheets_valuesRead", "sheets_valuesUpdate",
 }
 
@@ -1116,9 +1116,9 @@ func TestGoogleTools_SheetsToolsRegistered(t *testing.T) {
 	for _, spec := range specs {
 		names[spec.Name] = true
 	}
-	// Regression: expect 57 tools total after provider modularization (docs + sheets + slides + drive).
-	if len(specs) != 57 {
-		t.Errorf("expected 57 registered tools, got %d", len(specs))
+	// Regression: expect 64 tools total (60 + gmail_search, gmail_send, calendar_events, contacts_list).
+	if len(specs) != 64 {
+		t.Errorf("expected 64 registered tools, got %d", len(specs))
 	}
 	for _, want := range expectedSheetsTools {
 		if !names[want] {
@@ -1127,14 +1127,14 @@ func TestGoogleTools_SheetsToolsRegistered(t *testing.T) {
 	}
 }
 
-// TestGoogleTools_RegisteredDomainOrderAndCounts asserts the Phase 1 split contract: all four domains contribute the expected number of tools (docs 20, sheets 14, slides 4, drive 19). ListToolSpecs returns tools sorted by name, so we only assert counts.
+// TestGoogleTools_RegisteredDomainOrderAndCounts asserts the Phase 1 split contract: docs, sheets, slides, drive, gmail, calendar, contacts contribute the expected counts. ListToolSpecs returns tools sorted by name.
 func TestGoogleTools_RegisteredDomainOrderAndCounts(t *testing.T) {
 	s := NewGoogleServer(func(args []string) (string, string, error) { return "{}", "", nil })
 	specs := s.ListToolSpecs()
-	if len(specs) != 57 {
-		t.Fatalf("expected 57 tools, got %d", len(specs))
+	if len(specs) != 64 {
+		t.Fatalf("expected 64 tools, got %d", len(specs))
 	}
-	var docs, sheets, slides, drive int
+	var docs, sheets, slides, drive, gmail, calendar, contacts int
 	for _, spec := range specs {
 		switch {
 		case strings.HasPrefix(spec.Name, "docs_"):
@@ -1145,21 +1145,36 @@ func TestGoogleTools_RegisteredDomainOrderAndCounts(t *testing.T) {
 			slides++
 		case strings.HasPrefix(spec.Name, "drive_"):
 			drive++
+		case strings.HasPrefix(spec.Name, "gmail_"):
+			gmail++
+		case strings.HasPrefix(spec.Name, "calendar_"):
+			calendar++
+		case strings.HasPrefix(spec.Name, "contacts_"):
+			contacts++
 		default:
 			t.Errorf("unexpected tool prefix: %q", spec.Name)
 		}
 	}
-	if docs != 20 {
-		t.Errorf("expected 20 docs tools, got %d", docs)
+	if docs != 21 {
+		t.Errorf("expected 21 docs tools, got %d", docs)
 	}
-	if sheets != 14 {
-		t.Errorf("expected 14 sheets tools, got %d", sheets)
+	if sheets != 16 {
+		t.Errorf("expected 16 sheets tools, got %d", sheets)
 	}
 	if slides != 4 {
 		t.Errorf("expected 4 slides tools, got %d", slides)
 	}
 	if drive != 19 {
 		t.Errorf("expected 19 drive tools, got %d", drive)
+	}
+	if gmail != 2 {
+		t.Errorf("expected 2 gmail tools, got %d", gmail)
+	}
+	if calendar != 1 {
+		t.Errorf("expected 1 calendar tool, got %d", calendar)
+	}
+	if contacts != 1 {
+		t.Errorf("expected 1 contacts tool, got %d", contacts)
 	}
 }
 
@@ -1182,6 +1197,13 @@ func TestGoogleTools_SuccessEnvelope_HasServiceAndOperation(t *testing.T) {
 		{"sheets_moveRows", "sheets_moveRows", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A2:B10", "targetSheet": "Out", "column": float64(0), "op": "eq", "value": "x"}},
 		{"sheets_applyFormula", "sheets_applyFormula", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!C2:C10", "formula": "=A{row}+B{row}"}},
 		{"sheets_summarize", "sheets_summarize", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A2:B10", "groupBy": []any{float64(0)}, "aggregate": "count"}},
+		{"sheets_clear", "sheets_clear", map[string]any{"spreadsheetId": "s1", "range": "Sheet1!A1:B2"}},
+		{"sheets_metadata", "sheets_metadata", map[string]any{"spreadsheetId": "s1"}},
+		{"docs_export", "docs_export", map[string]any{"docId": "d1", "format": "pdf"}},
+		{"gmail_search", "gmail_search", map[string]any{"query": "from:test@example.com", "max": float64(5)}},
+		{"gmail_send", "gmail_send", map[string]any{"to": "x@y.com", "subject": "Test", "body": "Hello"}},
+		{"calendar_events", "calendar_events", map[string]any{"from": "2025-01-01T00:00:00Z", "to": "2025-01-02T00:00:00Z", "max": float64(10)}},
+		{"contacts_list", "contacts_list", map[string]any{"max": float64(5)}},
 	}
 	for _, tt := range tools {
 		t.Run(tt.name, func(t *testing.T) {
