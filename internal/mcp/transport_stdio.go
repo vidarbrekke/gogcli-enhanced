@@ -127,7 +127,7 @@ func handleRPC(ctx context.Context, s *server.Server, req rpcRequest) rpcRespons
 			Result: map[string]any{
 				"protocolVersion": "2024-11-05",
 				"serverInfo": map[string]any{
-					"name":    "gogcli-mcp",
+					"name":    "gog-agentic",
 					"version": "v1",
 				},
 				"capabilities": map[string]any{

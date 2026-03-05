@@ -141,6 +141,8 @@ Alternatively you can use `gog drive mkdir testing123 --json` for step 1; the re
 
 When the MCP config file already lists **gog-agentic** but the agent doesn’t use the tools (or OpenClaw says there is no MCP server), check the following.
 
+**Server name must match:** The gog MCP server identifies itself as **`gog-agentic`** in the MCP `initialize` response (so it matches the mcporter config key). If the gateway or tool list shows a different server name (e.g. `gogcli-mcp`), tools will not be recognized—redeploy the latest gog binary and restart the daemon.
+
 ### 8.0 Agent says “gog-agentic tools are not showing up in my tool list”
 
 If the agent reads TOOLS.md but reports that gog-agentic tools are not in its tool list, the gateway may not be exposing MCP server tools as first-class tools (some OpenClaw setups only expose core tools + plugins). **Use exec + mcporter call:** The agent can still use gog-agentic by calling the **exec** tool with `mcporter call gog-agentic.<toolName> --args '<JSON>'`. TOOLS.md (injected by setup) instructs the agent to do this when drive.*/docs.* are not in its list. Ensure (1) the agent has **exec** allowed (main agent does by default), (2) mcporter is on PATH for the gateway process, and (3) the mcporter daemon is running with a config that includes gog-agentic (see below). If the agent still says tools are unavailable after trying exec + mcporter, or exec fails, run the checklist. **Restarting only the gateway is not enough** if the mcporter daemon is not running or the gateway uses a different config.
