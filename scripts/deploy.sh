@@ -40,11 +40,25 @@ log "Building gog..."
 ./scripts/install.sh
 
 # Copy binary so it's updated even when ~/.local/bin/gog is a real file (install.sh only symlinks when target is missing or already a symlink).
+# Skip cp when target is already a symlink to our binary (avoids "same file" / cp error).
 INSTALL_TARGET="${HOME}/.local/bin/gog"
-if [[ -x "$ROOT_DIR/bin/gog" ]]; then
+BINARY="$ROOT_DIR/bin/gog"
+if [[ -x "$BINARY" ]]; then
   mkdir -p "$(dirname "$INSTALL_TARGET")"
-  cp -f "$ROOT_DIR/bin/gog" "$INSTALL_TARGET"
-  log "Copied binary to $INSTALL_TARGET"
+  do_copy=1
+  if [[ -L "$INSTALL_TARGET" ]]; then
+    # Resolve both to canonical paths and compare (readlink -f on Linux, realpath on macOS).
+    canon_target=$(readlink -f "$INSTALL_TARGET" 2>/dev/null || realpath "$INSTALL_TARGET" 2>/dev/null || true)
+    canon_binary=$(readlink -f "$BINARY" 2>/dev/null || realpath "$BINARY" 2>/dev/null || true)
+    if [[ -n "$canon_target" && -n "$canon_binary" && "$canon_target" == "$canon_binary" ]]; then
+      do_copy=0
+      log "Binary already linked at $INSTALL_TARGET (skipping copy)"
+    fi
+  fi
+  if [[ "$do_copy" -eq 1 ]]; then
+    cp -f "$BINARY" "$INSTALL_TARGET"
+    log "Copied binary to $INSTALL_TARGET"
+  fi
 fi
 
 log "Restarting mcporter daemon..."
