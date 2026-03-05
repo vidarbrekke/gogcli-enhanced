@@ -26,3 +26,37 @@ export interface OpenRecord {
   is_bot: number;
   bot_type: string | null;
 }
+
+/** Cloudflare request.cf geo fields we use (subset of IncomingRequestCfProperties). */
+export interface CfGeo {
+  country?: string | null;
+  region?: string | null;
+  city?: string | null;
+  timezone?: string | null;
+}
+
+/** Row shape from SELECT opened_at, ip, city, region, country, timezone, is_bot, bot_type. */
+export interface OpenQueryRow {
+  opened_at: string;
+  ip: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  timezone: string | null;
+  is_bot: number;
+  bot_type: string | null;
+}
+
+/** Row shape for admin /opens list (full row). */
+export interface OpenAdminRow {
+  tracking_id: string;
+  recipient: string;
+  subject_hash: string;
+  sent_at: string;
+  opened_at: string;
+  is_bot: number;
+  bot_type: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+}

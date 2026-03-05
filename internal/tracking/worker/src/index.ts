@@ -1,4 +1,4 @@
-import type { Env, PixelPayload } from './types';
+import type { Env, PixelPayload, CfGeo, OpenQueryRow, OpenAdminRow } from './types';
 import { importKey, decrypt } from './crypto';
 import { detectBot } from './bot';
 import { pixelResponse } from './pixel';
@@ -51,10 +51,10 @@ async function handlePixel(request: Request, env: Env, path: string): Promise<Re
     return pixelResponse();
   }
 
-  // Get request metadata
+  // Get request metadata (cf is Cloudflare-specific; type assertion for the fields we use)
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   const userAgent = request.headers.get('User-Agent') || 'unknown';
-  const cf = (request as any).cf || {};
+  const cf: CfGeo = (request as Request & { cf?: CfGeo }).cf ?? {};
 
   // Calculate time since delivery
   const now = Date.now();
@@ -116,21 +116,23 @@ async function handleQuery(request: Request, env: Env, path: string): Promise<Re
     ORDER BY opened_at ASC
   `).bind(
     blob
-  ).all();
+  ).all<OpenQueryRow>();
 
-  const opens = result.results.map((row: any) => ({
+  const opens = result.results.map((row: OpenQueryRow) => ({
     at: row.opened_at,
     is_bot: row.is_bot === 1,
     bot_type: row.bot_type,
-    location: row.city ? {
-      city: row.city,
-      region: row.region,
-      country: row.country,
-      timezone: row.timezone,
-    } : null,
+    location: row.city
+      ? {
+          city: row.city,
+          region: row.region,
+          country: row.country,
+          timezone: row.timezone,
+        }
+      : null,
   }));
 
-  const humanOpens = opens.filter((o: any) => !o.is_bot);
+  const humanOpens = opens.filter(o => !o.is_bot);
 
   return Response.json({
     tracking_id: blob,
@@ -155,7 +157,7 @@ async function handleAdminOpens(request: Request, env: Env, url: URL): Promise<R
   const limit = parseInt(url.searchParams.get('limit') || '100', 10);
 
   let query = 'SELECT * FROM opens WHERE 1=1';
-  const params: any[] = [];
+  const params: string[] = [];
 
   if (recipient) {
     query += ' AND recipient = ?';
@@ -168,12 +170,12 @@ async function handleAdminOpens(request: Request, env: Env, url: URL): Promise<R
   }
 
   query += ' ORDER BY opened_at DESC LIMIT ?';
-  params.push(limit);
+  params.push(String(limit));
 
-  const result = await env.DB.prepare(query).bind(...params).all();
+  const result = await env.DB.prepare(query).bind(...params).all<OpenAdminRow>();
 
   return Response.json({
-    opens: result.results.map((row: any) => ({
+    opens: result.results.map((row: OpenAdminRow) => ({
       tracking_id: row.tracking_id,
       recipient: row.recipient,
       subject_hash: row.subject_hash,
