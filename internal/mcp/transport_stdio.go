@@ -80,14 +80,6 @@ func ServeStdio(ctx context.Context, r io.Reader, w io.Writer, s *server.Server)
 					ID:      req.ID,
 					Result: map[string]any{
 						"isError": true,
-						"structuredContent": server.Envelope{
-							OK:        false,
-							Operation: "tools/call",
-							Error: &server.ErrorEnvelope{
-								Code:    "resource_exhausted",
-								Message: "too many in-flight requests",
-							},
-						},
 						"content": []map[string]any{
 							{"type": "text", "text": "{\"ok\":false,\"error\":{\"code\":\"resource_exhausted\",\"message\":\"too many in-flight requests\"}}"},
 						},
@@ -171,12 +163,13 @@ func handleRPC(ctx context.Context, s *server.Server, req rpcRequest) rpcRespons
 		}
 		env := s.ExecuteTool(ctx, params.Name, params.Arguments)
 		payload, _ := json.Marshal(env)
+		// Send only content (agent loop consumes this). structuredContent is omitted to avoid
+		// sending the same payload twice; OpenClaw uses content for reasoning.
 		return rpcResponse{
 			JSONRPC: "2.0",
 			ID:      req.ID,
 			Result: map[string]any{
-				"isError":           !env.OK,
-				"structuredContent": env,
+				"isError": !env.OK,
 				"content": []map[string]any{
 					{"type": "text", "text": string(payload)},
 				},

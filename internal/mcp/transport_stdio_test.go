@@ -79,3 +79,57 @@ func TestServeStdio_ToolsCall_ConcurrentResponses(t *testing.T) {
 		t.Fatalf("expected 20 responses, got %d", len(lines))
 	}
 }
+
+// TestServeStdio_ToolsCall_ResultShape asserts tools/call response has content only (no structuredContent).
+// Downstream (e.g. OpenClaw) uses content for agent reasoning; we omit structuredContent to avoid sending the envelope twice.
+func TestServeStdio_ToolsCall_ResultShape(t *testing.T) {
+	s := server.New()
+	s.RegisterTool("add", func(_ context.Context, input map[string]any) (map[string]any, error) {
+		a, _ := input["a"].(float64)
+		b, _ := input["b"].(float64)
+		return map[string]any{"service": "test", "operation": "add", "sum": a + b}, nil
+	})
+	in := bytes.NewBufferString("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"add\",\"arguments\":{\"a\":2,\"b\":3}}}\n")
+	var out bytes.Buffer
+	if err := ServeStdio(context.Background(), in, &out, s); err != nil {
+		t.Fatalf("ServeStdio: %v", err)
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(out.Bytes(), &resp); err != nil {
+		t.Fatalf("parse response: %v", err)
+	}
+	result, ok := resp["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing result: %#v", resp["result"])
+	}
+	// Must have content (agent consumes this).
+	content, ok := result["content"].([]any)
+	if !ok || len(content) == 0 {
+		t.Fatalf("result must have non-empty content array, got %#v", result["content"])
+	}
+	part, ok := content[0].(map[string]any)
+	if !ok {
+		t.Fatalf("content[0] must be object: %#v", content[0])
+	}
+	if part["type"] != "text" {
+		t.Fatalf("content[0].type must be text, got %q", part["type"])
+	}
+	text, _ := part["text"].(string)
+	if text == "" {
+		t.Fatalf("content[0].text must be non-empty")
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		t.Fatalf("content text must be valid JSON: %v", err)
+	}
+	if parsed["ok"] != true {
+		t.Fatalf("expected ok true, got %v", parsed["ok"])
+	}
+	if parsed["result"] == nil {
+		t.Fatalf("expected result in envelope")
+	}
+	// Must NOT have structuredContent (we omit it for token efficiency).
+	if _, has := result["structuredContent"]; has {
+		t.Fatalf("result must not contain structuredContent (downstream uses content only); got %#v", result["structuredContent"])
+	}
+}
