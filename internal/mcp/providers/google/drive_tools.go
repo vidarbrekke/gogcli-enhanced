@@ -67,7 +67,7 @@ func driveSpecs(p *provider) []server.ToolSpec {
 			Handler: p.driveGetPermission,
 		}, {
 			Name:        "drive_listFiles",
-			Description: "List files and folders in a Drive folder (default root). Returns one page (default 25 items) + nextPageToken. When the user asks for 'first N' items (e.g. first 15), always include \"max\" or \"maxResults\": N in the request. Use page or pageToken (from previous nextPageToken) for next page. Set global=true to list across all accessible files (cannot combine with parentId). For 'list all folders' use drive.searchFiles with query mimeType = 'application/vnd.google-apps.folder' and rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
+			Description: "List files and folders in a Drive folder (default root). Returns one page (default 25 items) + nextPageToken. For 'how many folders in root' use drive_searchFiles with query mimeType = 'application/vnd.google-apps.folder' and 'root' in parents, rawQuery true, and fetchAllPages: true. Use page or pageToken for next page. Set global=true to list across all accessible files (cannot combine with parentId).",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
@@ -81,6 +81,7 @@ func driveSpecs(p *provider) []server.ToolSpec {
 					"pageToken":  map[string]any{"type": "string"},
 					"maxResults": map[string]any{"type": "integer"},
 					"pageSize":   map[string]any{"type": "integer"},
+					"fetchAllPages": map[string]any{"type": "boolean", "description": "If true, fetch all pages server-side and return totalCount; use for 'how many' or 'count all'."},
 					"global":     map[string]any{"type": "boolean"},
 					"allDrives": map[string]any{
 						"type": "boolean",
@@ -95,7 +96,7 @@ func driveSpecs(p *provider) []server.ToolSpec {
 			Handler: p.driveListFiles,
 		}, {
 			Name:        "drive_searchFiles",
-			Description: "Search files and folders in Google Drive. Returns one page (default 25 items) + nextPageToken. When the user asks for 'first N' items (e.g. first 15), always include \"max\" or \"maxResults\": N in the request. Use page or pageToken (from previous nextPageToken) for next page. For 'list all folders' use query mimeType = 'application/vnd.google-apps.folder' with rawQuery true; then call again with page set to nextPageToken until nextPageToken is absent.",
+			Description: "Search files and folders in Google Drive. Returns one page (default 25 items) + nextPageToken. For 'how many folders in root' or 'count all X', set fetchAllPages: true to get totalCount in one call without chaining pageToken. Use page or pageToken for next page. For 'list all folders' use query mimeType = 'application/vnd.google-apps.folder' with rawQuery true (and 'root' in parents for root only).",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
@@ -110,6 +111,7 @@ func driveSpecs(p *provider) []server.ToolSpec {
 					"pageToken":      map[string]any{"type": "string"},
 					"maxResults":     map[string]any{"type": "integer"},
 					"pageSize":       map[string]any{"type": "integer"},
+					"fetchAllPages":  map[string]any{"type": "boolean", "description": "If true, fetch all pages server-side and return totalCount (avoids pageToken chaining); use for 'how many' or 'count all'."},
 					"allDrives":      map[string]any{"type": "boolean"},
 					"account":        map[string]any{"type": "string"},
 					"opId":           map[string]any{"type": "string"},

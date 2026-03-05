@@ -1242,18 +1242,23 @@ func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (ma
 	if query := strings.TrimSpace(asString(input["query"])); query != "" {
 		args = append(args, "--query", query)
 	}
-	if nMax, ok := asInt(input["max"]); ok && nMax > 0 {
-		args = append(args, "--max", strconv.FormatInt(nMax, 10))
-	}
-	pageVal := strings.TrimSpace(asString(input["page"]))
-	if pageVal != "" && !strings.EqualFold(pageVal, "null") {
-		args = append(args, "--page", pageVal)
+	fetchAll := asBool(input["fetchAllPages"]) || asBool(input["all"])
+	if fetchAll {
+		args = append(args, "--all")
 	} else {
-		// Paginated mode (no --all): one page of mcpDrivePageSize so response fits gateway/exec limit.
-		if _, hasMax := input["max"]; !hasMax {
-			args = append(args, "--max", strconv.Itoa(mcpDrivePageSize))
+		if nMax, ok := asInt(input["max"]); ok && nMax > 0 {
+			args = append(args, "--max", strconv.FormatInt(nMax, 10))
 		}
-		args = append(args, "--compact")
+		pageVal := strings.TrimSpace(asString(input["page"]))
+		if pageVal != "" && !strings.EqualFold(pageVal, "null") {
+			args = append(args, "--page", pageVal)
+		} else {
+			// Paginated mode (no --all): one page of mcpDrivePageSize so response fits gateway/exec limit.
+			if _, hasMax := input["max"]; !hasMax {
+				args = append(args, "--max", strconv.Itoa(mcpDrivePageSize))
+			}
+			args = append(args, "--compact")
+		}
 	}
 	if _, ok := input["allDrives"]; ok {
 		if asBool(input["allDrives"]) {
@@ -1279,18 +1284,23 @@ func (p *provider) driveSearchFiles(_ context.Context, input map[string]any) (ma
 	if asBool(input["rawQuery"]) {
 		args = append(args, "--raw-query")
 	}
-	if nMax, ok := asInt(input["max"]); ok && nMax > 0 {
-		args = append(args, "--max", strconv.FormatInt(nMax, 10))
-	}
-	pageVal := strings.TrimSpace(asString(input["page"]))
-	if pageVal != "" && !strings.EqualFold(pageVal, "null") {
-		args = append(args, "--page", pageVal)
+	fetchAll := asBool(input["fetchAllPages"]) || asBool(input["all"])
+	if fetchAll {
+		args = append(args, "--all")
 	} else {
-		// Paginated mode (no --all): one page of mcpDrivePageSize so response fits gateway/exec limit.
-		if _, hasMax := input["max"]; !hasMax {
-			args = append(args, "--max", strconv.Itoa(mcpDrivePageSize))
+		if nMax, ok := asInt(input["max"]); ok && nMax > 0 {
+			args = append(args, "--max", strconv.FormatInt(nMax, 10))
 		}
-		args = append(args, "--compact")
+		pageVal := strings.TrimSpace(asString(input["page"]))
+		if pageVal != "" && !strings.EqualFold(pageVal, "null") {
+			args = append(args, "--page", pageVal)
+		} else {
+			// Paginated mode (no --all): one page of mcpDrivePageSize so response fits gateway/exec limit.
+			if _, hasMax := input["max"]; !hasMax {
+				args = append(args, "--max", strconv.Itoa(mcpDrivePageSize))
+			}
+			args = append(args, "--compact")
+		}
 	}
 	// Default allDrives to true so search includes shared drives; only restrict when explicitly false
 	if v, ok := input["allDrives"]; ok && !asBool(v) {

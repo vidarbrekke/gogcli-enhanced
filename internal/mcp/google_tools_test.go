@@ -209,6 +209,29 @@ func TestGoogleTools_DriveSearchFiles_PageTokenMaxResultsAliases(t *testing.T) {
 	}
 }
 
+// TestGoogleTools_DriveSearchFiles_FetchAllPages verifies fetchAllPages: true results in --all (no pageToken chaining).
+func TestGoogleTools_DriveSearchFiles_FetchAllPages(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"files":[],"totalCount":85,"truncatedAt":10}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive_searchFiles", map[string]any{
+		"query":         "mimeType = 'application/vnd.google-apps.folder' and 'root' in parents",
+		"rawQuery":      true,
+		"fetchAllPages": true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "--all") {
+		t.Fatalf("expected --all when fetchAllPages true, got %v", gotArgs)
+	}
+	if slices.Contains(gotArgs, "--compact") {
+		t.Fatalf("expected no --compact when fetchAllPages (--all), got %v", gotArgs)
+	}
+}
+
 func TestGoogleTools_DriveListFiles_Global_MapsArgs(t *testing.T) {
 	var gotArgs []string
 	s := NewGoogleServer(func(args []string) (string, string, error) {

@@ -8,7 +8,7 @@ func gmailSpecs(p *provider) []server.ToolSpec {
 	return []server.ToolSpec{
 		{
 			Name:        "gmail_search",
-			Description: "Search Gmail threads using Gmail query syntax. Returns threads with id/snippet; use pageToken for pagination.",
+			Description: "Search Gmail threads using Gmail query syntax. Returns threads with id/snippet; use pageToken for pagination. For 'emails from [person]' always use the from: operator (e.g. from:Charlie Brekke or from:charlie@example.com); a bare phrase searches subject/body and may return the wrong thread. Results are roughly newest-first; use max to get enough and take the first as 'latest'.",
 			Tier:        "ga",
 			Version:     "v1",
 			PolicyClass: "read-fast",
@@ -16,7 +16,7 @@ func gmailSpecs(p *provider) []server.ToolSpec {
 				"type":     "object",
 				"required": []string{"query"},
 				"properties": map[string]any{
-					"query":          map[string]any{"type": "string", "description": "Gmail search query (e.g. from:example.com is:unread)"},
+					"query":          map[string]any{"type": "string", "description": "Gmail search query. Use from:name or from:email for 'emails from X'; use is:unread, newer_than:7d, etc. as needed. Do not pass a bare name for sender—use from:Name."},
 					"max":            map[string]any{"type": "integer", "description": "Max results per page (default 10)"},
 					"page":           map[string]any{"type": "string", "description": "Page token from previous response"},
 					"account":        map[string]any{"type": "string"},
