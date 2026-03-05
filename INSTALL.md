@@ -99,6 +99,19 @@ What it does:
    cp bin/gog ~/bin/gog   # ensure ~/bin is in your PATH
    ```
 
+**Note:** This project has **no** `make install` or `make clean` targets. Use `make` to build and copy the binary manually (or use `./scripts/install.sh` and then `cp` as above). On a deployment server, use `./scripts/deploy.sh` to pull, build, copy to `~/.local/bin/gog`, and restart the MCP daemon.
+
+### Install / upgrade quick reference (gogcli-enhanced)
+
+| Step | Command |
+|------|--------|
+| **First install** | `git clone https://github.com/vidarbrekke/gogcli-enhanced.git && cd gogcli-enhanced` |
+| Build | `make` (or `./scripts/install.sh` if Go is not installed) |
+| Put on PATH | `cp bin/gog ~/.local/bin/gog` or `sudo cp bin/gog /usr/local/bin/gog` |
+| **Upgrade** | `git pull origin main` (or your branch), then `make`, then copy `bin/gog` to your PATH again |
+
+Do **not** use `sudo make install` or `make clean` — those targets do not exist in this repo.
+
 ---
 
 ## 2. First-time setup
