@@ -1201,12 +1201,11 @@ func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (ma
 	if parentID == "" {
 		parentID = "root"
 	}
-	// Redirect to folders-only when: no query (agent often means "list folders" when using {}),
-	// or query is trashed=false / folder mimeType — so response has only folders and fits gateway.
+	// Redirect to folders-only only when the caller explicitly asks for a folders-only
+	// query. The default drive_listFiles{} path should remain a real drive ls call so
+	// MCP traffic can participate in the same backend routing as the CLI.
 	var redirectToFoldersOnly bool
-	if !global && query == "" {
-		redirectToFoldersOnly = true
-	} else {
+	if !global && query != "" {
 		qLower := strings.ToLower(query)
 		redirectToFoldersOnly = strings.Contains(qLower, "application/vnd.google-apps.folder") ||
 			(strings.Contains(qLower, "mimetype") && strings.Contains(qLower, "folder")) ||

@@ -232,6 +232,50 @@ func TestGoogleTools_DriveSearchFiles_FetchAllPages(t *testing.T) {
 	}
 }
 
+func TestGoogleTools_DriveListFiles_DefaultMapsToDriveLs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"files":[],"nextPageToken":""}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive_listFiles", map[string]any{})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	wantPrefix := []string{"--json", "drive", "ls"}
+	for _, a := range wantPrefix {
+		if !slices.Contains(gotArgs, a) {
+			t.Fatalf("expected %q in args, got %v", a, gotArgs)
+		}
+	}
+	if slices.Contains(gotArgs, "search") {
+		t.Fatalf("expected drive_listFiles default path to avoid drive search, got %v", gotArgs)
+	}
+	if !slices.Contains(gotArgs, "--compact") {
+		t.Fatalf("expected paginated compact mode, got %v", gotArgs)
+	}
+}
+
+func TestGoogleTools_DriveListFiles_FolderQueryRedirectsToSearch(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"files":[],"nextPageToken":""}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive_listFiles", map[string]any{
+		"query": "mimeType = 'application/vnd.google-apps.folder'",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "search") {
+		t.Fatalf("expected folders-only query to redirect to drive search, got %v", gotArgs)
+	}
+	if !slices.Contains(gotArgs, "--raw-query") {
+		t.Fatalf("expected redirect to use raw query, got %v", gotArgs)
+	}
+}
+
 func TestGoogleTools_DriveListFiles_Global_MapsArgs(t *testing.T) {
 	var gotArgs []string
 	s := NewGoogleServer(func(args []string) (string, string, error) {
