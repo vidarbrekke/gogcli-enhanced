@@ -10,7 +10,7 @@ The developer does **not** have access to any app or environment. The **403 (per
    - Open [Credentials](https://console.cloud.google.com/apis/credentials) and select a project (e.g. gcloud-agent-cli).
    - Create credentials → OAuth client ID → **Desktop app**.
    - Download the JSON and save as `~/.config/gws/client_secret-no-gmail.json`.
-   - **Optional for “no Gmail”:** In the OAuth consent screen for that project, you can limit which scopes are available; or use the repo script `scripts/get-drive-only-credentials.py` (point it at this new client’s JSON) to run a Drive-only OAuth flow and write `credentials-no-gmail.json`. Otherwise, use the client for `gws auth login` and hope the consent screen only grants limited scope (gws normally requests Gmail too).
+  - **Optional for “no Gmail”:** In the OAuth consent screen for that project, limit which scopes are available, or use a separate Desktop OAuth client dedicated to the Drive-only capture flow. Then export the resulting credentials to `credentials-no-gmail.json`. Otherwise, use the client for `gws auth login` and hope the consent screen only grants limited scope (gws normally requests Gmail too).
 
 2. **Use that client for gws (without touching your main gws auth)**
    ```bash
