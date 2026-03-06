@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/calendar/v3"
@@ -111,7 +110,7 @@ func (c *CalendarRespondCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if outfmt.IsJSON(ctx) {
 		tz, loc, _ := getCalendarLocation(ctx, svc, calendarID)
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"event": wrapEventWithDaysWithTimezone(updated, tz, loc)})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"event": wrapEventWithDaysWithTimezone(updated, tz, loc)})
 	}
 
 	u.Out().Printf("id\t%s", updated.Id)

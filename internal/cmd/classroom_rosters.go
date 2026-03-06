@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/classroom/v1"
@@ -72,7 +71,7 @@ func (c *ClassroomStudentsListCmd) Run(ctx context.Context, flags *RootFlags) er
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"students":      students,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -137,7 +136,7 @@ func (c *ClassroomStudentsGetCmd) Run(ctx context.Context, flags *RootFlags) err
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"student": student})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"student": student})
 	}
 
 	u.Out().Printf("user_id\t%s", student.UserId)
@@ -195,7 +194,7 @@ func (c *ClassroomStudentsAddCmd) Run(ctx context.Context, flags *RootFlags) err
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"student": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"student": created})
 	}
 	u.Out().Printf("user_id\t%s", created.UserId)
 	u.Out().Printf("email\t%s", profileEmail(created.Profile))
@@ -304,7 +303,7 @@ func (c *ClassroomTeachersListCmd) Run(ctx context.Context, flags *RootFlags) er
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"teachers":      teachers,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -369,7 +368,7 @@ func (c *ClassroomTeachersGetCmd) Run(ctx context.Context, flags *RootFlags) err
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"teacher": teacher})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"teacher": teacher})
 	}
 
 	u.Out().Printf("user_id\t%s", teacher.UserId)
@@ -418,7 +417,7 @@ func (c *ClassroomTeachersAddCmd) Run(ctx context.Context, flags *RootFlags) err
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"teacher": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"teacher": created})
 	}
 	u.Out().Printf("user_id\t%s", created.UserId)
 	u.Out().Printf("email\t%s", profileEmail(created.Profile))
@@ -563,7 +562,7 @@ func (c *ClassroomRosterCmd) Run(ctx context.Context, flags *RootFlags) error {
 			payload["teachers"] = teachers
 			payload["teachersNextPageToken"] = teachersNextPageToken
 		}
-		if err := outfmt.WriteJSON(ctx, os.Stdout, payload); err != nil {
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload); err != nil {
 			return err
 		}
 		if includeStudents && includeTeachers && len(students) == 0 && len(teachers) == 0 {

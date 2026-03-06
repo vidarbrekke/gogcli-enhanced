@@ -240,7 +240,7 @@ func (c *SheetsEditAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 			payload["normalizedRequest"] = normalizedForJSON
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -302,7 +302,7 @@ func (c *SheetsEditAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("Appended %d cells to %s", resp.Updates.UpdatedCells, resp.Updates.UpdatedRange)
 	return nil
@@ -355,7 +355,7 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 			payload["normalizedRequest"] = normalizedForJSON
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -401,7 +401,7 @@ func (c *SheetsEditClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("Cleared %s", resp.ClearedRange)
 	return nil
@@ -475,7 +475,7 @@ func (c *SheetsEditDeleteRangeCmd) Run(ctx context.Context, flags *RootFlags) er
 			payload["normalizedRequest"] = normalizedForJSON
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -543,7 +543,7 @@ func (c *SheetsEditDeleteRangeCmd) Run(ctx context.Context, flags *RootFlags) er
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("Deleted %s (shift %s)", rangeSpec, shiftDim)
 	return nil
@@ -630,7 +630,7 @@ func (c *SheetsEditFormatCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -674,7 +674,7 @@ func (c *SheetsEditFormatCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("Formatted %s", rangeSpec)
 	return nil
@@ -764,7 +764,7 @@ func (c *SheetsEditInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -818,7 +818,7 @@ func (c *SheetsEditInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("Inserted %d into %s", c.Count, sheetName)
 	return nil
@@ -911,7 +911,7 @@ func (c *SheetsEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -954,7 +954,7 @@ func (c *SheetsEditBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["normalizedRequest"] = normalizedForJSON
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("id\t%s", spreadsheetID)
 	u.Out().Printf("operations\t%d", len(req.Requests))
@@ -1092,7 +1092,7 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -1150,7 +1150,7 @@ func (c *SheetsEditReplaceTextCmd) Run(ctx context.Context, flags *RootFlags) er
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("id\t%s", spreadsheetID)
 	u.Out().Printf("replaced\t%d", replacements)
@@ -1204,7 +1204,7 @@ func (c *SheetsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 			"operations":     operations,
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -1229,7 +1229,7 @@ func (c *SheetsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, dryRunPayload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), dryRunPayload)
 		}
 		u.Out().Printf("dry-run\ttrue")
 		u.Out().Printf("service\tsheets")
@@ -1364,7 +1364,7 @@ func (c *SheetsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) erro
 		"results":        results,
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("template\t%s", templateID)
 	u.Out().Printf("records\t%d", len(dataRecords))

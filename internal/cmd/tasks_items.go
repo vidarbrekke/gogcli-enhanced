@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -106,7 +105,7 @@ func (c *TasksListCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"tasks":         items,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -171,7 +170,7 @@ func (c *TasksGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"task": task})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"task": task})
 	}
 	u.Out().Printf("id\t%s", task.Id)
 	u.Out().Printf("title\t%s", task.Title)
@@ -288,7 +287,7 @@ func (c *TasksAddCmd) Run(ctx context.Context, flags *RootFlags) error {
 			return createErr
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"task": created})
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"task": created})
 		}
 		u.Out().Printf("id\t%s", created.Id)
 		u.Out().Printf("title\t%s", created.Title)
@@ -382,7 +381,7 @@ func (c *TasksAddCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"tasks": createdTasks,
 			"count": len(createdTasks),
 		})
@@ -493,7 +492,7 @@ func (c *TasksUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *Roo
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"task": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"task": updated})
 	}
 	u.Out().Printf("id\t%s", updated.Id)
 	u.Out().Printf("title\t%s", updated.Title)
@@ -551,7 +550,7 @@ func (c *TasksDoneCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"task": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"task": updated})
 	}
 	u.Out().Printf("id\t%s", updated.Id)
 	u.Out().Printf("status\t%s", strings.TrimSpace(updated.Status))
@@ -600,7 +599,7 @@ func (c *TasksUndoCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"task": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"task": updated})
 	}
 	u.Out().Printf("id\t%s", updated.Id)
 	u.Out().Printf("status\t%s", strings.TrimSpace(updated.Status))

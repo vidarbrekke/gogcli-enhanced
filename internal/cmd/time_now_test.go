@@ -3,19 +3,14 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"testing"
 
 	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestTimeNowCmd_JSON(t *testing.T) {
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+	// No UI in context so stdoutWriter(ctx) falls back to os.Stdout (captureStdout's pipe)
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 
 	out := captureStdout(t, func() {
 		if err := runKong(t, &TimeNowCmd{}, []string{"--timezone", "UTC"}, ctx, &RootFlags{}); err != nil {

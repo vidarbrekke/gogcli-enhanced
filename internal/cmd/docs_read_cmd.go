@@ -77,7 +77,7 @@ func (c *DocsInfoCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			strFile:    file,
 			"document": doc,
 		})
@@ -165,7 +165,7 @@ func (c *DocsCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{strFile: created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{strFile: created})
 	}
 
 	u.Out().Printf("id\t%s", created.Id)
@@ -293,7 +293,7 @@ func (c *DocsCatCmd) Run(ctx context.Context, flags *RootFlags) error {
 	text := docsPlainText(doc, c.MaxBytes)
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"text": text})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"text": text})
 	}
 	_, err = io.WriteString(os.Stdout, text)
 	return err
@@ -458,7 +458,7 @@ func (c *DocsUpdateCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"success": true,
 			"docId":   id,
 			"action":  map[string]any{"append": c.Append},
@@ -497,7 +497,7 @@ func (c *DocsCatCmd) runWithTabs(ctx context.Context, svc *docs.Service, id stri
 		}
 		text := tabPlainText(tab, c.MaxBytes)
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 				"tab": tabJSON(tab, text),
 			})
 		}
@@ -512,7 +512,7 @@ func (c *DocsCatCmd) runWithTabs(ctx context.Context, svc *docs.Service, id stri
 			text := tabPlainText(tab, c.MaxBytes)
 			out = append(out, tabJSON(tab, text))
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"tabs": out})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"tabs": out})
 	}
 
 	for i, tab := range tabs {
@@ -580,7 +580,7 @@ func (c *DocsListTabsCmd) Run(ctx context.Context, flags *RootFlags) error {
 		for _, tab := range tabs {
 			out = append(out, tabInfoJSON(tab))
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"tabs": out})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"tabs": out})
 	}
 
 	u.Out().Printf("ID\tTITLE\tINDEX")
@@ -654,7 +654,7 @@ func (c *DocsWriteCmd) writeMarkdown(ctx context.Context, account, docID, conten
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"documentId": updated.Id,
 			"written":    len(content),
 			"replaced":   true,
@@ -728,7 +728,7 @@ func (c *DocsWriteCmd) writePlainText(ctx context.Context, account, docID, conte
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"documentId": result.DocumentId,
 			"written":    len(content),
 			"replaced":   c.Replace,
@@ -796,7 +796,7 @@ func (c *DocsInlineInsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"documentId": result.DocumentId,
 			"inserted":   len(content),
 			"atIndex":    c.Index,
@@ -854,7 +854,7 @@ func (c *DocsInlineDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"documentId": result.DocumentId,
 			"deleted":    c.End - c.Start,
 			"startIndex": c.Start,
@@ -919,7 +919,7 @@ func (c *DocsInlineFindReplaceCmd) Run(ctx context.Context, flags *RootFlags) er
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"documentId":   result.DocumentId,
 			"find":         c.Find,
 			"replace":      c.ReplaceText,

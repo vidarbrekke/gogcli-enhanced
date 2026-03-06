@@ -10,7 +10,6 @@ import (
 	"mime"
 	"mime/quotedprintable"
 	"net/url"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -110,7 +109,7 @@ func (c *GmailThreadGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 				downloadedFiles = append(downloadedFiles, attachmentDownloadSummaries(downloads)...)
 			}
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"thread":     thread,
 			"downloaded": downloadedFiles,
 		})
@@ -231,7 +230,7 @@ func (c *GmailThreadModifyCmd) Run(ctx context.Context, flags *RootFlags) error 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"modified":      threadID,
 			"addedLabels":   addIDs,
 			"removedLabels": removeIDs,
@@ -273,7 +272,7 @@ func (c *GmailThreadAttachmentsCmd) Run(ctx context.Context, flags *RootFlags) e
 
 	if thread == nil || len(thread.Messages) == 0 {
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 				"threadId":    threadID,
 				"attachments": []any{},
 			})
@@ -313,7 +312,7 @@ func (c *GmailThreadAttachmentsCmd) Run(ctx context.Context, flags *RootFlags) e
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"threadId":    threadID,
 			"attachments": allAttachments,
 		})
@@ -358,7 +357,7 @@ func (c *GmailURLCmd) Run(ctx context.Context, flags *RootFlags) error {
 				"url": fmt.Sprintf("https://mail.google.com/mail/?authuser=%s#all/%s", url.QueryEscape(account), id),
 			})
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"urls": urls})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"urls": urls})
 	}
 	for _, id := range c.ThreadIDs {
 		id = normalizeGmailThreadID(id)

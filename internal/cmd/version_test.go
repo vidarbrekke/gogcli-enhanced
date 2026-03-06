@@ -3,11 +3,9 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"testing"
 
 	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestVersionStringVariants(t *testing.T) {
@@ -37,12 +35,8 @@ func TestVersionCmd_JSON(t *testing.T) {
 	t.Cleanup(func() { version, commit, date = origVersion, origCommit, origDate })
 	version, commit, date = "v2", "c1", "d1"
 
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
+	// No UI in context so stdoutWriter(ctx) falls back to os.Stdout (captureStdout's pipe)
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 
 	jsonOut := captureStdout(t, func() {
 		if err := runKong(t, &VersionCmd{}, []string{}, ctx, nil); err != nil {

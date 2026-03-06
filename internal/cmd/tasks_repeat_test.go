@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sync/atomic"
 	"testing"
 
@@ -14,7 +13,6 @@ import (
 	"google.golang.org/api/tasks/v1"
 
 	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestTasksAddCmd_RepeatCreatesMultiple(t *testing.T) {
@@ -72,11 +70,8 @@ func TestTasksAddCmd_RepeatCreatesMultiple(t *testing.T) {
 	}
 	newTasksService = func(context.Context, string) (*tasks.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+	// No UI in context when capturing so stdoutWriter(ctx) uses os.Stdout (the pipe)
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 
 	out := captureStdout(t, func() {
 		if err := runKong(t, &TasksAddCmd{}, []string{
@@ -160,11 +155,7 @@ func TestTasksAddCmd_RepeatUntilDateOnlyWithTimeDue(t *testing.T) {
 	}
 	newTasksService = func(context.Context, string) (*tasks.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 
 	_ = captureStdout(t, func() {
 		if err := runKong(t, &TasksAddCmd{}, []string{

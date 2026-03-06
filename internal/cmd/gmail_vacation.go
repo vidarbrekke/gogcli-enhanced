@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"errors"
-	"os"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -38,7 +37,7 @@ func (c *GmailVacationGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"vacation": vacation})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"vacation": vacation})
 	}
 
 	u.Out().Printf("enable_auto_reply\t%t", vacation.EnableAutoReply)
@@ -188,7 +187,7 @@ func (c *GmailVacationUpdateCmd) Run(ctx context.Context, kctx *kong.Context, fl
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"vacation": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"vacation": updated})
 	}
 
 	u.Out().Println("Vacation responder updated successfully")

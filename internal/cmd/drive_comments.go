@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/drive/v3"
@@ -90,7 +89,7 @@ func (c *DriveCommentsListCmd) Run(ctx context.Context, flags *RootFlags) error 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"fileId":        fileID,
 			"comments":      comments,
 			"nextPageToken": nextPageToken,
@@ -185,7 +184,7 @@ func (c *DriveCommentsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"comment": comment})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"comment": comment})
 	}
 
 	u.Out().Printf("id\t%s", comment.Id)
@@ -261,7 +260,7 @@ func (c *DriveCommentsCreateCmd) Run(ctx context.Context, flags *RootFlags) erro
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"comment": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"comment": created})
 	}
 
 	u.Out().Printf("id\t%s", created.Id)
@@ -322,7 +321,7 @@ func (c *DriveCommentsUpdateCmd) Run(ctx context.Context, flags *RootFlags) erro
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"comment": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"comment": updated})
 	}
 
 	u.Out().Printf("id\t%s", updated.Id)
@@ -424,7 +423,7 @@ func (c *DriveCommentReplyCmd) Run(ctx context.Context, flags *RootFlags) error 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"reply": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"reply": created})
 	}
 
 	u.Out().Printf("id\t%s", created.Id)

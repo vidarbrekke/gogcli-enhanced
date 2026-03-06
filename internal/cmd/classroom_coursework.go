@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/classroom/v1"
@@ -112,7 +111,7 @@ func (c *ClassroomCourseworkListCmd) Run(ctx context.Context, flags *RootFlags) 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"coursework":    coursework,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -181,7 +180,7 @@ func (c *ClassroomCourseworkGetCmd) Run(ctx context.Context, flags *RootFlags) e
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"coursework": work})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"coursework": work})
 	}
 
 	u.Out().Printf("id\t%s", work.Id)
@@ -306,7 +305,7 @@ func (c *ClassroomCourseworkCreateCmd) Run(ctx context.Context, flags *RootFlags
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"coursework": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"coursework": created})
 	}
 	u.Out().Printf("id\t%s", created.Id)
 	u.Out().Printf("title\t%s", created.Title)
@@ -431,7 +430,7 @@ func (c *ClassroomCourseworkUpdateCmd) Run(ctx context.Context, flags *RootFlags
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"coursework": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"coursework": updated})
 	}
 	u.Out().Printf("id\t%s", updated.Id)
 	u.Out().Printf("title\t%s", updated.Title)
@@ -535,7 +534,7 @@ func (c *ClassroomCourseworkAssigneesCmd) Run(ctx context.Context, flags *RootFl
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"coursework": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"coursework": updated})
 	}
 	u.Out().Printf("id\t%s", updated.Id)
 	u.Out().Printf("assignee_mode\t%s", updated.AssigneeMode)

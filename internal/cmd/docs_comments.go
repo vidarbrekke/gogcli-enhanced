@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/drive/v3"
@@ -112,7 +111,7 @@ func (c *DocsCommentsListCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"docId":         docID,
 			"comments":      comments,
 			"nextPageToken": nextPageToken,
@@ -214,7 +213,7 @@ func (c *DocsCommentsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"comment": comment})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"comment": comment})
 	}
 
 	u.Out().Printf("id\t%s", comment.Id)
@@ -305,7 +304,7 @@ func (c *DocsCommentsAddCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"comment": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"comment": created})
 	}
 
 	u.Out().Printf("id\t%s", created.Id)
@@ -363,7 +362,7 @@ func (c *DocsCommentsReplyCmd) Run(ctx context.Context, flags *RootFlags) error 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"reply": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"reply": created})
 	}
 
 	u.Out().Printf("id\t%s", created.Id)
@@ -424,7 +423,7 @@ func (c *DocsCommentsResolveCmd) Run(ctx context.Context, flags *RootFlags) erro
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"resolved":  true,
 			"docId":     docID,
 			"commentId": commentID,

@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -66,7 +65,7 @@ func (c *SheetsFilterCopyCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if len(resp.Values) == 0 {
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 				"spreadsheetId": spreadsheetID,
 				"range":         rangeSpec,
 				"targetSheet":   targetSheet,
@@ -101,7 +100,7 @@ func (c *SheetsFilterCopyCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if len(matched) == 0 {
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 				"spreadsheetId": spreadsheetID,
 				"range":         rangeSpec,
 				"targetSheet":   targetSheet,
@@ -121,7 +120,7 @@ func (c *SheetsFilterCopyCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"spreadsheetId": spreadsheetID,
 			"range":         rangeSpec,
 			"targetSheet":   targetSheet,

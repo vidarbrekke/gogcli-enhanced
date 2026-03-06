@@ -148,7 +148,7 @@ func (c *DocsBatchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		if normalizedForJSON != "" {
 			payload["normalizedRequest"] = normalizedForJSON
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("operations\t%d", operations)
@@ -471,7 +471,7 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -511,7 +511,7 @@ func (c *DocsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("appended\t%d", len(text))
@@ -761,7 +761,7 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -814,7 +814,7 @@ func (c *DocsReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("replaced\t%d", occurrences)
@@ -1037,7 +1037,7 @@ func (c *DocsInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -1095,7 +1095,7 @@ func (c *DocsInsertTableCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("table-inserted\ttrue")
@@ -1174,7 +1174,7 @@ func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -1222,7 +1222,7 @@ func (c *DocsReplaceImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("image-replaced\ttrue")
@@ -1309,7 +1309,7 @@ func (c *DocsInsertImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -1358,7 +1358,7 @@ func (c *DocsInsertImageCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload["requestHash"] = requestHash
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("id\t%s", docID)
 	u.Out().Printf("image-inserted\ttrue")
@@ -1413,7 +1413,7 @@ func (c *DocsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) error 
 			"operations":     operations,
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, payload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 		}
 		u.Out().Printf("validate-only\ttrue")
 		u.Out().Printf("valid\ttrue")
@@ -1438,7 +1438,7 @@ func (c *DocsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) error 
 			}
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, dryRunPayload)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), dryRunPayload)
 		}
 		u.Out().Printf("dry-run\ttrue")
 		u.Out().Printf("service\tdocs")
@@ -1572,7 +1572,7 @@ func (c *DocsEditMergeDataCmd) Run(ctx context.Context, flags *RootFlags) error 
 		"results":        results,
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	u.Out().Printf("template\t%s", templateID)
 	u.Out().Printf("records\t%d", len(dataRecords))

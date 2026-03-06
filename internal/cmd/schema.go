@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -91,7 +90,7 @@ func (c *SchemaCmd) Run(ctx context.Context, kctx *kong.Context) error {
 		Command:       buildSchemaNode(node, hide),
 	}
 
-	return outfmt.WriteJSON(ctx, os.Stdout, doc)
+	return outfmt.WriteJSON(ctx, stdoutWriter(ctx), doc)
 }
 
 func splitCommandPath(parts []string) []string {

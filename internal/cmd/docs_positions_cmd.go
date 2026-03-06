@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/docs/v1"
@@ -49,7 +48,7 @@ func (c *DocsPositionsEndCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 	appendIndex := docsAppendIndex(doc)
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"docId":       id,
 			"appendIndex": appendIndex,
 		})
@@ -105,7 +104,7 @@ func (c *DocsPositionsSearchCmd) Run(ctx context.Context, flags *RootFlags) erro
 		ranges = append(ranges, map[string]any{"startIndex": m.Start, "endIndex": m.End})
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"docId":  id,
 			"text":   c.Text,
 			"ranges": ranges,
@@ -194,7 +193,7 @@ func (c *DocsPositionsHeadingsCmd) Run(ctx context.Context, flags *RootFlags) er
 		})
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"docId":    id,
 			"headings": items,
 		})

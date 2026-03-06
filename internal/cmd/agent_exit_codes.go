@@ -30,7 +30,7 @@ func (c *AgentExitCodesCmd) Run(ctx context.Context) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"exit_codes": codes})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"exit_codes": codes})
 	}
 
 	// Plain output is TSV so it's easily machine-parsed.

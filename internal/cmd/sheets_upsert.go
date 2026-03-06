@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -48,7 +47,7 @@ func (c *SheetsUpsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 	if len(inputRows) == 0 {
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 				"spreadsheetId": spreadsheetID,
 				"range":         rangeSpec,
 				"updated":       0,
@@ -141,7 +140,7 @@ func (c *SheetsUpsertCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"spreadsheetId": spreadsheetID,
 			"range":         rangeSpec,
 			"updated":       updated,

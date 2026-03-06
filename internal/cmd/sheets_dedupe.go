@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"os"
 	"strconv"
 	"strings"
 
@@ -113,7 +112,7 @@ func (c *SheetsDedupeCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 			out["keyColumns"] = keys
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, out)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), out)
 	}
 
 	u.Out().Printf("Deduplicated %s (keep %s)", rangeSpec, c.Keep)

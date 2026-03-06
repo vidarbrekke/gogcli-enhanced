@@ -76,7 +76,7 @@ func (c *KeepListCmd) Run(ctx context.Context, flags *RootFlags, keep *KeepCmd) 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"notes":         notes,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -174,7 +174,7 @@ func (c *KeepSearchCmd) Run(ctx context.Context, flags *RootFlags, keep *KeepCmd
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"notes": allNotes,
 			"query": c.Query,
 			"count": len(allNotes),
@@ -223,7 +223,7 @@ func (c *KeepGetCmd) Run(ctx context.Context, flags *RootFlags, keep *KeepCmd) e
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"note": note})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"note": note})
 	}
 
 	u.Out().Printf("name\t%s", note.Name)
@@ -308,7 +308,7 @@ func (c *KeepAttachmentCmd) Run(ctx context.Context, flags *RootFlags, keep *Kee
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"downloaded": true,
 			"path":       outPath,
 			"bytes":      written,

@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -96,7 +95,7 @@ func (c *CalendarUsersCmd) Run(ctx context.Context, flags *RootFlags) error {
 				Name:  primaryName(p),
 			})
 		}
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"users":         items,
 			"nextPageToken": nextPageToken,
 		}); err != nil {

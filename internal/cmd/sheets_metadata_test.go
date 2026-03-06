@@ -72,13 +72,8 @@ func TestSheetsMetadataCmd_TextAndJSON(t *testing.T) {
 	}
 
 	jsonOut := captureStdout(t, func() {
-		u2, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx2 := ui.WithUI(context.Background(), u2)
-		ctx2 = outfmt.WithMode(ctx2, outfmt.Mode{JSON: true})
-
+		// No UI in context so stdoutWriter(ctx) uses os.Stdout (the pipe)
+		ctx2 := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd2 := &SheetsMetadataCmd{}
 		if err := runKong(t, cmd2, []string{"id1"}, ctx2, flags); err != nil {
 			t.Fatalf("execute: %v", err)

@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -97,7 +96,7 @@ func (c *GroupsListCmd) Run(ctx context.Context, flags *RootFlags) error {
 				Role:        getRelationType(m.RelationType),
 			})
 		}
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"groups":        items,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -239,7 +238,7 @@ func (c *GroupsMembersCmd) Run(ctx context.Context, flags *RootFlags) error {
 				Type:  m.Type,
 			})
 		}
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"members":       items,
 			"nextPageToken": nextPageToken,
 		}); err != nil {

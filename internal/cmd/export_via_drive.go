@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/steipete/gogcli/internal/config"
@@ -114,7 +113,7 @@ func exportViaDrive(ctx context.Context, flags *RootFlags, opts exportViaDriveOp
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"path": downloadedPath, "size": size})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"path": downloadedPath, "size": size})
 	}
 	u.Out().Printf("path\t%s", downloadedPath)
 	u.Out().Printf("size\t%s", formatDriveSize(size))

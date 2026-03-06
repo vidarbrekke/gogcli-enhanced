@@ -117,7 +117,7 @@ func (c *SlidesReadSlideCmd) Run(ctx context.Context, flags *RootFlags) error {
 			"textElements":   textElements,
 			"images":         images,
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, result)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), result)
 	}
 
 	u.Out().Printf("Slide %d  (%s)", slideIndex+1, slideID)

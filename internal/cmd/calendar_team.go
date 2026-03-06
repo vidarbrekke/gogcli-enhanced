@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -136,7 +135,7 @@ func (c *CalendarTeamCmd) runFreeBusy(ctx context.Context, svc *calendar.Service
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"group":    c.GroupEmail,
 			"timeMin":  tr.From.Format(time.RFC3339),
 			"timeMax":  tr.To.Format(time.RFC3339),
@@ -265,7 +264,7 @@ func (c *CalendarTeamCmd) runEvents(ctx context.Context, svc *calendar.Service, 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"group":    c.GroupEmail,
 			"timeMin":  tr.From.Format(time.RFC3339),
 			"timeMax":  tr.To.Format(time.RFC3339),

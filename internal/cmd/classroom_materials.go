@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/classroom/v1"
@@ -111,7 +110,7 @@ func (c *ClassroomMaterialsListCmd) Run(ctx context.Context, flags *RootFlags) e
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"materials":     materials,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -178,7 +177,7 @@ func (c *ClassroomMaterialsGetCmd) Run(ctx context.Context, flags *RootFlags) er
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"material": material})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"material": material})
 	}
 
 	u.Out().Printf("id\t%s", material.Id)
@@ -252,7 +251,7 @@ func (c *ClassroomMaterialsCreateCmd) Run(ctx context.Context, flags *RootFlags)
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"material": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"material": created})
 	}
 	u.Out().Printf("id\t%s", created.Id)
 	u.Out().Printf("title\t%s", created.Title)
@@ -333,7 +332,7 @@ func (c *ClassroomMaterialsUpdateCmd) Run(ctx context.Context, flags *RootFlags)
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"material": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"material": updated})
 	}
 	u.Out().Printf("id\t%s", updated.Id)
 	u.Out().Printf("title\t%s", updated.Title)

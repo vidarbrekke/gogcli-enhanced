@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -65,7 +64,7 @@ func (c *ContactsListCmd) Run(ctx context.Context, flags *RootFlags) error {
 				Phone:    primaryPhone(p),
 			})
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"contacts":      items,
 			"nextPageToken": resp.NextPageToken,
 		})
@@ -143,7 +142,7 @@ func (c *ContactsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 		if p == nil {
 			if outfmt.IsJSON(ctx) {
-				return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"found": false})
+				return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"found": false})
 			}
 			u.Err().Println("Not found")
 			return nil
@@ -151,7 +150,7 @@ func (c *ContactsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"contact": p})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"contact": p})
 	}
 
 	u.Out().Printf("resource\t%s", p.ResourceName)
@@ -340,7 +339,7 @@ func (c *ContactsCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"contact": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"contact": created})
 	}
 	u.Out().Printf("resource\t%s", created.ResourceName)
 	return nil
@@ -506,7 +505,7 @@ func (c *ContactsUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *
 		return err
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"contact": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"contact": updated})
 	}
 	u.Out().Printf("resource\t%s", updated.ResourceName)
 	return nil

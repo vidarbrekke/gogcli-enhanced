@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/docs/v1"
@@ -60,7 +59,7 @@ func (c *DocsExtractDataCmd) Run(ctx context.Context, flags *RootFlags) error {
 		out["links"] = extractLinks(doc)
 	}
 
-	return outfmt.WriteJSON(ctx, os.Stdout, out)
+	return outfmt.WriteJSON(ctx, stdoutWriter(ctx), out)
 }
 
 type extractSections struct {

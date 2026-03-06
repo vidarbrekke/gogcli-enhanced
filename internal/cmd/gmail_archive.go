@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/gmail/v1"
@@ -105,7 +104,7 @@ func gmailBulkLabelOp(ctx context.Context, flags *RootFlags, messageIDs []string
 
 	if len(ids) == 0 {
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 				"action": verb,
 				"count":  0,
 			})
@@ -148,7 +147,7 @@ func gmailBulkLabelOp(ctx context.Context, flags *RootFlags, messageIDs []string
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"action":        verb,
 			"count":         total,
 			"addedLabels":   addLabels,

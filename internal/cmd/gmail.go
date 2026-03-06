@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -121,7 +120,7 @@ func (c *GmailSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	if len(threads) == 0 {
 		if outfmt.IsJSON(ctx) {
-			if writeErr := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+			if writeErr := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 				"threads":       []threadItem{},
 				"nextPageToken": nextPageToken,
 			}); writeErr != nil {
@@ -150,7 +149,7 @@ func (c *GmailSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if writeErr := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if writeErr := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"threads":       items,
 			"nextPageToken": nextPageToken,
 		}); writeErr != nil {

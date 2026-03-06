@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/calendar/v3"
@@ -64,7 +63,7 @@ func listCalendarEvents(ctx context.Context, svc *calendar.Service, calendarID, 
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"events":        wrapEventsWithDays(items),
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -174,7 +173,7 @@ func listCalendarIDsEvents(ctx context.Context, svc *calendar.Service, calendarI
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"events": all}); err != nil {
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"events": all}); err != nil {
 			return err
 		}
 		if len(all) == 0 {

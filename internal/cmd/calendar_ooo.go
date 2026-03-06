@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	"google.golang.org/api/calendar/v3"
@@ -70,7 +69,7 @@ func (c *CalendarOOOCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	tz, loc, _ := getCalendarLocation(ctx, svc, calendarID)
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"event": wrapEventWithDaysWithTimezone(created, tz, loc)})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"event": wrapEventWithDaysWithTimezone(created, tz, loc)})
 	}
 	printCalendarEventWithTimezone(u, created, tz, loc)
 	return nil

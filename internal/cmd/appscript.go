@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"strings"
 
 	scriptapi "google.golang.org/api/script/v1"
@@ -46,7 +45,7 @@ func (c *AppScriptGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"project":    project,
 			"editor_url": appScriptEditURL(scriptID),
 		})
@@ -94,7 +93,7 @@ func (c *AppScriptContentCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"content": content,
 		})
 	}
@@ -151,7 +150,7 @@ func (c *AppScriptRunCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"operation": op,
 		})
 	}
@@ -224,7 +223,7 @@ func (c *AppScriptCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"created":    true,
 			"project":    project,
 			"editor_url": appScriptEditURL(project.ScriptId),

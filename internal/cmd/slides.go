@@ -127,7 +127,7 @@ func (c *SlidesCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{strFile: created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{strFile: created})
 	}
 
 	u.Out().Printf("id\t%s", created.Id)
@@ -226,7 +226,7 @@ func (c *SlidesCreateFromMarkdownCmd) Run(ctx context.Context, flags *RootFlags)
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"presentation": presentation,
 			"file":         file,
 		})

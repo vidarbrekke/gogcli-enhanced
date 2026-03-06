@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/gmail/v1"
@@ -87,7 +86,7 @@ func (c *GmailDraftsListCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 			items = append(items, item{ID: d.Id, MessageID: msgID, ThreadID: threadID})
 		}
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"drafts":        items,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -144,7 +143,7 @@ func (c *GmailDraftsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 	if draft.Message == nil {
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"draft": draft})
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"draft": draft})
 		}
 		u.Err().Println("Empty draft")
 		return nil
@@ -164,7 +163,7 @@ func (c *GmailDraftsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 			out["downloaded"] = attachmentDownloadDraftOutputs(downloads)
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, out)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), out)
 	}
 
 	u.Out().Printf("Draft-ID: %s", draft.Id)
@@ -271,7 +270,7 @@ func (c *GmailDraftsSendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"messageId": msg.Id,
 			"threadId":  msg.ThreadId,
 		})
@@ -389,7 +388,7 @@ func writeDraftResult(ctx context.Context, u *ui.UI, draft *gmail.Draft, threadI
 		threadID = draft.Message.ThreadId
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"draftId":  draft.Id,
 			"message":  draft.Message,
 			"threadId": threadID,

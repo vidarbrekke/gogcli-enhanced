@@ -56,7 +56,7 @@ func addAgentMetadata(payload map[string]any, req any) map[string]any {
 }
 
 func writeAgentJSON(ctx context.Context, payload map[string]any, req any) error {
-	return outfmt.WriteJSON(ctx, os.Stdout, addAgentMetadata(payload, req))
+	return outfmt.WriteJSON(ctx, stdoutWriter(ctx), addAgentMetadata(payload, req))
 }
 
 // AgenticEditSafetyFlags provides common safety flags across all edit commands.
@@ -204,7 +204,7 @@ func NormalizedRequestString(req any) (string, error) {
 
 // MaybeWriteNormalizedRequest writes normalized request JSON to file or stdout.
 // Returns nil if path is empty or request is nil.
-func MaybeWriteNormalizedRequest(path string, req any) error {
+func MaybeWriteNormalizedRequest(ctx context.Context, path string, req any) error {
 	path = strings.TrimSpace(path)
 	if path == "" || req == nil {
 		return nil
@@ -215,7 +215,7 @@ func MaybeWriteNormalizedRequest(path string, req any) error {
 	}
 	pretty = append(pretty, '\n')
 	if path == "-" {
-		_, err = os.Stdout.Write(pretty)
+		_, err = stdoutWriter(ctx).Write(pretty)
 		return err
 	}
 	return os.WriteFile(path, pretty, 0o600)
@@ -231,7 +231,7 @@ func NormalizedRequestForOutput(ctx context.Context, path string, req any) (stri
 	if path == "-" && outfmt.IsJSON(ctx) {
 		return NormalizedRequestString(req)
 	}
-	if err := MaybeWriteNormalizedRequest(path, req); err != nil {
+	if err := MaybeWriteNormalizedRequest(ctx, path, req); err != nil {
 		return "", err
 	}
 	return "", nil
@@ -358,7 +358,7 @@ func DryRunOutput(ctx context.Context, u *ui.UI, service, resourceID string, req
 	}
 	payload = addAgentMetadata(payload, req)
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	// Human-readable output
 	u.Out().Printf("dry-run\ttrue")

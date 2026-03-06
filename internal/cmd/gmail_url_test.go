@@ -12,11 +12,7 @@ import (
 )
 
 func TestGmailURLCmd_JSON(t *testing.T) {
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 
 	cmd := GmailURLCmd{ThreadIDs: []string{"t1"}}
 	out := captureStdout(t, func() {
@@ -38,12 +34,12 @@ func TestGmailURLCmd_JSON(t *testing.T) {
 func TestGmailURLCmd_Text(t *testing.T) {
 	cmd := GmailURLCmd{ThreadIDs: []string{"t1"}}
 	out := captureStdout(t, func() {
+		// UI with Stdout: os.Stdout so output goes to captureStdout's pipe
 		u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
 		if err != nil {
 			t.Fatalf("ui.New: %v", err)
 		}
 		ctx := ui.WithUI(context.Background(), u)
-
 		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
 			t.Fatalf("GmailURLCmd: %v", err)
 		}

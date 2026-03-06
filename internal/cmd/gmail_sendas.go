@@ -46,7 +46,7 @@ func (c *GmailSendAsListCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"sendAs": resp.SendAs})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"sendAs": resp.SendAs})
 	}
 
 	if len(resp.SendAs) == 0 {
@@ -102,7 +102,7 @@ func (c *GmailSendAsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"sendAs": sa})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"sendAs": sa})
 	}
 
 	u.Out().Printf("send_as_email\t%s", sa.SendAsEmail)
@@ -161,7 +161,7 @@ func (c *GmailSendAsCreateCmd) Run(ctx context.Context, flags *RootFlags) error 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"sendAs": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"sendAs": created})
 	}
 
 	u.Out().Printf("send_as_email\t%s", created.SendAsEmail)
@@ -203,7 +203,7 @@ func (c *GmailSendAsVerifyCmd) Run(ctx context.Context, flags *RootFlags) error 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"email":   sendAsEmail,
 			"message": "Verification email sent",
 		})
@@ -244,7 +244,7 @@ func (c *GmailSendAsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"email":   sendAsEmail,
 			"deleted": true,
 		})
@@ -333,7 +333,7 @@ func (c *GmailSendAsUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flag
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"sendAs": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"sendAs": updated})
 	}
 
 	u.Out().Printf("Updated send-as alias: %s", updated.SendAsEmail)

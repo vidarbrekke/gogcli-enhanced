@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/chat/v1"
@@ -89,7 +88,7 @@ func (c *ChatSpacesListCmd) Run(ctx context.Context, flags *RootFlags) error {
 				ThreadState: space.SpaceThreadingState,
 			})
 		}
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"spaces":        items,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -193,7 +192,7 @@ func (c *ChatSpacesFindCmd) Run(ctx context.Context, flags *RootFlags) error {
 				SpaceURI:  space.SpaceUri,
 			})
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"spaces": items})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"spaces": items})
 	}
 
 	if len(matches) == 0 {
@@ -282,7 +281,7 @@ func (c *ChatSpacesCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"space": resp})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"space": resp})
 	}
 
 	if resp == nil {

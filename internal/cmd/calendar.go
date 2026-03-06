@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/calendar/v3"
@@ -81,7 +80,7 @@ func (c *CalendarCalendarsCmd) Run(ctx context.Context, flags *RootFlags) error 
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"calendars":     items,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -163,7 +162,7 @@ func (c *CalendarAclCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 	}
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"rules":         items,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -317,7 +316,7 @@ func (c *CalendarEventCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 	tz, loc, _ := getCalendarLocation(ctx, svc, calendarID)
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"event": wrapEventWithDaysWithTimezone(event, tz, loc)})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"event": wrapEventWithDaysWithTimezone(event, tz, loc)})
 	}
 	printCalendarEventWithTimezone(u, event, tz, loc)
 	return nil

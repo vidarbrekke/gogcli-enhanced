@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/classroom/v1"
@@ -86,7 +85,7 @@ func (c *ClassroomAnnouncementsListCmd) Run(ctx context.Context, flags *RootFlag
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"announcements": announcements,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -153,7 +152,7 @@ func (c *ClassroomAnnouncementsGetCmd) Run(ctx context.Context, flags *RootFlags
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"announcement": ann})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"announcement": ann})
 	}
 
 	u.Out().Printf("id\t%s", ann.Id)
@@ -218,7 +217,7 @@ func (c *ClassroomAnnouncementsCreateCmd) Run(ctx context.Context, flags *RootFl
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"announcement": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"announcement": created})
 	}
 	u.Out().Printf("id\t%s", created.Id)
 	u.Out().Printf("state\t%s", created.State)
@@ -288,7 +287,7 @@ func (c *ClassroomAnnouncementsUpdateCmd) Run(ctx context.Context, flags *RootFl
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"announcement": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"announcement": updated})
 	}
 	u.Out().Printf("id\t%s", updated.Id)
 	u.Out().Printf("state\t%s", updated.State)
@@ -391,7 +390,7 @@ func (c *ClassroomAnnouncementsAssigneesCmd) Run(ctx context.Context, flags *Roo
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"announcement": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"announcement": updated})
 	}
 	u.Out().Printf("id\t%s", updated.Id)
 	u.Out().Printf("assignee_mode\t%s", updated.AssigneeMode)

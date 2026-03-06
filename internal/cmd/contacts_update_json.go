@@ -398,7 +398,7 @@ func (c *ContactsUpdateCmd) updateFromJSON(ctx context.Context, svc *people.Serv
 		return err
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"contact": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"contact": updated})
 	}
 	u.Out().Printf("resource\t%s", updated.ResourceName)
 	return nil

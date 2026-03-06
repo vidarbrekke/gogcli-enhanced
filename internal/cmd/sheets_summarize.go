@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -94,7 +93,7 @@ func (c *SheetsSummarizeCmd) Run(ctx context.Context, flags *RootFlags) error {
 			return err
 		}
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 				"spreadsheetId": spreadsheetID,
 				"range":         rangeSpec,
 				"targetSheet":   targetSheet,
@@ -157,7 +156,7 @@ func (c *SheetsSummarizeCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"spreadsheetId": spreadsheetID,
 			"range":         rangeSpec,
 			"targetSheet":   targetSheet,

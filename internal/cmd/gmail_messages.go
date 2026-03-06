@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -80,7 +79,7 @@ func (c *GmailMessagesSearchCmd) Run(ctx context.Context, flags *RootFlags) erro
 
 	if len(messages) == 0 {
 		if outfmt.IsJSON(ctx) {
-			if writeErr := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+			if writeErr := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 				"messages":      []messageItem{},
 				"nextPageToken": nextPageToken,
 			}); writeErr != nil {
@@ -108,7 +107,7 @@ func (c *GmailMessagesSearchCmd) Run(ctx context.Context, flags *RootFlags) erro
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if writeErr := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if writeErr := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"messages":      items,
 			"nextPageToken": nextPageToken,
 		}); writeErr != nil {

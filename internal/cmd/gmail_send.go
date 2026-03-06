@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html"
 	"net/mail"
-	"os"
 	"strings"
 
 	"google.golang.org/api/gmail/v1"
@@ -427,7 +426,7 @@ func writeSendResults(ctx context.Context, u *ui.UI, fromAddr string, results []
 			if results[0].TrackingID != "" {
 				resp["tracking_id"] = results[0].TrackingID
 			}
-			return outfmt.WriteJSON(ctx, os.Stdout, resp)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), resp)
 		}
 
 		items := make([]map[string]any, 0, len(results))
@@ -445,7 +444,7 @@ func writeSendResults(ctx context.Context, u *ui.UI, fromAddr string, results []
 			}
 			items = append(items, item)
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"messages": items})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"messages": items})
 	}
 
 	if len(results) == 1 {

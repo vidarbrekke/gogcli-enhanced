@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/steipete/gogcli/internal/outfmt"
@@ -97,7 +96,7 @@ func (c *GmailGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 				payload["attachments"] = attachmentOutputs(attachments)
 			}
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, payload)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 
 	u.Out().Printf("id\t%s", msg.Id)

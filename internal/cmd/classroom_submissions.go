@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/classroom/v1"
@@ -103,7 +102,7 @@ func (c *ClassroomSubmissionsListCmd) Run(ctx context.Context, flags *RootFlags)
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"submissions":   submissions,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -177,7 +176,7 @@ func (c *ClassroomSubmissionsGetCmd) Run(ctx context.Context, flags *RootFlags) 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"submission": sub})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"submission": sub})
 	}
 
 	u.Out().Printf("id\t%s", sub.Id)
@@ -277,7 +276,7 @@ func submissionAction(ctx context.Context, flags *RootFlags, courseID, coursewor
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"ok":           true,
 			"courseId":     courseID,
 			"courseworkId": courseworkID,
@@ -365,7 +364,7 @@ func (c *ClassroomSubmissionsGradeCmd) Run(ctx context.Context, flags *RootFlags
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"submission": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"submission": updated})
 	}
 	u.Out().Printf("id\t%s", updated.Id)
 	u.Out().Printf("draft_grade\t%s", formatFloatValue(updated.DraftGrade))

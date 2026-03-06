@@ -471,12 +471,7 @@ func TestSlidesAddSlide_JSON(t *testing.T) {
 	imgPath := newTestImage(t, "test.gif")
 	flags := &RootFlags{Account: "a@b.com"}
 
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 
 	out := captureStdout(t, func() {
 		cmd := &SlidesAddSlideCmd{

@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"errors"
-	"os"
 
 	"github.com/alecthomas/kong"
 	"google.golang.org/api/gmail/v1"
@@ -37,7 +36,7 @@ func (c *GmailAutoForwardGetCmd) Run(ctx context.Context, flags *RootFlags) erro
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"autoForwarding": autoForward})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"autoForwarding": autoForward})
 	}
 
 	u.Out().Printf("enabled\t%t", autoForward.Enabled)
@@ -136,7 +135,7 @@ func (c *GmailAutoForwardUpdateCmd) Run(ctx context.Context, kctx *kong.Context,
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"autoForwarding": updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"autoForwarding": updated})
 	}
 
 	u.Out().Println("Auto-forwarding settings updated successfully")

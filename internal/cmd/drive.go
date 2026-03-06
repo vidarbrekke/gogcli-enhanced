@@ -171,7 +171,7 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 				out["totalCount"] = total
 				out["note"] = "Response limited to 10 items to fit gateway; more items available."
 			}
-			return outfmt.WriteJSON(ctx, os.Stdout, out)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), out)
 		}
 		if len(allFiles) == 0 {
 			u.Err().Println("No files")
@@ -200,7 +200,7 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"files":         files,
 			"nextPageToken": nextToken,
 		})
@@ -301,7 +301,7 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 				out["totalCount"] = total
 				out["note"] = "Response limited to 10 items to fit gateway; more items available."
 			}
-			return outfmt.WriteJSON(ctx, os.Stdout, out)
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), out)
 		}
 		if len(allFiles) == 0 {
 			u.Err().Println("No results")
@@ -330,7 +330,7 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"files":         files,
 			"nextPageToken": nextToken,
 		})
@@ -389,7 +389,7 @@ func (c *DriveGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{strFile: f})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{strFile: f})
 	}
 
 	u.Out().Printf("id\t%s", f.Id)
@@ -460,7 +460,7 @@ func (c *DriveDownloadCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"path": downloadedPath,
 			"size": size,
 		})
@@ -580,7 +580,7 @@ func (c *DriveUploadCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 
 		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{strFile: created})
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{strFile: created})
 		}
 
 		u.Out().Printf("id\t%s", created.Id)
@@ -624,7 +624,7 @@ func (c *DriveUploadCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			strFile:           updated,
 			"replaced":        true,
 			"preservedFileId": updated.Id == replaceFileID,
@@ -680,7 +680,7 @@ func (c *DriveMkdirCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"folder": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"folder": created})
 	}
 
 	u.Out().Printf("id\t%s", created.Id)
@@ -723,7 +723,7 @@ func (c *DriveEnsureFolderCmd) Run(ctx context.Context, flags *RootFlags) error 
 		return err
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"folderId": folder.Id,
 			"name":     folder.Name,
 			"created":  created,
@@ -874,7 +874,7 @@ func (c *DriveMoveCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{strFile: updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{strFile: updated})
 	}
 
 	u.Out().Printf("id\t%s", updated.Id)
@@ -917,7 +917,7 @@ func (c *DriveRenameCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{strFile: updated})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{strFile: updated})
 	}
 
 	u.Out().Printf("id\t%s", updated.Id)
@@ -1036,7 +1036,7 @@ func (c *DriveShareCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"link":         link,
 			"permissionId": created.Id,
 			"permission":   created,
@@ -1126,7 +1126,7 @@ func (c *DrivePermissionGetCmd) Run(ctx context.Context, flags *RootFlags) error
 		return err
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"fileId":       fileID,
 			"permissionId": permissionID,
 			"permission":   perm,
@@ -1174,7 +1174,7 @@ func (c *DrivePermissionsCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"fileId":          fileID,
 			"permissions":     resp.Permissions,
 			"permissionCount": len(resp.Permissions),
@@ -1239,7 +1239,7 @@ func (c *DriveURLCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 			urls = append(urls, map[string]string{"id": id, "url": link})
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"urls": urls})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"urls": urls})
 	}
 	return nil
 }

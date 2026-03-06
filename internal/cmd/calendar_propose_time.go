@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -156,7 +155,7 @@ func (c *CalendarProposeTimeCmd) Run(ctx context.Context, flags *RootFlags) erro
 				result["comment"] = strings.TrimSpace(c.Comment)
 			}
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, result)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), result)
 	}
 
 	// Text output

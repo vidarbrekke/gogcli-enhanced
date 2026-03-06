@@ -206,7 +206,7 @@ func (c *GmailWatchStopCmd) Run(ctx context.Context, flags *RootFlags) error {
 		_ = os.Remove(store.path)
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"stopped": true})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"stopped": true})
 	}
 	u.Out().Printf("stopped\ttrue")
 	return nil
@@ -370,7 +370,7 @@ func (c *GmailWatchServeCmd) Run(ctx context.Context, kctx *kong.Context, flags 
 
 func writeWatchState(ctx context.Context, state gmailWatchState) error {
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"watch": state})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"watch": state})
 	}
 	u := ui.FromContext(ctx)
 	u.Out().Printf("account\t%s", state.Account)

@@ -41,7 +41,7 @@ func (c *GmailFiltersListCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"filters": resp.Filter})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"filters": resp.Filter})
 	}
 
 	if len(resp.Filter) == 0 {
@@ -100,7 +100,7 @@ func (c *GmailFiltersGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"filter": filter})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"filter": filter})
 	}
 
 	u.Out().Printf("id\t%s", filter.Id)
@@ -317,7 +317,7 @@ func (c *GmailFiltersCreateCmd) Run(ctx context.Context, flags *RootFlags) error
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"filter": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"filter": created})
 	}
 
 	u.Out().Println("Filter created successfully")
@@ -371,7 +371,7 @@ func (c *GmailFiltersDeleteCmd) Run(ctx context.Context, flags *RootFlags) error
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"success":  true,
 			"filterId": filterID,
 		})

@@ -97,7 +97,7 @@ func (c *AuthServiceAccountSetCmd) Run(ctx context.Context, flags *RootFlags) er
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"stored":       true,
 			"email":        email,
 			"path":         destPath,
@@ -177,7 +177,7 @@ func (c *AuthServiceAccountStatusCmd) Run(ctx context.Context) error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			if outfmt.IsJSON(ctx) {
-				return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+				return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 					"email":   email,
 					"path":    path,
 					"exists":  false,
@@ -199,7 +199,7 @@ func (c *AuthServiceAccountStatusCmd) Run(ctx context.Context) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"email":        email,
 			"path":         path,
 			"exists":       true,

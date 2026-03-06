@@ -19,8 +19,9 @@ type Options struct {
 const colorNever = "never"
 
 type UI struct {
-	out *Printer
-	err *Printer
+	out    *Printer
+	err    *Printer
+	stdout io.Writer // original stdout writer for JSON/output that must not use global os.Stdout
 }
 
 type ParseError struct{ msg string }
@@ -51,9 +52,15 @@ func New(opts Options) (*UI, error) {
 	outProfile := chooseProfile(out.Profile, colorMode)
 	errProfile := chooseProfile(errOut.Profile, colorMode)
 
+	stdout := opts.Stdout
+	if stdout == nil {
+		stdout = os.Stdout
+	}
+
 	return &UI{
-		out: newPrinter(out, outProfile),
-		err: newPrinter(errOut, errProfile),
+		out:    newPrinter(out, outProfile),
+		err:    newPrinter(errOut, errProfile),
+		stdout: stdout,
 	}, nil
 }
 
@@ -72,8 +79,9 @@ func chooseProfile(detected termenv.Profile, mode string) termenv.Profile {
 	}
 }
 
-func (u *UI) Out() *Printer { return u.out }
-func (u *UI) Err() *Printer { return u.err }
+func (u *UI) Out() *Printer   { return u.out }
+func (u *UI) Err() *Printer   { return u.err }
+func (u *UI) Stdout() io.Writer { return u.stdout }
 
 type Printer struct {
 	o       *termenv.Output

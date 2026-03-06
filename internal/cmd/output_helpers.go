@@ -10,6 +10,16 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
+// stdoutWriter returns the stdout writer from the UI in ctx when present, otherwise os.Stdout.
+// Use this for all command output so tests that replace os.Stdout or use a UI with io.Discard get correct behavior.
+func stdoutWriter(ctx context.Context) io.Writer {
+	if u := ui.FromContext(ctx); u != nil {
+		return u.Stdout()
+	}
+
+	return os.Stdout
+}
+
 type resultKV struct {
 	Key   string
 	Value any
@@ -21,9 +31,9 @@ func kv(key string, value any) resultKV {
 
 func tableWriter(ctx context.Context) (io.Writer, func()) {
 	if outfmt.IsPlain(ctx) {
-		return os.Stdout, func() {}
+		return stdoutWriter(ctx), func() {}
 	}
-	tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
+	tw := tabwriter.NewWriter(stdoutWriter(ctx), 0, 4, 2, ' ', 0)
 	return tw, func() { _ = tw.Flush() }
 }
 
@@ -33,7 +43,7 @@ func writeResult(ctx context.Context, u *ui.UI, kvs ...resultKV) error {
 		for _, kv := range kvs {
 			m[kv.Key] = kv.Value
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, m)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), m)
 	}
 	if u == nil {
 		return nil

@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/alecthomas/kong"
@@ -174,7 +173,7 @@ func (c *CalendarCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 	tz, loc, _ := getCalendarLocation(ctx, svc, calendarID)
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"event": wrapEventWithDaysWithTimezone(created, tz, loc)})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"event": wrapEventWithDaysWithTimezone(created, tz, loc)})
 	}
 	printCalendarEventWithTimezone(u, created, tz, loc)
 	return nil
@@ -458,7 +457,7 @@ func (c *CalendarUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *
 	}
 	tz, loc, _ := getCalendarLocation(ctx, svc, calendarID)
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"event": wrapEventWithDaysWithTimezone(updated, tz, loc)})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"event": wrapEventWithDaysWithTimezone(updated, tz, loc)})
 	}
 	printCalendarEventWithTimezone(u, updated, tz, loc)
 	return nil

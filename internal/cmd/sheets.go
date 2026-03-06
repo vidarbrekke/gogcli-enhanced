@@ -121,7 +121,7 @@ func (c *SheetsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"range":  resp.Range,
 			"values": resp.Values,
 		})
@@ -240,7 +240,7 @@ func (c *SheetsUpdateCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"updatedRange":   resp.UpdatedRange,
 			"updatedRows":    resp.UpdatedRows,
 			"updatedColumns": resp.UpdatedColumns,
@@ -352,7 +352,7 @@ func (c *SheetsAppendCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"updatedRange":   resp.Updates.UpdatedRange,
 			"updatedRows":    resp.Updates.UpdatedRows,
 			"updatedColumns": resp.Updates.UpdatedColumns,
@@ -403,7 +403,7 @@ func (c *SheetsClearCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"clearedRange": resp.ClearedRange,
 		})
 	}
@@ -439,7 +439,7 @@ func (c *SheetsMetadataCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"spreadsheetId": resp.SpreadsheetId,
 			"title":         resp.Properties.Title,
 			"locale":        resp.Properties.Locale,
@@ -524,7 +524,7 @@ func (c *SheetsCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"spreadsheetId":  resp.SpreadsheetId,
 			"title":          resp.Properties.Title,
 			"spreadsheetUrl": resp.SpreadsheetUrl,

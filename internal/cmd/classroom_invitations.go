@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/api/classroom/v1"
@@ -77,7 +76,7 @@ func (c *ClassroomInvitationsListCmd) Run(ctx context.Context, flags *RootFlags)
 	}
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"invitations":   invitations,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -138,7 +137,7 @@ func (c *ClassroomInvitationsGetCmd) Run(ctx context.Context, flags *RootFlags) 
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"invitation": inv})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"invitation": inv})
 	}
 
 	u.Out().Printf("id\t%s", inv.Id)
@@ -192,7 +191,7 @@ func (c *ClassroomInvitationsCreateCmd) Run(ctx context.Context, flags *RootFlag
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"invitation": created})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"invitation": created})
 	}
 	u.Out().Printf("id\t%s", created.Id)
 	u.Out().Printf("course_id\t%s", created.CourseId)
@@ -233,7 +232,7 @@ func (c *ClassroomInvitationsAcceptCmd) Run(ctx context.Context, flags *RootFlag
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"accepted":     true,
 			"invitationId": invitationID,
 		})
