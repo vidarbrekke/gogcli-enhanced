@@ -14,18 +14,18 @@ Strategy: **Keep our behavior for all conflicted files**; take upstream’s new 
   `internal/secrets/store.go`, all `internal/cmd/docs_sed*.go` and our `docs_edit` test/behavior,  
   `internal/cmd/docs_validation_more_test.go`, `internal/cmd/drive_errors_test.go`, `internal/cmd/drive_export_format_test.go`.
 
-## Removed to avoid conflicts
+## Removed to avoid conflicts (later resolved)
 
-- Upstream’s `internal/cmd/docs_edit.go` (redeclares our `DocsEditCmd`).
-- Upstream’s `docs_paragraphs.go`, `docs_paragraphs_test.go`, `docs_write_update_test.go` (type clash with our `docParagraph` in tests).
+- Upstream’s `internal/cmd/docs_edit.go` (redeclares our `DocsEditCmd`) — **not merged**; we supersede (see UPSTREAM-REMAINING §6).
+- Upstream’s `docs_paragraphs.go`, `docs_paragraphs_test.go` — **merged** after renaming our sed-test types to `sedTestParagraph`/`sedTextRun`/`sedPara()` (see UPSTREAM-REMAINING §7). `docs_write_update_test.go` was not added (tests batch update; we have our own edit tests).
 
 ## Fixes applied
 
 - `internal/cmd/auth_add_test.go`: `ensureKeychainAccess` kept as `func(bool) error` (our API).
 
-## Known test flakiness (unchanged)
+## Known test flakiness
 
-- Some `TestSedIntegration_*` and `TestExecute_ClassroomMoreCommands_JSON` can fail with `encode json: write |1: broken pipe` under parallel runs. They pass when run in isolation or with `-p 1`. Treated as pre-existing; fix in a follow-up.
+- ~~Broken-pipe under parallel runs~~ **Fixed** (2026-03): stdout from context (`stdoutWriter(ctx)`); see `docs/merge/ROOT-CAUSE-AUDIT.md`. Some tests still need the captureStdout+context pattern update (see `docs/merge/UPSTREAM-REMAINING.md` §4).
 
 ## Phase 2 (done 2026-03-05)
 
@@ -33,9 +33,11 @@ Strategy: **Keep our behavior for all conflicted files**; take upstream’s new 
 - **Drive flag:** We expose `drive ls --global` (same behavior as upstream’s `drive ls --all`). No alias added; documented in CHANGELOG.
 - **CHANGELOG:** Merged upstream 0.12.0 entries (Drive ls --global, Gmail drafts update --quote, Auth --gmail-scope, Gmail archive|read|unread|trash --dry-run).
 - **README:** Restored Gmail scope note and draft --quote examples; added `--gmail-scope` to least-privilege bullet and auth command reference.
-- **Broken-pipe test flakiness:** Deferred; documented as known issue (run with `-p 1` or in isolation).
+- **Broken-pipe test flakiness:** Fixed via stdout-from-context (see `docs/merge/ROOT-CAUSE-AUDIT.md`).
 
 ## Future (optional)
 
 - Docs write/update reconciliation with our `DocsEditCmd` (if upstream adds more).
 - Stabilize broken-pipe tests (capture/pipe handling when running with `--json`).
+
+**Tracking:** See `docs/merge/UPSTREAM-REMAINING.md` for remaining features, investigation notes (docs edit, docs paragraphs, drive `--all`), and optional follow-ups.

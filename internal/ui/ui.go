@@ -79,8 +79,8 @@ func chooseProfile(detected termenv.Profile, mode string) termenv.Profile {
 	}
 }
 
-func (u *UI) Out() *Printer   { return u.out }
-func (u *UI) Err() *Printer   { return u.err }
+func (u *UI) Out() *Printer     { return u.out }
+func (u *UI) Err() *Printer     { return u.err }
 func (u *UI) Stdout() io.Writer { return u.stdout }
 
 type Printer struct {

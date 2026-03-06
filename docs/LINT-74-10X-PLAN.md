@@ -169,6 +169,6 @@ var (
 ## Success Criteria
 
 - `make lint` exits 0. Done (2025-03-05): 0 issues.
-- `make test` passes. Note: some cmd tests fail with empty JSON (pre-existing captureStdout pattern).
+- `make test` passes. Note: some cmd tests fail with empty JSON (pre-existing captureStdout pattern: test puts UI with Stdout: io.Discard in context while capturing; command correctly writes to UI stdout so pipe gets nothing — fix by not attaching UI when capturing JSON, see sheets_metadata_test.go and ROOT-CAUSE-AUDIT).
 - No new flakiness or behavior change except documented (errors.As, CommandContext, optional path validation).
 - This plan doc updated with “Done” and date when complete.
