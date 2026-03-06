@@ -248,7 +248,7 @@ func (ms *ManageServer) handleAuthStart(w http.ResponseWriter, r *http.Request) 
 		Scopes:       scopes,
 	}
 
-	authURL := cfg.AuthCodeURL(state, authURLParams(ms.opts.ForceConsent)...)
+	authURL := cfg.AuthCodeURL(state, authURLParams(ms.opts.ForceConsent, true)...)
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
@@ -296,7 +296,7 @@ func (ms *ManageServer) handleAuthUpgrade(w http.ResponseWriter, r *http.Request
 	// Always force consent for upgrades to ensure user sees all scopes
 	// Add login_hint to pre-select the account
 	authURL := cfg.AuthCodeURL(state,
-		append(authURLParams(true),
+		append(authURLParams(true, true),
 			oauth2.SetAuthURLParam("login_hint", email))...)
 
 	http.Redirect(w, r, authURL, http.StatusFound)
@@ -508,7 +508,7 @@ func fetchUserEmailWithURL(ctx context.Context, accessToken string, url string) 
 
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:gosec // URL is controlled by internal constant or test override
 	if err != nil {
 		return "", fmt.Errorf("fetch userinfo: %w", err)
 	}
