@@ -204,3 +204,37 @@ Obsolete branches below have been **deleted** from origin.
 1. ~~Delete obsolete branches~~ **Done:** `drive-comments`, `feat/gmail-thread-attachments-v2`, `feature/sheets-format-command`, `feature/thread-modify` have been deleted from origin.
 2. Merge or cherry-pick (exact steps in “Merge / cherry-pick steps” above): `add-thread-count-indicator-new`, `fix/auth-template-query-flag`.
 3. Review then merge or cherry-pick (steps above): `fix/auth-ui-improvements`, `fix/keychain-unlock-macos`.
+
+---
+
+## Remaining branch conflicts (merge into current main)
+
+Dry-run merges were run from current `main` to see what conflicts each branch would introduce.
+
+### `add-thread-count-indicator-new`
+
+- **Conflicts:** `CHANGELOG.md` (content).
+- **Why:** Main’s CHANGELOG has grown and reorganized; the branch adds a short #99 entry that lands in the same area. Both sides changed the same lines.
+- **Resolution:** Keep main’s structure, add a single line for “Gmail: show thread message counts in search results (#99)” in the right section (e.g. under 0.12.0 Added), or accept the branch’s block and remove any duplicate.
+
+### `fix/auth-template-query-flag`
+
+- **Conflicts:** `CHANGELOG.md` only.
+- **Why:** Branch adds one CHANGELOG entry for #89; main has many new entries in the same region.
+- **Resolution:** Trivial. Resolve CHANGELOG by adding the #89 fix line in the correct place (Fixed section for the right version). No code conflicts.
+
+### `fix/auth-ui-improvements`
+
+- **Conflicts:**  
+  `CHANGELOG.md`, `internal/cmd/auth.go`, `internal/googleauth/accounts_server.go`, `internal/googleauth/oauth_flow.go`, `internal/googleauth/templates/accounts.html`, `internal/googleauth/templates/success.html`, `internal/googleauth/wait_post_success_test.go` (add/add).
+- **Why:** Main and the branch both changed auth flow, server behavior, and templates (e.g. countdown, success page, login/manage). Same areas edited differently.
+- **Resolution:** Non-trivial. Resolve by hand: keep main’s behavior where it’s the source of truth, then re-apply the branch’s UX improvements (countdown, template consolidation, cancellable sleep) on top, or merge the branch’s version and re-add any main-only behavior. Run auth tests after.
+
+### `fix/keychain-unlock-macos`
+
+- **Conflicts:**  
+  `CHANGELOG.md`, `internal/cmd/auth.go`, `internal/cmd/auth_add_test.go`, `internal/cmd/auth_cmd_test.go`, `internal/cmd/auth_keychain_test.go` (add/add), `internal/cmd/auth_text_test.go`, `internal/cmd/execute_auth_add_test.go`, `internal/googleauth/accounts_server.go`, `internal/secrets/keychain_darwin.go` (add/add), `internal/secrets/keychain_darwin_test.go` (add/add), `internal/secrets/keychain_other.go` (add/add), `internal/secrets/store.go`, `internal/secrets/store_test.go`.
+- **Why:** Main already has keychain and secrets changes (different API surface and tests). The branch adds macOS unlock detection, unlock helpers, and “check keychain before OAuth” in the same files. Many add/add conflicts mean both sides added similar or overlapping code (e.g. darwin keychain files, auth tests).
+- **Resolution:** Most work. File-by-file: in `internal/secrets` keep main’s structure and inject the branch’s unlock logic and helpers; in auth commands and `accounts_server` merge “check keychain before flow” with main’s current flow; in tests merge or replace so both keychain and auth tests pass. Run full test suite and, if possible, test on macOS.
+
+**Summary:** `add-thread-count-indicator-new` and `fix/auth-template-query-flag` only conflict in CHANGELOG and are easy to fix. `fix/auth-ui-improvements` and `fix/keychain-unlock-macos` conflict in auth and secrets code and need careful manual merge and testing.
