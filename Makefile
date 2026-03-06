@@ -89,7 +89,7 @@ test:
 parity:
 	@go run ./cmd/gog-parity --fixtures docs/merge/goldens --schemas docs/merge/schemas --provider gws
 
-ci: pnpm-gate fmt-check lint test
+ci: pnpm-gate fmt-check lint test worker-ci
 
 worker-ci:
 	@pnpm -C internal/tracking/worker lint

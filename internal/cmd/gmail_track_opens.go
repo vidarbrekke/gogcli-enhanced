@@ -119,21 +119,27 @@ func (c *GmailTrackOpensCmd) queryAdmin(ctx context.Context, cfg *tracking.Confi
 		return fmt.Errorf("tracking admin key not configured; run 'gog gmail track setup' again")
 	}
 
-	reqURL, _ := url.Parse(cfg.WorkerURL + "/opens")
+	reqURL, err := url.Parse(cfg.WorkerURL + "/opens")
+	if err != nil {
+		return fmt.Errorf("tracking worker URL invalid: %w", err)
+	}
 	q := reqURL.Query()
 	if c.To != "" {
 		q.Set("recipient", c.To)
 	}
 	if c.Since != "" {
-		since, err := parseTrackingSince(c.Since)
-		if err != nil {
-			return err
+		since, sinceErr := parseTrackingSince(c.Since)
+		if sinceErr != nil {
+			return sinceErr
 		}
 		q.Set("since", since)
 	}
 	reqURL.RawQuery = q.Encode()
 
-	req, _ := http.NewRequestWithContext(ctx, "GET", reqURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", reqURL.String(), nil)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
 	req.Header.Set("Authorization", "Bearer "+cfg.AdminKey)
 
 	resp, err := http.DefaultClient.Do(req) //nolint:gosec // endpoint is user-configured tracking worker URL
