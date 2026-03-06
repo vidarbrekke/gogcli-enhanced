@@ -13,21 +13,24 @@ func TestDiscoverCases(t *testing.T) {
 	root := t.TempDir()
 
 	// Empty root -> no cases
-	cases, err := DiscoverCases(root)
+	cases, failures, err := DiscoverCases(root)
 	require.NoError(t, err)
+	assert.Empty(t, failures)
 	assert.Empty(t, cases)
 
 	// Case with no provider dir
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "empty-case"), 0o755))
-	cases, err = DiscoverCases(root)
+	cases, failures, err = DiscoverCases(root)
 	require.NoError(t, err)
+	assert.Empty(t, failures)
 	assert.Empty(t, cases)
 
 	// Case with provider dir but missing files
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "incomplete", "gws"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "incomplete", "gws", "stdout.json"), []byte("{}"), 0o644))
-	cases, err = DiscoverCases(root)
+	cases, failures, err = DiscoverCases(root)
 	require.NoError(t, err)
+	assert.Empty(t, failures)
 	assert.Empty(t, cases)
 
 	// Complete fixture
@@ -35,8 +38,9 @@ func TestDiscoverCases(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "full", "gws", "stdout.json"), []byte("{}"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "full", "gws", "stderr.json"), []byte("{}"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "full", "gws", "exit_code.txt"), []byte("0\n"), 0o644))
-	cases, err = DiscoverCases(root)
+	cases, failures, err = DiscoverCases(root)
 	require.NoError(t, err)
+	assert.Empty(t, failures)
 	assert.Equal(t, []string{"full"}, cases)
 
 	// Multiple cases
@@ -45,8 +49,9 @@ func TestDiscoverCases(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(root, "second", "native", f), []byte("{}"), 0o644))
 	}
 	require.NoError(t, os.WriteFile(filepath.Join(root, "second", "native", "exit_code.txt"), []byte("0"), 0o644))
-	cases, err = DiscoverCases(root)
+	cases, failures, err = DiscoverCases(root)
 	require.NoError(t, err)
+	assert.Empty(t, failures)
 	assert.Len(t, cases, 2)
 	assert.Contains(t, cases, "full")
 	assert.Contains(t, cases, "second")

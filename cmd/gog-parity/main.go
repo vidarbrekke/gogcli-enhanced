@@ -29,15 +29,15 @@ type Report struct {
 }
 
 type CaseResult struct {
-	Case            string           `json:"case"`
-	Outcome         string           `json:"outcome"` // OK|ERROR|FAIL_RUNNER|SKIPPED_PLACEHOLDER
-	RunnerFailures  []RunnerFailure  `json:"runner_failures,omitempty"`
-	Breaking        []DiffEntry      `json:"breaking,omitempty"`
-	Drift           []DiffEntry      `json:"drift,omitempty"`
+	Case           string          `json:"case"`
+	Outcome        string          `json:"outcome"` // OK|ERROR|FAIL_RUNNER|SKIPPED_PLACEHOLDER
+	RunnerFailures []RunnerFailure `json:"runner_failures,omitempty"`
+	Breaking       []DiffEntry     `json:"breaking,omitempty"`
+	Drift          []DiffEntry     `json:"drift,omitempty"`
 }
 
 type RunnerFailure struct {
-	Kind   string `json:"kind"`   // IO_ERROR|JSON_PARSE_ERROR|SCHEMA_ERROR|SCHEMA_VIOLATION|SETUP_ERROR
+	Kind   string `json:"kind"` // IO_ERROR|JSON_PARSE_ERROR|SCHEMA_ERROR|NORMALIZE_ERROR|DISCOVERY_ERROR|SETUP_ERROR
 	Detail string `json:"detail"`
 }
 
@@ -65,13 +65,6 @@ func main() {
 		os.Exit(2)
 	}
 
-	cases, err := io.DiscoverCases(*fixturesRoot)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "discover cases: %v\n", err)
-		os.Exit(1)
-	}
-	sort.Strings(cases)
-
 	report := Report{
 		Provider: *provider,
 		Meta: map[string]any{
@@ -79,13 +72,26 @@ func main() {
 			"schemas":  *schemasRoot,
 		},
 	}
+	cases, discoveryFailures, err := io.DiscoverCases(*fixturesRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "discover cases: %v\n", err)
+		os.Exit(1)
+	}
+	for _, f := range discoveryFailures {
+		report.Cases = append(report.Cases, CaseResult{
+			Case:           f.CaseDir,
+			Outcome:        "FAIL_RUNNER",
+			RunnerFailures: []RunnerFailure{{Kind: "DISCOVERY_ERROR", Detail: f.Err.Error()}},
+		})
+	}
+	sort.Strings(cases)
 
 	for _, caseName := range cases {
 		providers, err := io.ProvidersForCase(*fixturesRoot, caseName)
 		if err != nil {
 			report.Cases = append(report.Cases, CaseResult{
-				Case:   caseName,
-				Outcome: "FAIL_RUNNER",
+				Case:           caseName,
+				Outcome:        "FAIL_RUNNER",
 				RunnerFailures: []RunnerFailure{{Kind: "SETUP_ERROR", Detail: err.Error()}},
 			})
 			continue
@@ -104,8 +110,8 @@ func main() {
 		fd, err := io.LoadFixture(*fixturesRoot, caseName, *provider)
 		if err != nil {
 			report.Cases = append(report.Cases, CaseResult{
-				Case:   caseName,
-				Outcome: "FAIL_RUNNER",
+				Case:           caseName,
+				Outcome:        "FAIL_RUNNER",
 				RunnerFailures: []RunnerFailure{{Kind: "IO_ERROR", Detail: err.Error()}},
 			})
 			continue
@@ -119,10 +125,18 @@ func main() {
 
 		if outcome == classify.OutcomeERROR {
 			ctx := invocationCtxForCase(caseName)
-			if env, ok := normalize.NormalizeError(fd.Stdout, fd.Stderr, ctx); ok {
-				report.NormalizationsApplied = append(report.NormalizationsApplied,
-					caseName+": "+env.ErrorCode+" (http "+fmt.Sprint(env.HTTPStatus)+")")
-				if exp, ok := expectedErrorForCase(caseName); ok {
+			env, normalizeOk := normalize.NormalizeError(fd.Stdout, fd.Stderr, ctx)
+			if expectedErrorForCase(caseName).hardGated {
+				if !normalizeOk {
+					cr.Outcome = "FAIL_RUNNER"
+					cr.RunnerFailures = append(cr.RunnerFailures, RunnerFailure{
+						Kind:   "NORMALIZE_ERROR",
+						Detail: "hard-gated error case: could not parse error envelope from stdout/stderr",
+					})
+				} else {
+					report.NormalizationsApplied = append(report.NormalizationsApplied,
+						caseName+": "+env.ErrorCode+" (http "+fmt.Sprint(env.HTTPStatus)+")")
+					exp := expectedErrorForCase(caseName)
 					if env.HTTPStatus != exp.HTTPStatus || env.ErrorCode != exp.ErrorCode {
 						cr.Breaking = append(cr.Breaking, DiffEntry{
 							Path:    "/error",
@@ -134,6 +148,9 @@ func main() {
 						})
 					}
 				}
+			} else if normalizeOk {
+				report.NormalizationsApplied = append(report.NormalizationsApplied,
+					caseName+": "+env.ErrorCode+" (http "+fmt.Sprint(env.HTTPStatus)+")")
 			}
 		} else {
 			schemaFile := schemaFileForCase(caseName)
@@ -189,6 +206,8 @@ func main() {
 		report.Cases = append(report.Cases, cr)
 	}
 
+	// Deterministic report: sort slices that are built from iteration order.
+	sort.Strings(report.NormalizationsApplied)
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(report); err != nil {
@@ -242,13 +261,20 @@ type expectedErr struct {
 	ErrorCode  string
 }
 
-func expectedErrorForCase(caseName string) (expectedErr, bool) {
+// caseErrorPolicy describes expected error for a case; hardGated is true for 401/404 cases that must normalize.
+type caseErrorPolicy struct {
+	hardGated  bool
+	HTTPStatus int
+	ErrorCode  string
+}
+
+func expectedErrorForCase(caseName string) caseErrorPolicy {
 	switch caseName {
 	case "gmail-labels-401-unauthenticated":
-		return expectedErr{HTTPStatus: 401, ErrorCode: "unauthenticated"}, true
+		return caseErrorPolicy{hardGated: true, HTTPStatus: 401, ErrorCode: "unauthenticated"}
 	case "gmail-labels-get-not-found":
-		return expectedErr{HTTPStatus: 404, ErrorCode: "not_found"}, true
+		return caseErrorPolicy{hardGated: true, HTTPStatus: 404, ErrorCode: "not_found"}
 	default:
-		return expectedErr{}, false
+		return caseErrorPolicy{}
 	}
 }
