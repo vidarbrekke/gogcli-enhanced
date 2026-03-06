@@ -26,7 +26,7 @@ func TestAuthTokensExportImport_JSON(t *testing.T) {
 
 	store := newMemStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 
 	tok := secrets.Token{
 		Email:        "a@b.com",

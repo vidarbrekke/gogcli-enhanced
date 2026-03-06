@@ -23,6 +23,7 @@ const (
 var (
 	errKeychainPathUnknown = errors.New("cannot determine login keychain path")
 	errKeychainNoTTY       = errors.New("keychain is locked and no TTY available for password prompt")
+	errKeychainNoInput     = errors.New("keychain is locked and prompting is disabled")
 	errKeychainUnlock      = errors.New("unlock keychain: incorrect password or keychain error")
 )
 
@@ -92,9 +93,14 @@ func UnlockKeychain() error {
 // EnsureKeychainAccess checks if the keychain is accessible and unlocks it if needed.
 // Returns nil if keychain is accessible (unlocked or successfully unlocked).
 // Returns error if keychain cannot be unlocked.
-func EnsureKeychainAccess() error {
+// If noInput is true, does not prompt and returns errKeychainNoInput when locked.
+func EnsureKeychainAccess(noInput bool) error {
 	if !CheckKeychainLocked() {
 		return nil
+	}
+
+	if noInput {
+		return fmt.Errorf("%w\n\nTo unlock manually, run:\n  security unlock-keychain ~/Library/Keychains/login.keychain-db", errKeychainNoInput)
 	}
 
 	return UnlockKeychain()

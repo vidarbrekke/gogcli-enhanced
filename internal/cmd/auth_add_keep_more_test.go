@@ -40,7 +40,7 @@ func TestAuthAddCmd_JSON_More(t *testing.T) {
 	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
 		return "a@b.com", nil
 	}
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 
 	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
 	if uiErr != nil {

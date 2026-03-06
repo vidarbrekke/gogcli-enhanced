@@ -29,7 +29,7 @@ var (
 	manualAuthURL        = googleauth.ManualAuthURL
 )
 
-func ensureKeychainAccessIfNeeded() error {
+func ensureKeychainAccessIfNeeded(noInput bool) error {
 	backendInfo, err := secrets.ResolveKeyringBackendInfo()
 	if err != nil {
 		return fmt.Errorf("resolve keyring backend: %w", err)
@@ -37,7 +37,7 @@ func ensureKeychainAccessIfNeeded() error {
 	if backendInfo.Value == strFile {
 		return nil
 	}
-	return ensureKeychainAccess()
+	return ensureKeychainAccess(noInput)
 }
 
 func normalizeEmail(value string) string {
@@ -384,7 +384,7 @@ type AuthTokensImportCmd struct {
 	InPath string `arg:"" name:"inPath" help:"Input path or '-' for stdin"`
 }
 
-func (c *AuthTokensImportCmd) Run(ctx context.Context, _ *RootFlags) error {
+func (c *AuthTokensImportCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
 	inPath := c.InPath
 	var b []byte
@@ -439,7 +439,7 @@ func (c *AuthTokensImportCmd) Run(ctx context.Context, _ *RootFlags) error {
 	}
 
 	// Pre-flight: ensure keychain is accessible before storing token
-	if keychainErr := ensureKeychainAccessIfNeeded(); keychainErr != nil {
+	if keychainErr := ensureKeychainAccessIfNeeded(flags != nil && flags.NoInput); keychainErr != nil {
 		return fmt.Errorf("keychain access: %w", keychainErr)
 	}
 
@@ -594,7 +594,7 @@ func (c *AuthAddCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	// Pre-flight: ensure keychain is accessible before starting OAuth
-	if keychainErr := ensureKeychainAccessIfNeeded(); keychainErr != nil {
+	if keychainErr := ensureKeychainAccessIfNeeded(flags != nil && flags.NoInput); keychainErr != nil {
 		return fmt.Errorf("keychain access: %w", keychainErr)
 	}
 
@@ -1044,10 +1044,14 @@ type AuthManageCmd struct {
 	Timeout      time.Duration `name:"timeout" help:"Server timeout duration" default:"10m"`
 }
 
-func (c *AuthManageCmd) Run(ctx context.Context, _ *RootFlags) error {
+func (c *AuthManageCmd) Run(ctx context.Context, flags *RootFlags) error {
 	services, err := parseAuthServices(c.ServicesCSV)
 	if err != nil {
 		return err
+	}
+
+	if keychainErr := ensureKeychainAccessIfNeeded(flags != nil && flags.NoInput); keychainErr != nil {
+		return fmt.Errorf("keychain access: %w", keychainErr)
 	}
 
 	return startManageServer(ctx, googleauth.ManageServerOptions{
@@ -1055,6 +1059,7 @@ func (c *AuthManageCmd) Run(ctx context.Context, _ *RootFlags) error {
 		Services:     services,
 		ForceConsent: c.ForceConsent,
 		Client:       authclient.ClientOverrideFromContext(ctx),
+		NoInput:      flags != nil && flags.NoInput,
 	})
 }
 

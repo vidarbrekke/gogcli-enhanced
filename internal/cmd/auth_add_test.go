@@ -25,7 +25,7 @@ func TestAuthAddCmd_JSON(t *testing.T) {
 		fetchAuthorizedEmail = origFetch
 	})
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
@@ -96,7 +96,7 @@ func TestAuthAddCmd_KeychainError(t *testing.T) {
 	})
 
 	// Simulate keychain locked error
-	ensureKeychainAccess = func() error {
+	ensureKeychainAccess = func(bool) error {
 		return errors.New("keychain is locked")
 	}
 
@@ -114,7 +114,7 @@ func TestAuthAddCmd_KeychainError(t *testing.T) {
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
 
 	cmd := &AuthAddCmd{Email: "test@example.com", ServicesCSV: "gmail"}
-	err := cmd.Run(context.Background(), &RootFlags{})
+	err := cmd.Run(context.Background(), &RootFlags{NoInput: true})
 
 	if err == nil {
 		t.Fatal("expected error when keychain is locked")
@@ -139,7 +139,7 @@ func TestAuthAddCmd_DefaultServices_UserPreset(t *testing.T) {
 		fetchAuthorizedEmail = origFetch
 	})
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
@@ -210,7 +210,7 @@ func TestAuthAddCmd_EmailMismatch(t *testing.T) {
 		fetchAuthorizedEmail = origFetch
 	})
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 	openSecretsStore = func() (secrets.Store, error) { return newMemSecretsStore(), nil }
 	authorizeGoogle = func(context.Context, googleauth.AuthorizeOptions) (string, error) {
 		return "rt", nil
@@ -240,7 +240,7 @@ func TestAuthAddCmd_ReadonlyScopes(t *testing.T) {
 		fetchAuthorizedEmail = origFetch
 	})
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
@@ -310,7 +310,7 @@ func TestAuthAddCmd_DriveScopeFile(t *testing.T) {
 		fetchAuthorizedEmail = origFetch
 	})
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
@@ -377,7 +377,7 @@ func TestAuthAddCmd_SheetsReadonlyIncludesDriveReadonly(t *testing.T) {
 		fetchAuthorizedEmail = origFetch
 	})
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
@@ -429,7 +429,7 @@ func TestAuthAddCmd_SheetsDriveScopeFile(t *testing.T) {
 		fetchAuthorizedEmail = origFetch
 	})
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
@@ -495,7 +495,7 @@ func TestAuthAddCmd_RemoteStep1_PrintsAuthURL(t *testing.T) {
 		t.Fatal("authorizeGoogle should not be called in remote step 1")
 		return "", nil
 	}
-	ensureKeychainAccess = func() error {
+	ensureKeychainAccess = func(bool) error {
 		t.Fatal("keychain access should not be checked in remote step 1")
 		return nil
 	}
@@ -565,7 +565,7 @@ func TestAuthAddCmd_RemoteStep2_PassesAuthURL(t *testing.T) {
 		fetchAuthorizedEmail = origFetch
 	})
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 	openSecretsStore = func() (secrets.Store, error) { return newMemSecretsStore(), nil }
 
 	var gotOpts googleauth.AuthorizeOptions
@@ -615,7 +615,7 @@ func TestAuthAddCmd_AuthCode_PassesThrough(t *testing.T) {
 		fetchAuthorizedEmail = origFetch
 	})
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 	openSecretsStore = func() (secrets.Store, error) { return newMemSecretsStore(), nil }
 
 	var gotOpts googleauth.AuthorizeOptions

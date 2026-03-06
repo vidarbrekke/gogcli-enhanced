@@ -42,7 +42,7 @@ func TestKeychainPath(t *testing.T) {
 
 func TestEnsureKeychainAccess_UnlockedKeychain(t *testing.T) {
 	// On a normal dev machine, keychain should be unlocked
-	err := EnsureKeychainAccess()
+	err := EnsureKeychainAccess(false)
 	if err != nil {
 		t.Skipf("Keychain appears to be locked, skipping: %v", err)
 	}

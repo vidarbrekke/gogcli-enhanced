@@ -23,7 +23,7 @@ func TestExecute_AuthAdd_JSON(t *testing.T) {
 		fetchAuthorizedEmail = origFetch
 	})
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }

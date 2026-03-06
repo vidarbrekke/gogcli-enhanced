@@ -54,13 +54,16 @@ func TestAuthKeepCmd_JSON(t *testing.T) {
 
 func TestAuthManageCmd(t *testing.T) {
 	orig := startManageServer
+	origKeychain := ensureKeychainAccess
 	t.Cleanup(func() { startManageServer = orig })
+	t.Cleanup(func() { ensureKeychainAccess = origKeychain })
 
 	var captured googleauth.ManageServerOptions
 	startManageServer = func(_ context.Context, opts googleauth.ManageServerOptions) error {
 		captured = opts
 		return nil
 	}
+	ensureKeychainAccess = func(bool) error { return nil }
 
 	cmd := AuthManageCmd{ServicesCSV: "gmail,calendar", ForceConsent: true}
 	if err := cmd.Run(context.Background(), &RootFlags{}); err != nil {

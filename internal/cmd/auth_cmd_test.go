@@ -120,7 +120,7 @@ func TestAuthTokens_ExportImportRoundtrip_JSON(t *testing.T) {
 		ensureKeychainAccess = origKeychain
 	})
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 	store := newMemSecretsStore()
 	createdAt := time.Date(2025, 12, 12, 0, 0, 0, 0, time.UTC)
 	if err := store.SetToken(config.DefaultClientName, "A@B.COM", secrets.Token{
@@ -299,7 +299,7 @@ func TestAuthTokensImport_NoInput(t *testing.T) {
 	t.Cleanup(func() { ensureKeychainAccess = origKeychain })
 
 	t.Setenv("GOG_KEYRING_BACKEND", "keychain")
-	ensureKeychainAccess = func() error {
+	ensureKeychainAccess = func(bool) error {
 		return errors.New("keychain locked")
 	}
 
@@ -326,7 +326,7 @@ func TestAuthTokensImport_FileBackendSkipsKeychain(t *testing.T) {
 	})
 
 	t.Setenv("GOG_KEYRING_BACKEND", "file")
-	ensureKeychainAccess = func() error {
+	ensureKeychainAccess = func(bool) error {
 		return errors.New("keychain locked")
 	}
 

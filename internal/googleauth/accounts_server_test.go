@@ -610,7 +610,7 @@ func TestManageServer_HandleOAuthCallback_FileBackendSkipsKeychain(t *testing.T)
 	resolveKeyringBackendInfo = func() (secrets.KeyringBackendInfo, error) {
 		return secrets.KeyringBackendInfo{Value: "file", Source: "env"}, nil
 	}
-	ensureKeychainAccess = func() error {
+	ensureKeychainAccess = func(bool) error {
 		return errShouldNotCall
 	}
 

@@ -65,13 +65,13 @@ func TestReportPath(t *testing.T) {
 		}
 	})
 
-		t.Run("normalizes non-pointer suffix", func(t *testing.T) {
-			got := reportPath("gmail-labels-list", "labels")
-			want := "gmail-labels-list/labels"
-			if got != want {
-				t.Fatalf("reportPath() = %q, want %q", got, want)
-			}
-		})
+	t.Run("normalizes non-pointer suffix", func(t *testing.T) {
+		got := reportPath("gmail-labels-list", "labels")
+		want := "gmail-labels-list/labels"
+		if got != want {
+			t.Fatalf("reportPath() = %q, want %q", got, want)
+		}
+	})
 }
 
 // TestHardGatedError_UnnormalizablePayload: hard-gated ERROR case with payload that cannot be normalized → FAIL_RUNNER, exit 1.

@@ -18,6 +18,6 @@ func UnlockKeychain() error {
 }
 
 // EnsureKeychainAccess is a no-op on non-macOS platforms.
-func EnsureKeychainAccess() error {
+func EnsureKeychainAccess(_ bool) error {
 	return nil
 }

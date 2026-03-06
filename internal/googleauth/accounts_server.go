@@ -36,6 +36,7 @@ type ManageServerOptions struct {
 	Services     []Service
 	ForceConsent bool
 	Client       string
+	NoInput      bool
 }
 
 // ManageServer handles the accounts management UI
@@ -67,15 +68,6 @@ var (
 )
 
 const userinfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
-
-func shouldEnsureKeychainAccess() (bool, error) {
-	backendInfo, err := resolveKeyringBackendInfo()
-	if err != nil {
-		return false, err
-	}
-
-	return backendInfo.Value != "file", nil
-}
 
 // StartManageServer starts the accounts management server and opens browser
 func StartManageServer(ctx context.Context, opts ManageServerOptions) error {
@@ -399,21 +391,11 @@ func (ms *ManageServer) handleOAuthCallback(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Pre-flight: ensure keychain is accessible before storing token
-	needKeychain, err := shouldEnsureKeychainAccess()
-	if err != nil {
+	if err := secrets.EnsureKeychainAccess(ms.opts.NoInput); err != nil { //nolint:contextcheck,nolintlint // keychain ops don't use context; nolint unused on non-Darwin
 		w.WriteHeader(http.StatusInternalServerError)
-		renderErrorPage(w, "Failed to resolve keyring backend: "+err.Error())
+		renderErrorPage(w, "Keychain is locked: "+err.Error())
 
 		return
-	}
-
-	if needKeychain {
-		if err := ensureKeychainAccess(); err != nil { //nolint:contextcheck,nolintlint // keychain ops don't use context; nolint unused on non-Darwin
-			w.WriteHeader(http.StatusInternalServerError)
-			renderErrorPage(w, "Keychain is locked: "+err.Error())
-
-			return
-		}
 	}
 
 	// Store the token
@@ -423,6 +405,7 @@ func (ms *ManageServer) handleOAuthCallback(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := ms.store.SetToken(ms.client, email, secrets.Token{
+		Client:       ms.client,
 		Email:        email,
 		Services:     serviceNames,
 		Scopes:       scopes,

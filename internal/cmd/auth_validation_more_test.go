@@ -216,7 +216,7 @@ func TestAuthTokensImport_ErrorsAndStdin(t *testing.T) {
 		t.Fatalf("expected date parse error")
 	}
 
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 	store := newMemStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
 
@@ -244,7 +244,7 @@ func TestAuthAdd_TextOutput(t *testing.T) {
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
 	authorizeGoogle = func(context.Context, googleauth.AuthorizeOptions) (string, error) { return "rt", nil }
 	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) { return "a@b.com", nil }
-	ensureKeychainAccess = func() error { return nil }
+	ensureKeychainAccess = func(bool) error { return nil }
 
 	var outBuf strings.Builder
 	u, uiErr := ui.New(ui.Options{Stdout: &outBuf, Stderr: io.Discard, Color: "never"})
