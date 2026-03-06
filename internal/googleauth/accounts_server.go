@@ -611,7 +611,6 @@ func renderSuccessPageWithDetails(w http.ResponseWriter, email string, services 
 		_, _ = w.Write([]byte("Success! You can close this window."))
 		return
 	}
-
 	// Show available user services for connected vs missing
 	userServices := UserServices()
 	allServices := make([]string, 0, len(userServices))
