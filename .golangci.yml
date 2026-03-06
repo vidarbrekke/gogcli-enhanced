@@ -126,6 +126,9 @@ linters:
       - path: cmd/.*\.go
         linters:
           - wsl_v5
+      - path: internal/parity/.*\.go
+        linters:
+          - wsl_v5
       - linters:
           - errcheck
         text: "Error return value of `fmt\\.Fprint"
