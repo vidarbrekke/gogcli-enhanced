@@ -11,11 +11,11 @@
   "$defs": {
     "labelWithCounts": {
       "type": "object",
-      "required": ["id", "name", "type"],
+      "required": ["id", "name"],
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
-        "type": { "type": "string", "enum": ["system", "user"] },
+        "type": { "type": "string", "enum": ["system", "user"], "description": "Optional; reduces provider churn" },
         "messageListVisibility": { "type": "string" },
         "labelListVisibility": { "type": "string" },
         "messagesTotal": { "type": "integer" },

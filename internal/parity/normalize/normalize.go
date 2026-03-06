@@ -11,7 +11,10 @@ type InvocationCtx struct {
 	ResourceID string
 }
 
-// CanonicalEnvelope is the normalized error representation. GoogleReason is drift-only (never gate CI on it).
+// CanonicalEnvelope is the normalized error representation.
+// Contractual (gate CI): ErrorCode, HTTPStatus.
+// Drift-only (never gate): GoogleReason, message text; Service, Operation, ResourceID are context from invocation.
+// Defined here in code; no separate envelope schema file unless a consumer needs schema-based validation.
 type CanonicalEnvelope struct {
 	ErrorCode    string `json:"error_code"`
 	HTTPStatus   int    `json:"http_status"`

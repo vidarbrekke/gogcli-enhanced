@@ -3,7 +3,7 @@ SHELL := /bin/bash
 # `make` should build the binary by default.
 .DEFAULT_GOAL := build
 
-.PHONY: build gog gogcli gog-help gogcli-help help fmt fmt-check lint test ci tools
+.PHONY: build gog gogcli gog-help gogcli-help help fmt fmt-check lint test ci tools parity
 .PHONY: worker-ci
 
 BIN_DIR := $(CURDIR)/bin
@@ -85,6 +85,9 @@ pnpm-gate:
 
 test:
 	@go test ./...
+
+parity:
+	@go run ./cmd/gog-parity --fixtures docs/merge/goldens --schemas docs/merge/schemas --provider gws
 
 ci: pnpm-gate fmt-check lint test
 

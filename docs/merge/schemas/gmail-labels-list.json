@@ -14,11 +14,11 @@
   "$defs": {
     "label": {
       "type": "object",
-      "required": ["id", "name", "type"],
+      "required": ["id", "name"],
       "properties": {
         "id": { "type": "string", "description": "Label ID (e.g. INBOX, Label_123)" },
         "name": { "type": "string", "description": "Display name" },
-        "type": { "type": "string", "enum": ["system", "user"], "description": "Label type" },
+        "type": { "type": "string", "enum": ["system", "user"], "description": "Label type (optional; reduces provider churn)" },
         "messageListVisibility": { "type": "string" },
         "labelListVisibility": { "type": "string" },
         "messagesTotal": { "type": "integer" },
