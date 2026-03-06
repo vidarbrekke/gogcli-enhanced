@@ -19,22 +19,3 @@ func TestReportPath(t *testing.T) {
 		}
 	})
 }
-
-func TestIsHardGatedBreakingPath(t *testing.T) {
-	tests := []struct {
-		path string
-		want bool
-	}{
-		{path: "gmail-labels-401/anything", want: true},
-		{path: "gmail-labels-get-not-found", want: true},
-		{path: "gmail-labels-get-not-found/error_code", want: true},
-		{path: "gmail-labels-403-forbidden/error_code", want: false},
-		{path: "gmail-labels-list/labels/id:INBOX", want: false},
-	}
-
-	for _, tt := range tests {
-		if got := isHardGatedBreakingPath(tt.path); got != tt.want {
-			t.Fatalf("isHardGatedBreakingPath(%q) = %v, want %v", tt.path, got, tt.want)
-		}
-	}
-}

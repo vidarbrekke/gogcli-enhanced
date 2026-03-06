@@ -120,3 +120,10 @@ func ProvidersForCase(root, caseName string) ([]string, error) {
 	}
 	return providers, nil
 }
+
+// IsPlaceholder returns true if a provider fixture is intentionally a placeholder (e.g. 403 until captured).
+func IsPlaceholder(root, caseName, provider string) bool {
+	p := filepath.Join(root, caseName, provider, "PLACEHOLDER.txt")
+	_, err := os.Stat(p)
+	return err == nil
+}

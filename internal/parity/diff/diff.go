@@ -40,6 +40,19 @@ func Diff(canonical, baseline any, rules DiffRules) (breaking, drift []DiffEntry
 			breaking = append(breaking, e)
 		}
 	}
+	// Deterministic output for CI: sort within each bucket.
+	sort.Slice(breaking, func(i, j int) bool {
+		if breaking[i].Path != breaking[j].Path {
+			return breaking[i].Path < breaking[j].Path
+		}
+		return breaking[i].Summary < breaking[j].Summary
+	})
+	sort.Slice(drift, func(i, j int) bool {
+		if drift[i].Path != drift[j].Path {
+			return drift[i].Path < drift[j].Path
+		}
+		return drift[i].Summary < drift[j].Summary
+	})
 	return breaking, drift
 }
 
@@ -78,7 +91,12 @@ func diffNode(path string, a, b any, rules DiffRules, out *[]struct {
 		for k := range bv {
 			allKeys[k] = true
 		}
+		keys := make([]string, 0, len(allKeys))
 		for k := range allKeys {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
 			childPath := path + "/" + k
 			ax, aHas := av[k]
 			bx, bHas := bv[k]

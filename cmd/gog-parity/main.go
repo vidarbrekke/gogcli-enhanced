@@ -29,10 +29,16 @@ type Report struct {
 }
 
 type CaseResult struct {
-	Case     string      `json:"case"`
-	Outcome  string      `json:"outcome"`
-	Breaking []DiffEntry `json:"breaking,omitempty"`
-	Drift    []DiffEntry `json:"drift,omitempty"`
+	Case            string           `json:"case"`
+	Outcome         string           `json:"outcome"` // OK|ERROR|FAIL_RUNNER|SKIPPED_PLACEHOLDER
+	RunnerFailures  []RunnerFailure  `json:"runner_failures,omitempty"`
+	Breaking        []DiffEntry      `json:"breaking,omitempty"`
+	Drift           []DiffEntry      `json:"drift,omitempty"`
+}
+
+type RunnerFailure struct {
+	Kind   string `json:"kind"`   // IO_ERROR|JSON_PARSE_ERROR|SCHEMA_ERROR|SCHEMA_VIOLATION|SETUP_ERROR
+	Detail string `json:"detail"`
 }
 
 type DiffEntry struct {
@@ -46,12 +52,6 @@ func reportPath(caseName, path string) string {
 	}
 
 	return caseName + "/" + path
-}
-
-func isHardGatedBreakingPath(path string) bool {
-	return strings.HasPrefix(path, "gmail-labels-401/") ||
-		path == "gmail-labels-get-not-found" ||
-		strings.HasPrefix(path, "gmail-labels-get-not-found/")
 }
 
 func main() {
@@ -83,7 +83,11 @@ func main() {
 	for _, caseName := range cases {
 		providers, err := io.ProvidersForCase(*fixturesRoot, caseName)
 		if err != nil {
-			report.Cases = append(report.Cases, CaseResult{Case: caseName, Outcome: "ERROR"})
+			report.Cases = append(report.Cases, CaseResult{
+				Case:   caseName,
+				Outcome: "FAIL_RUNNER",
+				RunnerFailures: []RunnerFailure{{Kind: "SETUP_ERROR", Detail: err.Error()}},
+			})
 			continue
 		}
 		hasProvider := false
@@ -99,7 +103,15 @@ func main() {
 
 		fd, err := io.LoadFixture(*fixturesRoot, caseName, *provider)
 		if err != nil {
-			report.Cases = append(report.Cases, CaseResult{Case: caseName, Outcome: "ERROR"})
+			report.Cases = append(report.Cases, CaseResult{
+				Case:   caseName,
+				Outcome: "FAIL_RUNNER",
+				RunnerFailures: []RunnerFailure{{Kind: "IO_ERROR", Detail: err.Error()}},
+			})
+			continue
+		}
+		if io.IsPlaceholder(*fixturesRoot, caseName, *provider) {
+			report.Cases = append(report.Cases, CaseResult{Case: caseName, Outcome: "SKIPPED_PLACEHOLDER"})
 			continue
 		}
 		outcome := classify.Classify(fd)
@@ -110,14 +122,30 @@ func main() {
 			if env, ok := normalize.NormalizeError(fd.Stdout, fd.Stderr, ctx); ok {
 				report.NormalizationsApplied = append(report.NormalizationsApplied,
 					caseName+": "+env.ErrorCode+" (http "+fmt.Sprint(env.HTTPStatus)+")")
+				if exp, ok := expectedErrorForCase(caseName); ok {
+					if env.HTTPStatus != exp.HTTPStatus || env.ErrorCode != exp.ErrorCode {
+						cr.Breaking = append(cr.Breaking, DiffEntry{
+							Path:    "/error",
+							Summary: fmt.Sprintf("expected %s/%d got %s/%d", exp.ErrorCode, exp.HTTPStatus, env.ErrorCode, env.HTTPStatus),
+						})
+						report.Breaking = append(report.Breaking, DiffEntry{
+							Path:    reportPath(caseName, "/error"),
+							Summary: cr.Breaking[len(cr.Breaking)-1].Summary,
+						})
+					}
+				}
 			}
 		} else {
 			schemaFile := schemaFileForCase(caseName)
 			if schemaFile != "" {
 				schemaJSON, err := schema.LoadSchema(*schemasRoot, schemaFile)
-				if err == nil {
-					violations, err := schema.Validate(fd.Stdout, schemaJSON)
-					if err == nil && len(violations) > 0 {
+				if err != nil {
+					cr.RunnerFailures = append(cr.RunnerFailures, RunnerFailure{Kind: "SCHEMA_ERROR", Detail: err.Error()})
+				} else {
+					violations, verr := schema.Validate(fd.Stdout, schemaJSON)
+					if verr != nil {
+						cr.RunnerFailures = append(cr.RunnerFailures, RunnerFailure{Kind: "SCHEMA_ERROR", Detail: verr.Error()})
+					} else if len(violations) > 0 {
 						for _, v := range violations {
 							cr.Breaking = append(cr.Breaking, DiffEntry{Path: v.Path, Summary: v.Msg})
 							report.Breaking = append(report.Breaking, DiffEntry{
@@ -131,7 +159,11 @@ func main() {
 			// Diff against native baseline if present
 			if nativeFD, err := io.LoadFixture(*fixturesRoot, caseName, "native"); err == nil {
 				var gwsJSON, nativeJSON map[string]any
-				if json.Unmarshal(fd.Stdout, &gwsJSON) == nil && json.Unmarshal(nativeFD.Stdout, &nativeJSON) == nil {
+				if err1 := json.Unmarshal(fd.Stdout, &gwsJSON); err1 != nil {
+					cr.RunnerFailures = append(cr.RunnerFailures, RunnerFailure{Kind: "JSON_PARSE_ERROR", Detail: "provider stdout: " + err1.Error()})
+				} else if err2 := json.Unmarshal(nativeFD.Stdout, &nativeJSON); err2 != nil {
+					cr.RunnerFailures = append(cr.RunnerFailures, RunnerFailure{Kind: "JSON_PARSE_ERROR", Detail: "native stdout: " + err2.Error()})
+				} else {
 					diffRules := diff.DiffRules{
 						DriftPaths:    []string{"message", "google_reason"},
 						LabelsSetByID: []string{"labels"},
@@ -163,10 +195,17 @@ func main() {
 		fmt.Fprintf(os.Stderr, "encode report: %v\n", err)
 		os.Exit(1)
 	}
-	// Hard gate: 401 and 404 cases must have no breaking diffs. 403 remains soft until real golden is committed.
-	for _, e := range report.Breaking {
-		if isHardGatedBreakingPath(e.Path) {
-			fmt.Fprintf(os.Stderr, "parity: breaking diff in hard-gated case: %s\n", e.Path)
+	hardGated := map[string]bool{
+		"gmail-labels-401-unauthenticated": true,
+		"gmail-labels-get-not-found":       true,
+	}
+	for _, c := range report.Cases {
+		if len(c.RunnerFailures) > 0 {
+			fmt.Fprintf(os.Stderr, "parity: runner failure in case %s\n", c.Case)
+			os.Exit(1)
+		}
+		if hardGated[c.Case] && len(c.Breaking) > 0 {
+			fmt.Fprintf(os.Stderr, "parity: breaking diff in hard-gated case %s\n", c.Case)
 			os.Exit(1)
 		}
 	}
@@ -196,4 +235,20 @@ func invocationCtxForCase(caseName string) normalize.InvocationCtx {
 		ctx.Operation = "labels get"
 	}
 	return ctx
+}
+
+type expectedErr struct {
+	HTTPStatus int
+	ErrorCode  string
+}
+
+func expectedErrorForCase(caseName string) (expectedErr, bool) {
+	switch caseName {
+	case "gmail-labels-401-unauthenticated":
+		return expectedErr{HTTPStatus: 401, ErrorCode: "unauthenticated"}, true
+	case "gmail-labels-get-not-found":
+		return expectedErr{HTTPStatus: 404, ErrorCode: "not_found"}, true
+	default:
+		return expectedErr{}, false
+	}
 }
