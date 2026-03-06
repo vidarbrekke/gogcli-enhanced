@@ -154,8 +154,6 @@ bootstrap_needed() {
 
   [[ -f "$gog_config_dir/credentials.json" ]] || return 0
   [[ -f "$mcporter_config" ]] || return 0
-  gws_capture_export_json /tmp/gws-deploy-check.json >/dev/null 2>&1 || return 0
-  gws_export_has_required_fields /tmp/gws-deploy-check.json || return 0
   return 1
 }
 
@@ -201,8 +199,6 @@ else
   log "Restarting mcporter daemon..."
   WORKSPACE_DIR="$WORKSPACE_DIR_RESOLVED" ./scripts/ensure-mcp-daemon.sh
 fi
-
-rm -f /tmp/gws-deploy-check.json 2>/dev/null || true
 
 if [[ "${STASH_POP:-0}" -eq 1 ]]; then
   log "Restoring stashed local changes..."

@@ -12,6 +12,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 OS_NAME="$(uname -s)"
 
+source "$ROOT_DIR/scripts/lib/gog-agentic-config.sh"
+
 # Workspace: where config/mcporter.json lives (OpenClaw workspace, not repo root).
 if [[ -n "${WORKSPACE_DIR:-}" ]]; then
   WORKSPACE_DIR="$(cd "$WORKSPACE_DIR" && pwd)"
@@ -29,6 +31,23 @@ if [[ ! -f "$MCPORTER_CONFIG" ]]; then
   warn "Config not found: $MCPORTER_CONFIG (run setup.sh first?)"
   exit 1
 fi
+
+GOG_CMD="$(command -v gog 2>/dev/null || true)"
+if [[ -z "$GOG_CMD" || "$GOG_CMD" != /* ]]; then
+  if [[ -x "$HOME/.local/bin/gog" ]]; then
+    GOG_CMD="$HOME/.local/bin/gog"
+  else
+    GOG_CMD="$ROOT_DIR/bin/gog"
+  fi
+fi
+
+if [[ ! -x "$GOG_CMD" ]]; then
+  warn "gog binary not found for mcporter config refresh: $GOG_CMD"
+  exit 1
+fi
+
+gog_agentic_upsert_mcporter_config "$MCPORTER_CONFIG" "$GOG_CMD"
+log "gog-agentic config refreshed (backend=$(gog_agentic_backend))."
 
 if [[ -x "$ROOT_DIR/scripts/mcp-diagnose-gog.sh" ]]; then
   if "$ROOT_DIR/scripts/mcp-diagnose-gog.sh" "$MCPORTER_CONFIG" >/tmp/gog-mcp-diagnose.out 2>/tmp/gog-mcp-diagnose.err; then

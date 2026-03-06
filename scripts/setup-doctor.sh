@@ -9,6 +9,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
 source "$ROOT_DIR/scripts/lib/gws-auth-bridge.sh"
+source "$ROOT_DIR/scripts/lib/gog-agentic-config.sh"
 
 OS_NAME="$(uname -s)"
 if [[ "$OS_NAME" != "Linux" && "$OS_NAME" != "Darwin" ]]; then
@@ -660,20 +661,6 @@ configure_openclaw_mcp_auto() {
     workspace_dir="$ROOT_DIR"
   fi
 
-  # Optional env so the spawned gog process uses file keyring (password must be set by the process that runs OpenClaw)
-  local env_json="{}"
-  # Ensure MCP child process reads same config/keyring root used during setup.
-  if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then
-    env_json="{\"XDG_CONFIG_HOME\": \"${XDG_CONFIG_HOME}\"}"
-  fi
-  if [[ -n "${GOG_KEYRING_BACKEND:-}" ]]; then
-    if [[ "$env_json" == "{}" ]]; then
-      env_json="{\"GOG_KEYRING_BACKEND\": \"${GOG_KEYRING_BACKEND}\"}"
-    else
-      env_json="{\"XDG_CONFIG_HOME\": \"${XDG_CONFIG_HOME}\", \"GOG_KEYRING_BACKEND\": \"${GOG_KEYRING_BACKEND}\"}"
-    fi
-  fi
-
   # On headless, MCP child only gets env from mcporter.json. Ensure keyring password is available via a file when using file keyring.
   local password_file_path=""
   if [[ -n "${GOG_KEYRING_BACKEND:-}" ]] && [[ "$GOG_KEYRING_BACKEND" == "file" ]]; then
@@ -702,35 +689,7 @@ configure_openclaw_mcp_auto() {
   export MCP_PASSWORD_FILE_PATH="$password_file_path"
 
   local mcporter_config="$workspace_dir/config/mcporter.json"
-  mkdir -p "$(dirname "$mcporter_config")"
-
-  python3 - <<PY
-import json, os
-p = ${mcporter_config@Q}
-env_obj = json.loads(${env_json@Q})
-if os.environ.get("MCP_PASSWORD_FILE_PATH"):
-    env_obj["GOG_KEYRING_PASSWORD_FILE"] = os.environ.get("MCP_PASSWORD_FILE_PATH")
-if os.path.exists(p):
-    with open(p, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-else:
-    data = {}
-if not isinstance(data, dict):
-    data = {}
-m = data.get('mcpServers')
-if not isinstance(m, dict):
-    m = {}
-entry = {'command': ${gog_cmd@Q}, 'args': ['mcp', 'serve'], 'lifecycle': {'mode': 'keep-alive'}}
-if env_obj:
-    entry['env'] = env_obj
-m['gog-agentic'] = entry
-data['mcpServers'] = m
-if 'imports' not in data or not isinstance(data.get('imports'), list):
-    data['imports'] = []
-with open(p, 'w', encoding='utf-8') as f:
-    json.dump(data, f, indent=2)
-    f.write('\n')
-PY
+  gog_agentic_upsert_mcporter_config "$mcporter_config" "$gog_cmd"
 
   log "Activated MCP server entry 'gog-agentic' in $mcporter_config"
   if [[ -n "${GOG_KEYRING_BACKEND:-}" ]] && [[ "$GOG_KEYRING_BACKEND" == "file" ]]; then
@@ -790,34 +749,7 @@ PY
     [[ -d "$fallback_dir" ]] || continue
     [[ "$(cd "$fallback_dir" && pwd)" == "$(cd "$workspace_dir" && pwd)" ]] && continue
     local fallback_config="$fallback_dir/config/mcporter.json"
-    mkdir -p "$(dirname "$fallback_config")"
-    python3 - <<PY
-import json, os
-p = ${fallback_config@Q}
-env_obj = json.loads(${env_json@Q})
-if os.environ.get("MCP_PASSWORD_FILE_PATH"):
-    env_obj["GOG_KEYRING_PASSWORD_FILE"] = os.environ.get("MCP_PASSWORD_FILE_PATH")
-if os.path.exists(p):
-    with open(p, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-else:
-    data = {}
-if not isinstance(data, dict):
-    data = {}
-m = data.get('mcpServers')
-if not isinstance(m, dict):
-    m = {}
-entry = {'command': ${gog_cmd@Q}, 'args': ['mcp', 'serve'], 'lifecycle': {'mode': 'keep-alive'}}
-if env_obj:
-    entry['env'] = env_obj
-m['gog-agentic'] = entry
-data['mcpServers'] = m
-if 'imports' not in data or not isinstance(data.get('imports'), list):
-    data['imports'] = []
-with open(p, 'w', encoding='utf-8') as f:
-    json.dump(data, f, indent=2)
-    f.write('\n')
-PY
+    gog_agentic_upsert_mcporter_config "$fallback_config" "$gog_cmd"
     log "Also registered 'gog-agentic' in fallback config: $fallback_config"
     # Ensure directive in this workspace bootstrap too
     tools_md_fb="$fallback_dir/TOOLS.md"
@@ -864,32 +796,7 @@ PY
   # So the gateway finds gog-agentic even when it uses the default mcporter path (~/.mcporter/mcporter.json)
   local default_mcp="$HOME/.mcporter/mcporter.json"
   if [[ -f "$default_mcp" ]] || is_cloud_context; then
-    mkdir -p "$(dirname "$default_mcp")"
-    python3 - <<PY
-import json, os
-default_path = ${default_mcp@Q}
-env_obj = json.loads(${env_json@Q})
-if os.environ.get("MCP_PASSWORD_FILE_PATH"):
-    env_obj["GOG_KEYRING_PASSWORD_FILE"] = os.environ.get("MCP_PASSWORD_FILE_PATH")
-entry = {'command': ${gog_cmd@Q}, 'args': ['mcp', 'serve'], 'lifecycle': {'mode': 'keep-alive'}}
-if env_obj:
-    entry['env'] = env_obj
-if os.path.exists(default_path):
-    with open(default_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-else:
-    data = {}
-if not isinstance(data, dict):
-    data = {}
-m = data.get('mcpServers')
-if not isinstance(m, dict):
-    m = {}
-m['gog-agentic'] = entry
-data['mcpServers'] = m
-with open(default_path, 'w', encoding='utf-8') as f:
-    json.dump(data, f, indent=2)
-    f.write('\n')
-PY
+    gog_agentic_upsert_mcporter_config "$default_mcp" "$gog_cmd"
     log "Merged gog-agentic into default mcporter config: $default_mcp"
     if has_cmd mcporter; then
       mcporter --config "$default_mcp" daemon restart 2>/dev/null && log "Started mcporter daemon (default path so gateway finds gog-agentic)." || true

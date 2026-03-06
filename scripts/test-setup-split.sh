@@ -11,6 +11,7 @@ fail() { echo "[FAIL] $*"; exit 1; }
 [[ -f scripts/setup.sh ]] || fail "scripts/setup.sh missing"
 [[ -f scripts/setup-doctor.sh ]] || fail "scripts/setup-doctor.sh missing"
 [[ -f scripts/lib/gws-auth-bridge.sh ]] || fail "gws auth bridge helper missing"
+[[ -f scripts/lib/gog-agentic-config.sh ]] || fail "gog-agentic config helper missing"
 pass "Both setup scripts exist"
 
 # 2) syntax valid
@@ -41,6 +42,8 @@ pass "setup-doctor.sh retains advanced controls"
 # 6) both setup flows prefer the official gws auth bridge
 grep -q "gws-auth-bridge.sh" scripts/setup.sh || fail "setup.sh missing gws auth bridge"
 grep -q "gws-auth-bridge.sh" scripts/setup-doctor.sh || fail "setup-doctor.sh missing gws auth bridge"
+grep -q "gog-agentic-config.sh" scripts/setup-doctor.sh || fail "setup-doctor.sh missing gog-agentic config helper"
+grep -q "gog-agentic-config.sh" scripts/ensure-mcp-daemon.sh || fail "ensure-mcp-daemon.sh missing gog-agentic config helper"
 grep -q "gws auth setup" scripts/lib/gws-auth-bridge.sh || fail "gws auth bridge missing official setup flow"
 grep -q "gws auth login" scripts/lib/gws-auth-bridge.sh || fail "gws auth bridge missing official login flow"
 if grep -q "auth add" scripts/setup-doctor.sh; then fail "setup-doctor.sh should not fall back to native gog auth add"; fi
@@ -52,6 +55,7 @@ grep -q "setup-doctor.sh" scripts/deploy.sh || fail "deploy.sh missing first-tim
 grep -q "@googleworkspace/cli" scripts/deploy.sh || fail "deploy.sh missing gws dependency bootstrap"
 grep -q "mcporter" scripts/deploy.sh || fail "deploy.sh missing mcporter handling"
 grep -q "Homebrew is required on macOS" scripts/deploy.sh || fail "deploy.sh missing macOS dependency handling"
+if grep -q "gws_capture_export_json /tmp/gws-deploy-check.json" scripts/deploy.sh; then fail "deploy.sh should not require gws export to decide update vs bootstrap"; fi
 pass "deploy.sh covers bootstrap and update flow"
 
 # 8) embedded TOOLS.md injector should execute without undefined variables
