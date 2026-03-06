@@ -36,7 +36,7 @@ func newLabelsDeleteService(t *testing.T, handler http.HandlerFunc) {
 	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
 }
 
-func newLabelsDeleteContext(t *testing.T, jsonMode bool) context.Context {
+func newLabelsDeleteContext(t *testing.T, jsonMode bool) context.Context { //nolint:unparam // jsonMode reserved for future JSON-mode tests
 	t.Helper()
 
 	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})

@@ -1,0 +1,87 @@
+package gws
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+)
+
+// Result holds raw output from a gws invocation.
+type Result struct {
+	Stdout   []byte
+	Stderr   []byte
+	ExitCode int
+}
+
+// Path returns the gws binary path: GOG_GWS_PATH env if set, else "gws".
+func Path() string {
+	if p := strings.TrimSpace(os.Getenv("GOG_GWS_PATH")); p != "" {
+		return p
+	}
+
+	return "gws"
+}
+
+// RunLabelsList runs: gws gmail users labels list --params '{"userId":"me"}'.
+func RunLabelsList(ctx context.Context) (Result, error) {
+	params := `{"userId":"me"}`
+	return run(ctx, []string{"gmail", "users", "labels", "list", "--params", params})
+}
+
+// RunLabelsGet runs: gws gmail users labels get --params '{"userId":"me","id":"<id>"}'.
+func RunLabelsGet(ctx context.Context, labelID string) (Result, error) {
+	params := fmt.Sprintf(`{"userId":"me","id":%q}`, labelID)
+	return run(ctx, []string{"gmail", "users", "labels", "get", "--params", params})
+}
+
+func run(ctx context.Context, args []string) (Result, error) {
+	bin := Path()
+	// #nosec G204 -- bin is from GOG_GWS_PATH env or literal "gws", not user input
+	cmd := exec.CommandContext(ctx, bin, args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	runErr := cmd.Run()
+	if runErr != nil {
+		var exitErr *exec.ExitError
+		if errors.As(runErr, &exitErr) {
+			return Result{
+				Stdout:   bytes.TrimSpace(stdout.Bytes()),
+				Stderr:   bytes.TrimSpace(stderr.Bytes()),
+				ExitCode: exitErr.ExitCode(),
+			}, nil
+		}
+
+		return Result{}, fmt.Errorf("run gws: %w", runErr)
+	}
+
+	return Result{
+		Stdout:   bytes.TrimSpace(stdout.Bytes()),
+		Stderr:   bytes.TrimSpace(stderr.Bytes()),
+		ExitCode: 0,
+	}, nil
+}
+
+// HasTopLevelError returns true if stdout or stderr contains JSON with a top-level "error" key.
+func HasTopLevelError(stdout, stderr []byte) bool {
+	for _, raw := range [][]byte{stdout, stderr} {
+		if len(raw) == 0 {
+			continue
+		}
+
+		var m map[string]json.RawMessage
+		if json.Unmarshal(raw, &m) == nil {
+			if _, ok := m["error"]; ok {
+				return true
+			}
+		}
+	}
+
+	return false
+}

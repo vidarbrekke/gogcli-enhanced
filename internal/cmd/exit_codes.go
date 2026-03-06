@@ -60,6 +60,13 @@ func stableExitCode(err error) error {
 		return &ExitError{Code: exitCodeAuthRequired, Err: err}
 	}
 
+	var backendErr *BackendError
+	if errors.As(err, &backendErr) && backendErr.Env != nil {
+		if code := backendErrorExitCode(backendErr.Env.ErrorCode); code != 1 {
+			return &ExitError{Code: code, Err: err}
+		}
+	}
+
 	var gerr *ggoogleapi.Error
 	if errors.As(err, &gerr) {
 		if code := googleAPIExitCode(gerr); code != 1 {

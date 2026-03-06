@@ -2,12 +2,16 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"google.golang.org/api/gmail/v1"
 
+	"github.com/steipete/gogcli/internal/backend/gws"
 	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/parity/classify"
+	"github.com/steipete/gogcli/internal/parity/normalize"
 	"github.com/steipete/gogcli/internal/ui"
 )
 
@@ -27,6 +31,10 @@ func (c *GmailLabelsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	account, err := requireAccount(flags)
 	if err != nil {
 		return err
+	}
+
+	if Backend() == BackendGWS {
+		return c.runGWSGet(ctx, account)
 	}
 
 	svc, err := newGmailService(ctx, account)
@@ -62,6 +70,109 @@ func (c *GmailLabelsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u.Out().Printf("messages_unread\t%d", l.MessagesUnread)
 	u.Out().Printf("threads_total\t%d", l.ThreadsTotal)
 	u.Out().Printf("threads_unread\t%d", l.ThreadsUnread)
+	return nil
+}
+
+// gwsFixture adapts gws.Result to classify.FixtureData.
+type gwsFixture struct {
+	stdout   []byte
+	stderr   []byte
+	exitCode int
+}
+
+func (f gwsFixture) GetStdout() []byte { return f.stdout }
+func (f gwsFixture) GetStderr() []byte { return f.stderr }
+func (f gwsFixture) GetExitCode() int  { return f.exitCode }
+
+func (c *GmailLabelsGetCmd) runGWSGet(ctx context.Context, _ string) error {
+	raw := strings.TrimSpace(c.Label)
+	if raw == "" {
+		return usage("empty label")
+	}
+	id := raw
+	listRes, err := gws.RunLabelsList(ctx)
+	if err != nil {
+		return err
+	}
+	if classify.Classify(gwsFixture{listRes.Stdout, listRes.Stderr, listRes.ExitCode}) == classify.OutcomeOK {
+		idMap := gwsLabelsNameToID(listRes.Stdout)
+		if v, ok := idMap[strings.ToLower(raw)]; ok {
+			id = v
+		}
+	}
+
+	res, err := gws.RunLabelsGet(ctx, id)
+	if err != nil {
+		return err
+	}
+	if classify.Classify(gwsFixture{res.Stdout, res.Stderr, res.ExitCode}) == classify.OutcomeERROR {
+		ctxNorm := normalize.InvocationCtx{Service: "gmail", Operation: "labels get", ResourceID: id}
+		env, ok := normalize.NormalizeError(res.Stdout, res.Stderr, ctxNorm)
+		if !ok {
+			return fmt.Errorf("gws labels get failed (exit %d)", res.ExitCode)
+		}
+		return &BackendError{Env: env}
+	}
+	if outfmt.IsJSON(ctx) {
+		return writeGWSJSON(ctx, res.Stdout, "label")
+	}
+	return writeGWSLabelsGetTable(ctx, res.Stdout)
+}
+
+func gwsLabelsNameToID(stdout []byte) map[string]string {
+	var out struct {
+		Labels []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"labels"`
+	}
+	if json.Unmarshal(stdout, &out) != nil {
+		return nil
+	}
+	m := make(map[string]string, len(out.Labels)*2)
+	for _, l := range out.Labels {
+		if l.ID != "" {
+			m[strings.ToLower(l.ID)] = l.ID
+			if l.Name != "" {
+				m[strings.ToLower(l.Name)] = l.ID
+			}
+		}
+	}
+	return m
+}
+
+// writeGWSJSON writes gws stdout as JSON. If key is "label" and stdout has no "label" key, wraps top-level as {"label": {...}}.
+func writeGWSJSON(ctx context.Context, stdout []byte, resultKey string) error {
+	var m map[string]any
+	if json.Unmarshal(stdout, &m) != nil {
+		return fmt.Errorf("gws output is not valid JSON")
+	}
+	if resultKey == "label" && m["label"] == nil && (m["id"] != nil || m["name"] != nil) {
+		m = map[string]any{"label": m}
+	}
+	return outfmt.WriteJSON(ctx, stdoutWriter(ctx), m)
+}
+
+// writeGWSLabelsGetTable parses gws label JSON and prints ID/NAME/TYPE table.
+func writeGWSLabelsGetTable(ctx context.Context, stdout []byte) error {
+	var m map[string]any
+	if json.Unmarshal(stdout, &m) != nil {
+		return fmt.Errorf("gws output is not valid JSON")
+	}
+	label, _ := m["label"].(map[string]any)
+	if label == nil {
+		label = m
+	}
+	u := ui.FromContext(ctx)
+	if u == nil {
+		return nil
+	}
+	id, _ := label["id"].(string)
+	name, _ := label["name"].(string)
+	typeVal, _ := label["type"].(string)
+	u.Out().Printf("id\t%s", id)
+	u.Out().Printf("name\t%s", name)
+	u.Out().Printf("type\t%s", typeVal)
 	return nil
 }
 
@@ -120,6 +231,10 @@ func (c *GmailLabelsListCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 
+	if Backend() == BackendGWS {
+		return c.runGWSList(ctx)
+	}
+
 	svc, err := newGmailService(ctx, account)
 	if err != nil {
 		return err
@@ -142,6 +257,57 @@ func (c *GmailLabelsListCmd) Run(ctx context.Context, flags *RootFlags) error {
 	fmt.Fprintln(w, "ID\tNAME\tTYPE")
 	for _, l := range resp.Labels {
 		fmt.Fprintf(w, "%s\t%s\t%s\n", l.Id, l.Name, l.Type)
+	}
+	return nil
+}
+
+func (c *GmailLabelsListCmd) runGWSList(ctx context.Context) error {
+	res, err := gws.RunLabelsList(ctx)
+	if err != nil {
+		return err
+	}
+	if classify.Classify(gwsFixture{res.Stdout, res.Stderr, res.ExitCode}) == classify.OutcomeERROR {
+		ctxNorm := normalize.InvocationCtx{Service: "gmail", Operation: "labels list"}
+		env, ok := normalize.NormalizeError(res.Stdout, res.Stderr, ctxNorm)
+		if !ok {
+			return fmt.Errorf("gws labels list failed (exit %d)", res.ExitCode)
+		}
+		return &BackendError{Env: env}
+	}
+	if outfmt.IsJSON(ctx) {
+		var payload map[string]any
+		if json.Unmarshal(res.Stdout, &payload) != nil {
+			return fmt.Errorf("gws output is not valid JSON")
+		}
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
+	}
+	return writeGWSLabelsListTable(ctx, res.Stdout)
+}
+
+func writeGWSLabelsListTable(ctx context.Context, stdout []byte) error {
+	var out struct {
+		Labels []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"labels"`
+	}
+	if json.Unmarshal(stdout, &out) != nil {
+		return fmt.Errorf("gws output is not valid JSON")
+	}
+	u := ui.FromContext(ctx)
+	if u == nil {
+		return nil
+	}
+	if len(out.Labels) == 0 {
+		u.Err().Println("No labels")
+		return nil
+	}
+	w, flush := tableWriter(ctx)
+	defer flush()
+	fmt.Fprintln(w, "ID\tNAME\tTYPE")
+	for _, l := range out.Labels {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", l.ID, l.Name, l.Type)
 	}
 	return nil
 }
