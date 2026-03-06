@@ -53,7 +53,8 @@ async function main() {
       fs.writeFileSync(path.join(outDir, name + ".txt"), text, "utf8");
       console.log("Saved", name);
     } catch (e) {
-      console.error(name, e.message);
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(name, msg);
     }
   }
 
@@ -62,6 +63,7 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error(e);
+  const msg = e instanceof Error ? e.message : String(e);
+  console.error(msg);
   process.exit(1);
 });

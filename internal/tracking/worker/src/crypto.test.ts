@@ -1,3 +1,4 @@
+import type { PixelPayload } from './types';
 import { describe, it, expect } from 'vitest';
 import { importKey, encrypt, decrypt } from './crypto';
 
@@ -6,7 +7,7 @@ describe('crypto', () => {
 
   it('encrypts and decrypts payload', async () => {
     const key = await importKey(testKey);
-    const payload = { r: 'test@example.com', s: 'abc123', t: 1704067200 };
+    const payload: PixelPayload = { r: 'test@example.com', s: 'abc123', t: 1704067200 };
 
     const encrypted = await encrypt(payload, key);
     const decrypted = await decrypt(encrypted, key);
@@ -16,7 +17,7 @@ describe('crypto', () => {
 
   it('produces URL-safe base64', async () => {
     const key = await importKey(testKey);
-    const payload = { r: 'test@example.com', s: 'abc123', t: 1704067200 };
+    const payload: PixelPayload = { r: 'test@example.com', s: 'abc123', t: 1704067200 };
 
     const encrypted = await encrypt(payload, key);
 
