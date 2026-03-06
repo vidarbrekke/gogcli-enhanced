@@ -1,4 +1,3 @@
-//nolint:wsl_v5 // concise assertions in small tests
 package server
 
 import (

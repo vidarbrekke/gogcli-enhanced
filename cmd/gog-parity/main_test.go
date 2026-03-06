@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,33 +19,36 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		os.Exit(1)
 	}
-	defer os.RemoveAll(dir)
 	parityBin = filepath.Join(dir, "gog-parity")
-	if out, err := exec.Command("go", "build", "-o", parityBin, ".").Output(); err != nil {
+	if out, err := exec.CommandContext(context.Background(), "go", "build", "-o", parityBin, ".").Output(); err != nil {
 		os.Stderr.Write(out)
+		os.RemoveAll(dir)
 		os.Exit(1)
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	os.RemoveAll(dir)
+	os.Exit(code)
 }
 
-// runParity runs the parity binary with the given fixtures and schemas roots; returns stdout, stderr, exit code.
-func runParity(t *testing.T, fixturesRoot, schemasRoot string) (stdout, stderr []byte, exitCode int) {
+// runParity runs the parity binary with the given fixtures and schemas roots; returns stdout and exit code.
+func runParity(t *testing.T, fixturesRoot, schemasRoot string) (stdout []byte, exitCode int) {
 	t.Helper()
-	cmd := exec.Command(parityBin, "-fixtures", fixturesRoot, "-schemas", schemasRoot, "-provider", "gws")
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, parityBin, "-fixtures", fixturesRoot, "-schemas", schemasRoot, "-provider", "gws")
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
 	err := cmd.Run()
 	stdout = outBuf.Bytes()
-	stderr = errBuf.Bytes()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		} else {
 			t.Fatalf("run parity: %v", err)
 		}
 	}
-	return stdout, stderr, exitCode
+	return stdout, exitCode
 }
 
 // parseReportCases parses report JSON and returns the cases slice for assertions.
@@ -92,7 +97,7 @@ func TestHardGatedError_UnnormalizablePayload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stdout, _, exitCode := runParity(t, fixtures, schemas)
+	stdout, exitCode := runParity(t, fixtures, schemas)
 	if exitCode == 0 {
 		t.Fatalf("expected non-zero exit, got 0")
 	}
@@ -141,7 +146,7 @@ func TestDiscovery_UnreadableDir(t *testing.T) {
 	}
 	defer os.Chmod(badCase, 0o755)
 
-	stdout, _, exitCode := runParity(t, fixtures, schemas)
+	stdout, exitCode := runParity(t, fixtures, schemas)
 	if exitCode == 0 {
 		t.Fatalf("expected non-zero exit when case dir is unreadable, got 0")
 	}
@@ -191,7 +196,7 @@ func TestPlaceholder_SkippedNoFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stdout, _, exitCode := runParity(t, fixtures, schemas)
+	stdout, exitCode := runParity(t, fixtures, schemas)
 	if exitCode != 0 {
 		t.Fatalf("expected exit 0 for placeholder case, got %d", exitCode)
 	}
@@ -232,8 +237,8 @@ func TestDeterministic_ReportByteIdentical(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stdout1, _, _ := runParity(t, fixtures, schemas)
-	stdout2, _, _ := runParity(t, fixtures, schemas)
+	stdout1, _ := runParity(t, fixtures, schemas)
+	stdout2, _ := runParity(t, fixtures, schemas)
 	if !bytes.Equal(stdout1, stdout2) {
 		t.Errorf("two parity runs produced different output (first %d bytes, second %d bytes)", len(stdout1), len(stdout2))
 	}

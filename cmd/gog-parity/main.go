@@ -256,12 +256,6 @@ func invocationCtxForCase(caseName string) normalize.InvocationCtx {
 	return ctx
 }
 
-type expectedErr struct {
-	HTTPStatus int
-	ErrorCode  string
-}
-
-// caseErrorPolicy describes expected error for a case; hardGated is true for 401/404 cases that must normalize.
 type caseErrorPolicy struct {
 	hardGated  bool
 	HTTPStatus int

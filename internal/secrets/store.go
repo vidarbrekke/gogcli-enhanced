@@ -146,7 +146,7 @@ func resolveKeyringPassword() (password string, fromEnvOrFile bool) {
 	if path == "" {
 		return "", false
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // path from config dir
 	if err != nil {
 		return "", false
 	}
@@ -155,7 +155,7 @@ func resolveKeyringPassword() (password string, fromEnvOrFile bool) {
 
 func fileKeyringPasswordFunc() keyring.PromptFunc {
 	password, passwordSet := resolveKeyringPassword()
-	return fileKeyringPasswordFuncFrom(password, passwordSet, term.IsTerminal(int(os.Stdin.Fd())))
+	return fileKeyringPasswordFuncFrom(password, passwordSet, term.IsTerminal(int(os.Stdin.Fd()))) //nolint:gosec // stdin fd for terminal check
 }
 
 func normalizeKeyringBackend(value string) string {
@@ -321,7 +321,7 @@ func (s *KeyringStore) Keys() ([]string, error) {
 }
 
 type storedToken struct {
-	RefreshToken string    `json:"refresh_token"`
+	RefreshToken string    `json:"refresh_token"` //nolint:gosec // JSON key for OAuth token; not logged
 	Services     []string  `json:"services,omitempty"`
 	Scopes       []string  `json:"scopes,omitempty"`
 	CreatedAt    time.Time `json:"created_at,omitempty"`

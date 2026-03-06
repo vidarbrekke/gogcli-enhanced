@@ -1,4 +1,3 @@
-//nolint:wsl_v5 // concise protocol assertions
 package mcp
 
 import (

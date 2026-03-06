@@ -1,4 +1,3 @@
-//nolint:wsl_v5 // command argument composition is intentionally linear
 package google
 
 import (
@@ -32,6 +31,22 @@ var (
 	errToolCommandFailed         = errors.New("tool command failed")
 	errToolStderr                = errors.New("tool stderr")
 	errExecutorNotConfigured     = errors.New("executor not configured")
+	// err113: MCP tool validation errors (static sentinels).
+	errMissingExpressionOrExpressions = errors.New("missing expression or expressions")
+	errMissingExpressions             = errors.New("missing expressions")
+	errInvalidIntentType              = errors.New("invalid intentType")
+	errMissingTitle                   = errors.New("missing title")
+	errMissingTargetSheet             = errors.New("missing targetSheet")
+	errMissingOrEmptyRows             = errors.New("missing or empty rows")
+	errMissingOrEmptyKeyColumns       = errors.New("missing or empty keyColumns")
+	errMissingFormula                 = errors.New("missing formula")
+	errGlobalCannotCombineParentID    = errors.New("global cannot be combined with parentId")
+	errMissingName                    = errors.New("missing name")
+	errMissingTo                      = errors.New("missing to")
+	errInvalidTo                      = errors.New("invalid to")
+	errMissingEmail                   = errors.New("missing email")
+	errMissingDomain                  = errors.New("missing domain")
+	errOperationsExceedsMax           = errors.New("operations exceeds max")
 )
 
 // mcpDrivePageSize is the default page size for drive list/search when called from MCP.
@@ -152,7 +167,7 @@ func (p *provider) docsSed(_ context.Context, input map[string]any) (map[string]
 		}
 	}
 	if len(exprs) == 0 {
-		return map[string]any{"service": "docs", "operation": "sed", "error_code": server.ErrorCodeInvalidArgument, "message": "missing expression or expressions"}, errors.New("missing expression or expressions")
+		return map[string]any{"service": "docs", "operation": "sed", "error_code": server.ErrorCodeInvalidArgument, "message": "missing expression or expressions"}, errMissingExpressionOrExpressions
 	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
@@ -212,7 +227,7 @@ func (p *provider) docsSmartEdit(ctx context.Context, input map[string]any) (map
 		return map[string]any{"service": "docs", "operation": "smartEdit", "error_code": server.ErrorCodeInvalidArgument, "message": "intentType batch requires request"}, errMissingRequest
 	case "sed":
 		if len(expressions) == 0 {
-			return map[string]any{"service": "docs", "operation": "smartEdit", "error_code": server.ErrorCodeInvalidArgument, "message": "intentType sed requires expressions"}, errors.New("missing expressions")
+			return map[string]any{"service": "docs", "operation": "smartEdit", "error_code": server.ErrorCodeInvalidArgument, "message": "intentType sed requires expressions"}, errMissingExpressions
 		}
 		riskLevel, decisionReason := ClassifySedRiskFromExpressions(expressions)
 		requiresConfirmation := riskLevel == RiskHigh
@@ -255,7 +270,7 @@ func (p *provider) docsSmartEdit(ctx context.Context, input map[string]any) (map
 		}
 		return result, nil
 	default:
-		return map[string]any{"service": "docs", "operation": "smartEdit", "error_code": server.ErrorCodeInvalidArgument, "message": "intentType must be batch or sed"}, errors.New("invalid intentType")
+		return map[string]any{"service": "docs", "operation": "smartEdit", "error_code": server.ErrorCodeInvalidArgument, "message": "intentType must be batch or sed"}, errInvalidIntentType
 	}
 }
 
@@ -270,7 +285,7 @@ func toAnySlice(s []string) []any {
 func (p *provider) docsCreate(_ context.Context, input map[string]any) (map[string]any, error) {
 	title := strings.TrimSpace(asString(input["title"]))
 	if title == "" {
-		return map[string]any{"service": "docs", "operation": "create", "error_code": server.ErrorCodeInvalidArgument, "message": "missing title"}, errors.New("missing title")
+		return map[string]any{"service": "docs", "operation": "create", "error_code": server.ErrorCodeInvalidArgument, "message": "missing title"}, errMissingTitle
 	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
@@ -569,7 +584,8 @@ func (p *provider) docsListTabs(_ context.Context, input map[string]any) (map[st
 	if docID == "" {
 		return map[string]any{"service": "docs", "operation": "listTabs", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 12)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, "docs", "list-tabs", docID)
@@ -581,7 +597,8 @@ func (p *provider) docsPositionsEnd(_ context.Context, input map[string]any) (ma
 	if docID == "" {
 		return map[string]any{"service": "docs", "operation": "positionsEnd", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 12)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, "docs", "positions", "end", docID)
@@ -597,7 +614,8 @@ func (p *provider) docsPositionsSearch(_ context.Context, input map[string]any) 
 	if text == "" {
 		return map[string]any{"service": "docs", "operation": "positionsSearch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing text"}, errMissingText
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 14)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, "docs", "positions", "search", docID, "--text", text)
@@ -612,7 +630,8 @@ func (p *provider) docsPositionsHeadings(_ context.Context, input map[string]any
 	if docID == "" {
 		return map[string]any{"service": "docs", "operation": "positionsHeadings", "error_code": server.ErrorCodeInvalidArgument, "message": "missing docId"}, errMissingDocID
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 12)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, "docs", "positions", "headings", docID)
@@ -643,9 +662,10 @@ func (p *provider) docsExport(_ context.Context, input map[string]any) (map[stri
 		}
 		outPath = f.Name()
 		_ = f.Close()
-		_ = os.Remove(outPath)
+		_ = os.Remove(outPath) //nolint:gosec // outPath from writeTempJSON under os.TempDir
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 14)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
@@ -653,46 +673,47 @@ func (p *provider) docsExport(_ context.Context, input map[string]any) (map[stri
 	return p.runCLI(cleanArgs(args), "docs", "export")
 }
 
-func (p *provider) sheetsPlanBatch(_ context.Context, input map[string]any) (map[string]any, error) {
-	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
-	if spreadsheetID == "" {
-		return map[string]any{"service": "sheets", "operation": "planBatch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
+// runEditBatch runs sheets or slides planBatch/executeBatch via CLI; shared to satisfy dupl.
+func (p *provider) runEditBatch(_ context.Context, input map[string]any, service, idKey string, errMissingID error, planBatch bool) (map[string]any, error) {
+	id := strings.TrimSpace(asString(input[idKey]))
+	if id == "" {
+		op := "executeBatch"
+		if planBatch {
+			op = "planBatch"
+		}
+		return map[string]any{"service": service, "operation": op, "error_code": server.ErrorCodeInvalidArgument, "message": "missing " + idKey}, errMissingID
 	}
 	requests, ok := input["request"].(map[string]any)
 	if !ok {
-		return map[string]any{"service": "sheets", "operation": "planBatch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing request object"}, errMissingRequest
+		op := "executeBatch"
+		if planBatch {
+			op = "planBatch"
+		}
+		return map[string]any{"service": service, "operation": op, "error_code": server.ErrorCodeInvalidArgument, "message": "missing request object"}, errMissingRequest
 	}
 	path, err := writeTempJSON(requests)
 	if err != nil {
 		return nil, err
 	}
 	defer os.Remove(path)
-	args := []string{"--json"}
+	args := make([]string, 0, 14)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
-	args = append(args, "sheets", "edit", "batch", spreadsheetID, "--requests-file", path, "--validate-only")
-	return p.runCLI(cleanArgs(args), "sheets", "planBatch")
+	if planBatch {
+		args = append(args, service, "edit", "batch", id, "--requests-file", path, "--validate-only")
+		return p.runCLI(cleanArgs(args), service, "planBatch")
+	}
+	args = append(args, service, "edit", "batch", id, "--requests-file", path)
+	return p.runCLI(cleanArgs(args), service, "executeBatch")
 }
 
-func (p *provider) sheetsExecuteBatch(_ context.Context, input map[string]any) (map[string]any, error) {
-	spreadsheetID := strings.TrimSpace(asString(input["spreadsheetId"]))
-	if spreadsheetID == "" {
-		return map[string]any{"service": "sheets", "operation": "executeBatch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
-	}
-	requests, ok := input["request"].(map[string]any)
-	if !ok {
-		return map[string]any{"service": "sheets", "operation": "executeBatch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing request object"}, errMissingRequest
-	}
-	path, err := writeTempJSON(requests)
-	if err != nil {
-		return nil, err
-	}
-	defer os.Remove(path)
-	args := []string{"--json"}
-	args = append(args, policyArgs(input)...)
-	args = append(args, maybeOpIDArgs(input)...)
-	args = append(args, "sheets", "edit", "batch", spreadsheetID, "--requests-file", path)
-	return p.runCLI(cleanArgs(args), "sheets", "executeBatch")
+func (p *provider) sheetsPlanBatch(ctx context.Context, input map[string]any) (map[string]any, error) {
+	return p.runEditBatch(ctx, input, "sheets", "spreadsheetId", errMissingSpreadsheetID, true)
+}
+
+func (p *provider) sheetsExecuteBatch(ctx context.Context, input map[string]any) (map[string]any, error) {
+	return p.runEditBatch(ctx, input, "sheets", "spreadsheetId", errMissingSpreadsheetID, false)
 }
 
 func (p *provider) sheetsValuesUpdate(_ context.Context, input map[string]any) (map[string]any, error) {
@@ -767,7 +788,8 @@ func (p *provider) sheetsLinks(_ context.Context, input map[string]any) (map[str
 	if rangeSpec == "" {
 		return map[string]any{"service": "sheets", "operation": "links", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 12)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
@@ -879,7 +901,7 @@ func (p *provider) sheetsFilterCopyRows(_ context.Context, input map[string]any)
 		return map[string]any{"service": "sheets", "operation": "filterCopyRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
 	}
 	if targetSheet == "" {
-		return map[string]any{"service": "sheets", "operation": "filterCopyRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing targetSheet"}, errors.New("missing targetSheet")
+		return map[string]any{"service": "sheets", "operation": "filterCopyRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing targetSheet"}, errMissingTargetSheet
 	}
 	if errMap, err := validateSheetOp(input, "op", "sheets", "filterCopyRows"); err != nil {
 		return errMap, err
@@ -911,11 +933,11 @@ func (p *provider) sheetsUpsertRows(_ context.Context, input map[string]any) (ma
 	}
 	rows, ok := input["rows"].([]any)
 	if !ok || len(rows) == 0 {
-		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing or empty rows"}, errors.New("missing or empty rows")
+		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing or empty rows"}, errMissingOrEmptyRows
 	}
 	keyCols, ok := input["keyColumns"].([]any)
 	if !ok || len(keyCols) == 0 {
-		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing or empty keyColumns"}, errors.New("missing or empty keyColumns")
+		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing or empty keyColumns"}, errMissingOrEmptyKeyColumns
 	}
 	keyIndices, errMap, err := validateRequiredIntSlice(input, "keyColumns", "sheets", "upsertRows")
 	if err != nil {
@@ -929,7 +951,8 @@ func (p *provider) sheetsUpsertRows(_ context.Context, input map[string]any) (ma
 	if err != nil {
 		return map[string]any{"service": "sheets", "operation": "upsertRows", "error_code": server.ErrorCodeInvalidArgument, "message": "invalid rows"}, fmt.Errorf("marshal rows: %w", err)
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 14)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
@@ -950,7 +973,7 @@ func (p *provider) sheetsMoveRows(_ context.Context, input map[string]any) (map[
 		return map[string]any{"service": "sheets", "operation": "moveRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
 	}
 	if targetSheet == "" {
-		return map[string]any{"service": "sheets", "operation": "moveRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing targetSheet"}, errors.New("missing targetSheet")
+		return map[string]any{"service": "sheets", "operation": "moveRows", "error_code": server.ErrorCodeInvalidArgument, "message": "missing targetSheet"}, errMissingTargetSheet
 	}
 	if op == "" {
 		op = "eq"
@@ -990,9 +1013,10 @@ func (p *provider) sheetsApplyFormula(_ context.Context, input map[string]any) (
 		return map[string]any{"service": "sheets", "operation": "applyFormula", "error_code": server.ErrorCodeInvalidArgument, "message": "missing range"}, errMissingRange
 	}
 	if formula == "" {
-		return map[string]any{"service": "sheets", "operation": "applyFormula", "error_code": server.ErrorCodeInvalidArgument, "message": "missing formula"}, errors.New("missing formula")
+		return map[string]any{"service": "sheets", "operation": "applyFormula", "error_code": server.ErrorCodeInvalidArgument, "message": "missing formula"}, errMissingFormula
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 14)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
@@ -1058,7 +1082,8 @@ func (p *provider) sheetsMetadata(_ context.Context, input map[string]any) (map[
 	if spreadsheetID == "" {
 		return map[string]any{"service": "sheets", "operation": "metadata", "error_code": server.ErrorCodeInvalidArgument, "message": "missing spreadsheetId"}, errMissingSpreadsheetID
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 12)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
@@ -1066,46 +1091,12 @@ func (p *provider) sheetsMetadata(_ context.Context, input map[string]any) (map[
 	return p.runCLI(cleanArgs(args), "sheets", "metadata")
 }
 
-func (p *provider) slidesPlanBatch(_ context.Context, input map[string]any) (map[string]any, error) {
-	presentationID := strings.TrimSpace(asString(input["presentationId"]))
-	if presentationID == "" {
-		return map[string]any{"service": "slides", "operation": "planBatch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing presentationId"}, errMissingPresentationID
-	}
-	requests, ok := input["request"].(map[string]any)
-	if !ok {
-		return map[string]any{"service": "slides", "operation": "planBatch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing request object"}, errMissingRequest
-	}
-	path, err := writeTempJSON(requests)
-	if err != nil {
-		return nil, err
-	}
-	defer os.Remove(path)
-	args := []string{"--json"}
-	args = append(args, policyArgs(input)...)
-	args = append(args, maybeOpIDArgs(input)...)
-	args = append(args, "slides", "edit", "batch", presentationID, "--requests-file", path, "--validate-only")
-	return p.runCLI(cleanArgs(args), "slides", "planBatch")
+func (p *provider) slidesPlanBatch(ctx context.Context, input map[string]any) (map[string]any, error) {
+	return p.runEditBatch(ctx, input, "slides", "presentationId", errMissingPresentationID, true)
 }
 
-func (p *provider) slidesExecuteBatch(_ context.Context, input map[string]any) (map[string]any, error) {
-	presentationID := strings.TrimSpace(asString(input["presentationId"]))
-	if presentationID == "" {
-		return map[string]any{"service": "slides", "operation": "executeBatch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing presentationId"}, errMissingPresentationID
-	}
-	requests, ok := input["request"].(map[string]any)
-	if !ok {
-		return map[string]any{"service": "slides", "operation": "executeBatch", "error_code": server.ErrorCodeInvalidArgument, "message": "missing request object"}, errMissingRequest
-	}
-	path, err := writeTempJSON(requests)
-	if err != nil {
-		return nil, err
-	}
-	defer os.Remove(path)
-	args := []string{"--json"}
-	args = append(args, policyArgs(input)...)
-	args = append(args, maybeOpIDArgs(input)...)
-	args = append(args, "slides", "edit", "batch", presentationID, "--requests-file", path)
-	return p.runCLI(cleanArgs(args), "slides", "executeBatch")
+func (p *provider) slidesExecuteBatch(ctx context.Context, input map[string]any) (map[string]any, error) {
+	return p.runEditBatch(ctx, input, "slides", "presentationId", errMissingPresentationID, false)
 }
 
 func (p *provider) slidesReplaceText(_ context.Context, input map[string]any) (map[string]any, error) {
@@ -1175,7 +1166,8 @@ func (p *provider) driveUntrash(_ context.Context, input map[string]any) (map[st
 	if fileID == "" {
 		return map[string]any{"service": "drive", "operation": "untrash", "error_code": "invalid_argument", "message": "missing fileId"}, errMissingFileID
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 12)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
@@ -1189,7 +1181,8 @@ func (p *provider) driveGetPermission(_ context.Context, input map[string]any) (
 	if fileID == "" || permissionID == "" {
 		return map[string]any{"service": "drive", "operation": "getPermission", "error_code": "invalid_argument", "message": "missing fileId or permissionId"}, errMissingFileOrPermissionID
 	}
-	args := []string{"--json"}
+	args := make([]string, 0, 12)
+	args = append(args, "--json")
 	args = append(args, policyArgs(input)...)
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
@@ -1203,7 +1196,7 @@ func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (ma
 	global := asBool(input["global"])
 	parentID := strings.TrimSpace(asString(input["parentId"]))
 	if global && parentID != "" {
-		return map[string]any{"service": "drive", "operation": "listFiles", "error_code": "invalid_argument", "message": "global cannot be combined with parentId"}, errors.New("global cannot be combined with parentId")
+		return map[string]any{"service": "drive", "operation": "listFiles", "error_code": "invalid_argument", "message": "global cannot be combined with parentId"}, errGlobalCannotCombineParentID
 	}
 	if parentID == "" {
 		parentID = "root"
@@ -1479,7 +1472,7 @@ func (p *provider) driveRenameFile(_ context.Context, input map[string]any) (map
 		return map[string]any{"service": "drive", "operation": "renameFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing fileId"}, errMissingFileID
 	}
 	if name == "" {
-		return map[string]any{"service": "drive", "operation": "renameFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing name"}, errors.New("missing name")
+		return map[string]any{"service": "drive", "operation": "renameFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing name"}, errMissingName
 	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
@@ -1495,17 +1488,17 @@ func (p *provider) driveShareFile(_ context.Context, input map[string]any) (map[
 		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing fileId"}, errMissingFileID
 	}
 	if to == "" {
-		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing to (anyone|user|domain)"}, errors.New("missing to")
+		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing to (anyone|user|domain)"}, errMissingTo
 	}
 	to = strings.ToLower(to)
 	if to != "anyone" && to != "user" && to != "domain" {
-		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "to must be anyone|user|domain"}, errors.New("invalid to")
+		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "to must be anyone|user|domain"}, errInvalidTo
 	}
 	if to == "user" && strings.TrimSpace(asString(input["email"])) == "" {
-		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "email required when to=user"}, errors.New("missing email")
+		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "email required when to=user"}, errMissingEmail
 	}
 	if to == "domain" && strings.TrimSpace(asString(input["domain"])) == "" {
-		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "domain required when to=domain"}, errors.New("missing domain")
+		return map[string]any{"service": "drive", "operation": "shareFile", "error_code": server.ErrorCodeInvalidArgument, "message": "domain required when to=domain"}, errMissingDomain
 	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
@@ -1606,7 +1599,7 @@ func (p *provider) driveCopyFile(_ context.Context, input map[string]any) (map[s
 		return map[string]any{"service": "drive", "operation": "copyFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing fileId"}, errMissingFileID
 	}
 	if name == "" {
-		return map[string]any{"service": "drive", "operation": "copyFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing name"}, errors.New("missing name")
+		return map[string]any{"service": "drive", "operation": "copyFile", "error_code": server.ErrorCodeInvalidArgument, "message": "missing name"}, errMissingName
 	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
@@ -1626,7 +1619,7 @@ func (p *provider) driveBulkExecute(_ context.Context, input map[string]any) (ma
 		return map[string]any{"service": "drive", "operation": "bulkExecute", "error_code": server.ErrorCodeInvalidArgument, "message": "missing or empty operations array"}, errMissingRequest
 	}
 	if len(raw) > driveBulkMaxOps {
-		return map[string]any{"service": "drive", "operation": "bulkExecute", "error_code": server.ErrorCodeInvalidArgument, "message": "operations exceeds max " + strconv.Itoa(driveBulkMaxOps)}, errors.New("operations exceeds max")
+		return map[string]any{"service": "drive", "operation": "bulkExecute", "error_code": server.ErrorCodeInvalidArgument, "message": "operations exceeds max " + strconv.Itoa(driveBulkMaxOps)}, errOperationsExceedsMax
 	}
 	operations := make([]map[string]any, 0, len(raw))
 	for i, r := range raw {

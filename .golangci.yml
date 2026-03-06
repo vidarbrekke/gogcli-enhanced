@@ -123,10 +123,26 @@ linters:
       - path: internal/googleauth/.*\.go
         linters:
           - tagliatelle
+          - wsl_v5
       - path: cmd/.*\.go
         linters:
           - wsl_v5
       - path: internal/parity/.*\.go
+        linters:
+          - wsl_v5
+      - path: internal/mcp/.*\.go
+        linters:
+          - wsl_v5
+      - path: internal/mcp/providers/google/tools\.go
+        linters:
+          - prealloc
+      - path: gogcli-developer-handover/.*\.go
+        linters:
+          - wsl_v5
+      - path: internal/secrets/.*\.go
+        linters:
+          - wsl_v5
+      - path: internal/tracking/.*\.go
         linters:
           - wsl_v5
       - linters:

@@ -26,7 +26,7 @@ func (c *MCPServeCmd) Run(ctx context.Context) error {
 	s := mcp.NewGoogleServer(func(args []string) (string, string, error) {
 		var outBuf bytes.Buffer
 		var errBuf bytes.Buffer
-		cmd := exec.CommandContext(ctx, exePath, args...)
+		cmd := exec.CommandContext(ctx, exePath, args...) //nolint:gosec // exePath from config; user controls binary
 		cmd.Stdout = &outBuf
 		cmd.Stderr = &errBuf
 		runErr := cmd.Run()

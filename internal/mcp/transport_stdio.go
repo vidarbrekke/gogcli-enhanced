@@ -202,7 +202,7 @@ func mcpDebugLog(method string, extra map[string]int) {
 	}
 	mcpDebugLogMu.Lock()
 	defer mcpDebugLogMu.Unlock()
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) //nolint:gosec // path from env; debug log file
 	if err != nil {
 		return
 	}
@@ -212,5 +212,4 @@ func mcpDebugLog(method string, extra map[string]int) {
 		line += fmt.Sprintf(" %s=%d", k, v)
 	}
 	_, _ = f.WriteString(line + "\n")
-	return
 }

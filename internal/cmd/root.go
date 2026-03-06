@@ -128,18 +128,18 @@ func ExecuteWithIO(args []string, stdout io.Writer, stderr io.Writer) (err error
 	if err != nil {
 		parsedErr := wrapParseError(err)
 		if jsonRequested {
-			_, _ = fmt.Fprintln(stderr, formatJSONErrorEnvelopeWithCode(parsedErr, "parse_error"))
+			_, _ = fmt.Fprintln(stderr, formatJSONErrorEnvelopeWithCode(parsedErr, "parse_error")) //nolint:gosec // CLI stderr; not HTML
 		} else {
-			_, _ = fmt.Fprintln(stderr, errfmt.Format(parsedErr))
+			_, _ = fmt.Fprintln(stderr, errfmt.Format(parsedErr)) //nolint:gosec // CLI stderr; not HTML
 		}
 		return parsedErr
 	}
 
 	if err = enforceEnabledCommands(kctx, cli.EnableCommands); err != nil {
 		if cli.JSON || jsonRequested {
-			_, _ = fmt.Fprintln(stderr, formatJSONErrorEnvelopeWithCode(err, "command_not_enabled"))
+			_, _ = fmt.Fprintln(stderr, formatJSONErrorEnvelopeWithCode(err, "command_not_enabled")) //nolint:gosec // CLI stderr; not HTML
 		} else {
-			_, _ = fmt.Fprintln(stderr, errfmt.Format(err))
+			_, _ = fmt.Fprintln(stderr, errfmt.Format(err)) //nolint:gosec // CLI stderr; not HTML
 		}
 		return err
 	}
@@ -224,7 +224,7 @@ func ExecuteWithIO(args []string, stdout io.Writer, stderr io.Writer) (err error
 	err = stableExitCode(err)
 
 	if outfmt.IsJSON(ctx) {
-		_, _ = fmt.Fprintln(stderr, formatJSONErrorEnvelope(err))
+		_, _ = fmt.Fprintln(stderr, formatJSONErrorEnvelope(err)) //nolint:gosec // CLI stderr; not HTML
 		return err
 	}
 
@@ -237,7 +237,7 @@ func ExecuteWithIO(args []string, stdout io.Writer, stderr io.Writer) (err error
 	}
 	msg := strings.TrimSpace(errfmt.Format(err))
 	if msg != "" {
-		_, _ = fmt.Fprintln(stderr, msg)
+		_, _ = fmt.Fprintln(stderr, msg) //nolint:gosec // CLI stderr; not HTML
 	}
 	return err
 }
@@ -247,7 +247,7 @@ func isTerminalWriter(w io.Writer) bool {
 	if !ok || f == nil {
 		return false
 	}
-	return term.IsTerminal(int(f.Fd()))
+	return term.IsTerminal(int(f.Fd())) //nolint:gosec // Fd() on stdin/stdout; platform fd range
 }
 
 type jsonErrorFieldsProvider interface {

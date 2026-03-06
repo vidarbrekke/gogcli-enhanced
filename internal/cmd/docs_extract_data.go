@@ -71,7 +71,7 @@ var errExtractSectionsInvalid = fmt.Errorf("valid sections: outline, tables, lin
 // parseExtractSections parses --sections and validates. Returns error on unknown tokens or when no section is selected.
 func parseExtractSections(s string) (extractSections, error) {
 	s = strings.TrimSpace(strings.ToLower(s))
-	if s == "" || s == "all" {
+	if s == "" || s == literalAll {
 		return extractSections{outline: true, tables: true, links: true}, nil
 	}
 	var sec extractSections
@@ -88,7 +88,7 @@ func parseExtractSections(s string) (extractSections, error) {
 			sec.tables = true
 		case "links":
 			sec.links = true
-		case "all":
+		case literalAll:
 			return extractSections{outline: true, tables: true, links: true}, nil
 		default:
 			unknown = append(unknown, part)

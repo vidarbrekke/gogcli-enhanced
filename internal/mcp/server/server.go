@@ -1,4 +1,3 @@
-//nolint:wsl_v5 // compact envelope normalization flow
 package server
 
 import (

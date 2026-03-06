@@ -11,6 +11,8 @@ import (
 // Any non-negative value means the indent level was explicitly set.
 const indentNotSet = -1
 
+const braceCols = "cols"
+
 // braceExpr represents a fully parsed brace expression from SEDMAT syntax.
 // It captures all formatting, structural, and semantic attributes specified
 // within a {flags} block in a replacement string.
@@ -278,7 +280,7 @@ func parseBraceKeyValue(key, val string, expr *braceExpr) error {
 		parseSpacing(val, expr)
 	case "e", "effect":
 		expr.Effect = val
-	case "cols":
+	case braceCols:
 		if n, err := strconv.Atoi(val); err == nil && n >= 1 {
 			expr.Cols = n
 		}
@@ -341,7 +343,7 @@ func parseBareFlag(tok string, expr *braceExpr) error {
 	case "p", "spacing":
 		expr.SpacingSet = true
 		// Reset to defaults — SpacingAbove/Below stay 0
-	case "cols":
+	case braceCols:
 		expr.Cols = 1
 	default:
 		return fmt.Errorf("unknown flag: %s", tok)
