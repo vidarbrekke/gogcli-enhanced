@@ -2,6 +2,8 @@
 
 **Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names use **underscores** (e.g. `drive_listFiles`, `docs_create`). You can use: `mcporter call gog-agentic.drive_listFiles --args '{}'` or `mcporter call --server gog-agentic --tool drive_listFiles --args '{}'`.
 
+**Syntax (avoid common failures):** Tool names use **underscores**, not dots (e.g. `drive_listFiles`, not `drive.listFiles`). The `--server` flag belongs to the **`call`** subcommand: `mcporter call --server gog-agentic --tool TOOL_NAME --args '...'`. There is no `listTools` or discovery endpoint; use the tool names listed below. For actions with no MCP tool (e.g. **Gmail labels**), use exec with the gog CLI: `gog gmail labels list -a ACCOUNT@gmail.com --json`. CLI subcommand is `labels list`, not `list-labels`.
+
 **Comparison with gateway proxies (e.g. Maton):** See [maton-vs-gog-parity.md](maton-vs-gog-parity.md) for capability parity and a quick Maton→gog mapping.
 
 ### Tool reference (all available via MCP)
@@ -40,7 +42,7 @@ Use `--args '{"key":"value"}'` with the appropriate JSON for each tool. Destruct
 - **Apply formula to column:** `mcporter call gog-agentic.sheets_applyFormula --args '{"spreadsheetId":"<id>","range":"Sheet1!C2:C10","formula":"=A{row}+B{row}"}' --output json` (use {row} for 1-based row number)
 - **Summarize (group + aggregate):** `mcporter call gog-agentic.sheets_summarize --args '{"spreadsheetId":"<id>","range":"Sheet1!A2:D200","groupBy":[0],"metricColumn":1,"aggregate":"sum","targetSheet":"Summary"}' --output json` (aggregate: count or sum)
 
-**Gmail — use MCP tools first.** `gmail_search` (query, max, page), `gmail_send` (to, subject, body or bodyHtml; optional cc, bcc, from).
+**Gmail — use MCP tools first.** `gmail_search` (query, max, page), `gmail_send` (to, subject, body or bodyHtml; optional cc, bcc, from). **Gmail labels:** No MCP tool; use exec: `gog gmail labels list -a ACCOUNT@gmail.com --json`.
 
 - **Search Gmail:** `mcporter call gog-agentic.gmail_search --args '{"query":"from:user@example.com is:unread","max":10}' --output json`
 - **Send email:** `mcporter call gog-agentic.gmail_send --args '{"to":"recipient@example.com","subject":"Subject","body":"Plain text body"}' --output json` (optional: cc, bcc, bodyHtml, from)

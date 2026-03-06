@@ -140,8 +140,8 @@ Use these **natural-language prompts in OpenClaw** to confirm the new code and G
 Ask the agent:
 
 1. **"List my Gmail labels."**  
-   - **Success:** Agent calls a gog-agentic Gmail tool (e.g. `gmail_labelsList` or equivalent) and returns a list of labels (INBOX, SENT, custom labels).  
-   - **Failure:** "unauthorized", "authorize the app", or agent suggests manual steps instead of calling a tool.
+   - **Success:** Agent returns a list of labels (INBOX, SENT, custom labels). There is **no MCP tool** for labels; the agent should use **exec** with `gog gmail labels list -a ACCOUNT@gmail.com --json` (or the CLI subcommand is `gog gmail labels list`, not `list-labels`). Tool names use **underscores** (`drive_listFiles`), not dots (`drive.listFiles`); `--server` must be part of `mcporter call`, not a top-level flag.  
+   - **Failure:** "unauthorized", "authorize the app", or agent suggests manual steps instead of calling a tool or exec.
 
 2. **"Show my Google Drive root — first 5 files or folders."**  
    - **Success:** Agent calls `drive_listFiles` (or similar) and returns file names/IDs.  
