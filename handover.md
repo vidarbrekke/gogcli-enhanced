@@ -1,69 +1,361 @@
-# Handover: gogcli-enhanced
+# Handover: gogcli-enhanced (Hybrid Provider Parity Pivot)
 
-Single entry point for a new developer. See **Key documents** for details; this file states current status and next steps only.
+## Developer Quickstart (First 60 Minutes)
+
+Use this if you are new and need to execute without prior context.
+
+### 1) Understand the mission (5 min)
+- `gogcli-enhanced` remains the **control plane** (determinism, stable contracts, safety).
+- `gws` is a **backend provider** for selected Tier A reads.
+- We are explicitly preventing “keep up with Google” tax via parity + drift controls.
+
+### 2) Read only what matters first (10 min)
+Start here, in this order:
+1. `handover.md` (this file)
+2. `gogcli-developer-handover/HANDOVER.md` (full handover bundle)
+3. `docs/merge/discovery-drift-policy.md` (drift stance + CI philosophy)
+4. `docs/merge/GWS-SAMPLES.md` (validated gws stdout/stderr behaviors)
+5. `docs/merge/CAPTURE-403-RUNBOOK.md` (one-time 403 capture)
+6. `gogcli-developer-handover/templates/PARITY-RUNNER-README.md` (parity runner scope)
+
+### 3) Validate local setup (5 min)
+- Run:
+  - `make test`
+  - `make lint`
+- If either fails, stop and fix environment/toolchain first.
+
+### 3.1) Smoke-run parity locally (5 min)
+Once PR #1 lands (runner skeleton), you should be able to run:
+- `go run ./cmd/gog-parity --fixtures docs/merge/goldens --schemas docs/merge/schemas --provider gws > parity-report.json`
+
+Expected:
+- Exit code 0
+- `parity-report.json` is created
+- Report contains cases and correct error classification for gws (error JSON may be on **stdout**)
+
+### 4) Execute in 3 PRs (30+ min kickoff)
+- **PR #1:** parity runner skeleton + fixture loader + classification.
+- **PR #2:** gws normalization (Gmail first) + schema validation.
+- **PR #3:** diff/reporting + CI workflow + 401/404 hard gating.
+
+Use section `## 7) PR Plan (Explicit)` in this document as your checklist.
+
+PR review rule:
+- Reviewers must open the generated `parity-report.json` (local file or CI artifact) and confirm that any differences are correctly classified as `breaking` vs `drift` before approving.
+
+### 5) Keep these invariants (always)
+- `google_reason` is drift-only forever.
+- Never parse error `message` for semantics.
+- No live API calls in parity runner.
+- No schema/contract expansion without explicit consumer need.
+- Treat list ordering as non-contractual unless explicitly documented (prefer set-by-id comparisons).
+
+### 6) Definition of success for this pivot
+- 401 + 404 are hard-gated in parity CI.
+- 403 is soft-gated until maintainer captures real 403 golden, then promoted to hard.
+- Parity report clearly separates `breaking` vs `drift`.
+
+### 7) Common pitfalls (avoid these)
+- **gws error location:** gws can emit error JSON on **stdout**; classification must check `stdout.error`, not only stderr/exit code.
+- **Stream precedence:** if both stdout and stderr contain JSON errors, prefer stderr (native convention), otherwise use whichever stream has the JSON error object.
+- **False contract churn:** do not treat `google_reason` or freeform `message` as contractual; they are drift-only.
+- **Over-scoped schemas:** only require minimal fields consumers need (`id`, `name`, etc.); avoid strictness without a real consumer requirement.
+- **Unstable diffs:** compare Gmail labels as set-by-id (order drift allowed) instead of raw list order.
+- **Runner scope creep:** no live API calls, dynamic discovery pinning, or auto-upgrade logic inside parity runner.
+- **CI gate timing:** 401+404 are hard now; 403 becomes hard only after real 403 golden is captured and committed.
 
 ---
 
-## Key documents
+## 0) Read This First
 
-| Purpose | Document |
-|--------|----------|
-| Repo rules, build, test, commit, agentic workflow | `AGENTS.md` |
-| Docs/Sheets/Slides agent ops roadmap + MCP parity | `DOCS_AGENT_PLAN.md` |
-| Docs/Sheets editing (user-facing) | `docs/editing.md` |
-| Linode + OpenClaw MCP deploy & troubleshooting | `docs/openclaw-linode-runbook.md` |
-| MCP tool reference (Drive/Docs/Sheets + Gmail/Calendar/Contacts when added) | `docs/TOOLS-gog-agentic-section.md` |
-| Shared agentic edit helpers | `internal/cmd/edit_helpers.go` |
-| External review feedback (prioritized) | `docs/refactor/external-review-feedback.md` |
-| Cursor rules reference (workspace + user) | `docs/CURSOR-RULES-FULL-TEXT.md` |
+This file is the **single developer takeover guide** for the current workstream.
+If you are new to this repository, start here, then open `gogcli-developer-handover/HANDOVER.md`.
+
+Primary objective:
+- Keep `gogcli-enhanced` as the **agent-safe control plane** (stable contracts, deterministic behavior, safety semantics).
+- Allow `gws` to be used as a backend for selected Tier A read commands **without contract drift**.
 
 ---
 
-## Context
+## 1) Project Overview
 
-- **Docs:** Full edit suite (replace, append, insert, delete, batch, insert-table, insert-image, merge-data) with agentic flags (`--dry-run`, `--validate-only`, `--pretty`, `--output-request-file`, `--execute-from-file`), structured `EditError`, JSON envelopes.
-- **Sheets:** Edit commands (values, append, clear, batch, delete-range, merge-data) use same shared helpers and safety flags.
-- **Slides:** Edit batch + replace-text + create-slide; merge-data design in Phase 3.
-- **MCP (gog-agentic):** Drive, Docs, Sheets (and Slides) tools; token-efficient tools/call (content only). Gmail, Calendar, Contacts and small gaps (sheets_clear, sheets_metadata, docs_export) are planned—see `DOCS_AGENT_PLAN.md`.
+`gogcli-enhanced` is a Go CLI and MCP-oriented control plane for Google Workspace operations.
+Its value is not raw API breadth; it is:
+- deterministic request lifecycle (`--dry-run`, `--validate-only`, replayability)
+- stable machine-readable envelopes (`error_code`, consistent JSON)
+- safety and predictable behavior across commands/services
 
----
+### What changed (the pivot)
 
-## Current status
+Google’s latest tooling release (via `gws`) provides broad API coverage quickly, but response envelopes and behavior can vary (notably error handling on stdout, reason-string drift, ordering/optional-field variance).
 
-- **Done:** Phase 1 (shared foundation in `edit_helpers.go`). Phase 2A (Sheets edit). Phase 2B (Docs edit refactor: replace, insert, delete, insert-table). Phase 3 items: Sheets delete-range, Docs insert-image, MergeData design + Docs/Sheets merge-data CLI.
-- **In progress / next:** Tier 2 (apply-style; insert-toc blocked by Docs API) or Tier 1 (apply-template, extract-data); Slides batch completeness; cross-service hardening; docs/CHANGELOG. MCP parity (Gmail, Calendar, Contacts, sheets_clear, sheets_metadata, docs_export) done.
+Because of that, we are pivoting to a **hybrid architecture**:
+- **Tier A (read/list/get):** can route to `gws` through a strict normalization/parity layer.
+- **Tier C (edit/write/merge/safety-critical):** stays native in `gogcli-enhanced`.
 
----
-
-## MCP & Linode
-
-- **Drive “only N folders”:** Gateway/exec caps tool result length. We use paginated list/search (no `--all`): one page, `nextPageToken`; agent loops with `page`/`pageToken`. See `docs/openclaw-linode-runbook.md` §8.10.
-- **Deploy (Linode):** From repo: `./scripts/deploy.sh` (set `WORKSPACE_DIR` if workspace not auto-detected). Pulls, builds, copies binary, restarts mcporter daemon.
-- **Aliases:** MCP tools accept `pageToken`→`page`, `maxResults`/`pageSize`→`max` (capped). See `internal/mcp/providers/google/tools.go` and TOOLS doc.
+This preserves product value (determinism + safety) while benefiting from provider breadth.
 
 ---
 
-## Agent discipline & rules
+## 2) Non-Negotiables
 
-- Repo rules: `AGENTS.md`. User rules: Cursor Settings → Rules (global). Reference copy: `docs/CURSOR-RULES-FULL-TEXT.md`. Do not broad-refactor, upgrade deps, or change toolchain without approval; prefer minimal diffs; fix root cause, not symptoms.
+These are mandatory and override convenience:
 
----
+1. `google_reason` is **drift-only forever**.
+2. Never parse freeform `message` text for semantics.
+3. Contracts/schemas stay minimal and stable (only fields consumers need).
+4. No live API calls inside parity runner (fixtures-only).
+5. No auto-upgrade or dynamic discovery pinning logic in parity runner.
+6. `gws` upgrades are value-triggered/quarterly, not continuous churn.
 
-## Next steps (new developer)
-
-1. Read `AGENTS.md`, then `DOCS_AGENT_PLAN.md` for roadmap and MCP action items.
-2. Run `make test` and `make lint`; fix any failures in your area.
-3. Pick work from `DOCS_AGENT_PLAN.md` (Docs ops, MCP parity) or: Tier 2 (apply-style) or Tier 1 (apply-template, extract-data), Slides batch, cross-service JSON hardening, README/CHANGELOG.
-4. One feature/PR at a time; tests with command; no server/config/version changes without approval.
-
----
-
-## Scope guardrails
-
-- No rich formatting/UI editing unless required. Reuse existing auth/scopes. Prefer backward compatibility. Keep PRs small and feature-focused.
+Reference:
+- `gogcli-developer-handover/HANDOVER.md`
+- `docs/merge/discovery-drift-policy.md`
 
 ---
 
-## Definition of done (per command)
+## 2.1) Glossary (fast)
 
-- JSON mode with deterministic fields; validate-only and/or dry-run where appropriate; structured JSON errors (`error_code`); unit tests for success + safety + errors; `make test` and `make lint` pass.
+- **Control plane:** gogcli-enhanced’s stable contracts + safety semantics + deterministic workflows.
+- **Provider:** execution backend (native gog, `gws`, future backends) whose outputs are normalized into canonical contracts.
+- **Parity:** fixtures-only comparison of provider outputs against the canonical schema + diff rules.
+- **Breaking vs drift:** breaking fails CI (contract/classification/safety). Drift is reported but non-blocking (e.g., `message`, `google_reason`, ordering).
+
+---
+
+## 3) Source of Truth Files
+
+Read in this order:
+
+1. `gogcli-developer-handover/HANDOVER.md`
+2. `docs/merge/discovery-drift-policy.md`
+3. `docs/merge/GWS-SAMPLES.md`
+4. `docs/merge/CAPTURE-403-RUNBOOK.md`
+5. `gogcli-developer-handover/templates/PARITY-RUNNER-README.md`
+6. `AGENTS.md` (repo conventions and guardrails)
+
+Support material:
+- `gogcli-developer-handover/artifacts/envelope-artifacts-v2.zip`
+- `gogcli-developer-handover/artifacts/gmail-error-taxonomy-lock.zip`
+- `gogcli-developer-handover/artifacts/gog-parity-specs.zip`
+
+---
+
+## 4) Current State (As Of This Handover)
+
+Completed:
+- Gmail 401 unauthenticated golden captured (under `docs/merge/goldens/`)
+- Gmail 404 not_found golden captured (under `docs/merge/goldens/`)
+- 403 placeholder + maintainer runbook in place
+- Drift policy documented (`google_reason` drift-only)
+- Bundle/templates staged under `gogcli-developer-handover/`
+
+Not yet implemented (code):
+- parity runner CLI (`cmd/gog-parity`)
+- fixture loader/classifier/normalizer/schema validator/diff reporter
+- CI parity workflow wiring
+
+---
+
+## 5) Execution Plan (Detailed, New-Developer Friendly)
+
+### Phase A — Local Bootstrap (Day 1)
+
+1. Verify toolchain and repo health:
+   - `make test`
+   - `make lint`
+2. Read the source-of-truth files above.
+3. Confirm fixture tree exists under `docs/merge/goldens` and schemas under `docs/merge/schemas`.
+4. Create a short personal checklist from Section 6 and keep it updated in PR descriptions.
+
+Exit criteria:
+- You can explain the difference between **breaking parity** and **drift-only differences**.
+
+### Phase B — PR #1 (Parity runner skeleton + fixture loader + classification)
+
+Scope:
+- Add `cmd/gog-parity` entrypoint.
+- Implement fixture discovery/loading from:
+  - `docs/merge/goldens/<case>/<provider>/stdout.json`
+  - `docs/merge/goldens/<case>/<provider>/stderr.json`
+  - `docs/merge/goldens/<case>/<provider>/exit_code.txt`
+- Note: gws error JSON may be on stdout; always load and attempt to parse both streams.
+- Implement deterministic outcome classification:
+  - ERROR when:
+    - `exit_code != 0`, OR
+    - `stderr_json.error` exists, OR
+    - `stdout_json.error` exists (critical for gws)
+
+Recommended package split (YAGNI):
+- `internal/parity/io`
+- `internal/parity/classify`
+- `cmd/gog-parity`
+
+Tests to add:
+- classifier table tests for all 3 error sources
+- malformed/empty JSON fixture behavior tests
+
+Exit criteria:
+- runner enumerates fixtures and classifies outcomes correctly
+- report file emitted (even if normalization/diff is stubbed)
+
+### Phase C — PR #2 (Normalization + schema validation, Gmail first)
+
+Scope:
+- Add provider normalization interface:
+  - `Normalize(provider, invocationCtx, stdout, stderr, exitCode) -> canonical`
+- Implement gws error normalization:
+  - map `http_status := error.code`
+  - map `google_reason := error.reason` (drift-only)
+  - map `error_code` by status:
+    - 400 -> `invalid_argument`
+    - 401 -> `unauthenticated`
+    - 403 -> `permission_denied`
+    - 404 -> `not_found`
+    - 429 -> `resource_exhausted`
+    - default -> `unknown`
+- Inject `service`, `operation`, `resource_id` from invocation context only.
+- Add schema validation for envelope + Gmail command schemas.
+
+Recommended package split:
+- `internal/parity/normalize`
+- `internal/parity/schema`
+
+Tests to add:
+- gws 401 + 404 normalize to expected canonical error_code/http_status
+- schema pass/fail tests for canonical outputs
+
+Exit criteria:
+- 401 and 404 goldens validate and normalize cleanly
+
+### Phase D — PR #3 (Diff/reporting + Gmail set-by-id + CI)
+
+Scope:
+- Implement minimal recursive diff with json-pointer paths.
+- Separate findings into:
+  - `breaking`
+  - `drift`
+- Drift allowlist includes:
+  - message text
+  - `google_reason`
+  - ordering variance where configured
+- Gmail labels comparison as set keyed by `id`.
+- Add GitHub Action using template `gogcli-developer-handover/templates/github-actions-parity.yml`.
+- Upload parity report artifact (`parity-report.json`) in CI.
+
+Gate policy now:
+- hard required: 401 + 404
+- 403 remains soft until real 403 golden is committed
+
+Exit criteria:
+- PR CI runs parity job on fixtures and uploads report
+- breaking vs drift separation is explicit and deterministic
+
+### Phase E — Maintainer follow-up (Not for general dev)
+
+- Capture real 403 using `docs/merge/CAPTURE-403-RUNBOOK.md`.
+- Commit real 403 golden.
+- Promote 403 to hard CI requirement.
+
+---
+
+## 6) Implementation Checklist (Copy Into PR)
+
+- [ ] Read handover + drift policy + samples
+- [ ] Implement fixture loader
+- [ ] Implement classification (exit/stderr/stdout error)
+- [ ] Add table tests for classification
+- [ ] Implement gws normalization mapping (http -> error_code)
+- [ ] Ensure `google_reason` is drift-only, never breaking
+- [ ] Add schema validation for envelope + Gmail schemas
+- [ ] Add recursive diff with breaking/drift split
+- [ ] Add Gmail labels set-by-id comparator
+- [ ] Emit `parity-report.json`
+- [ ] Add CI workflow + artifact upload
+- [ ] Confirm 401 + 404 hard gate; 403 soft gate pending real golden
+
+---
+
+## 7) PR Plan (Explicit)
+
+### PR #1 — Parity Runner Foundation
+
+Title suggestion:
+- `feat(parity): add fixture loader and outcome classification skeleton`
+
+Include:
+- `cmd/gog-parity` basic command
+- `internal/parity/io` + `internal/parity/classify`
+- unit tests for fixture loading + classification
+- initial report JSON shape
+
+Do not include:
+- schema validation logic
+- provider normalization beyond stubs
+- CI workflow
+
+### PR #2 — Gmail Normalization + Schema Validation
+
+Title suggestion:
+- `feat(parity): normalize gws gmail errors and validate schemas`
+
+Include:
+- `internal/parity/normalize` (gws-focused)
+- `internal/parity/schema`
+- tests for 401/404 normalization and schema validation
+
+Do not include:
+- complex diff engine
+- CI gating changes
+
+### PR #3 — Diff/Reporting + CI
+
+Title suggestion:
+- `feat(parity): add drift-aware diff reporting and parity CI`
+
+Include:
+- drift vs breaking diff classification
+- Gmail labels set-by-id compare
+- GitHub Action parity workflow and artifact upload
+- gate config for 401/404 hard, 403 soft
+
+---
+
+## 8) How To Add a New Command Spec (2–3 Steps)
+
+1. Add fixtures for **both** providers (`native` and `gws`) under `docs/merge/goldens/<case>/<provider>/` with `stdout.json`, `stderr.json`, `exit_code.txt`.
+2. Add or tighten the minimal command schema in `docs/merge/schemas/`.
+3. Register normalization + diff rules (if needed) and run parity runner in CI.
+
+Rule: add only the minimum required contract fields; keep drift fields non-breaking unless a consumer explicitly depends on them.
+
+---
+
+## 9) Reporting Format Expectations
+
+`parity-report.json` should include at minimum:
+- run metadata (timestamp, provider/version if known)
+- per-case result
+- `breaking[]` entries (path + reason)
+- `drift[]` entries (path + reason)
+- `normalizations_applied[]`
+
+This report is the artifact uploaded by CI for PR review.
+Reviewers must explicitly check the artifact and ensure there are **no breaking diffs** (drift is allowed per policy).
+
+---
+
+## 10) Operational Guardrails
+
+- Keep changes small and reversible.
+- No dependency/toolchain/version changes without explicit approval.
+- No broad refactors unrelated to parity implementation.
+- Tests first/alongside for non-trivial logic.
+- Preserve existing command contracts unless explicitly approved.
+
+---
+
+## 11) Immediate Next Action
+
+Start **PR #1** with fixture loading + classification only.
+If uncertain, optimize for smaller diff and deterministic behavior over feature completeness.
