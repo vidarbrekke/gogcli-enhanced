@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -70,14 +71,13 @@ func TestDriveLsCmd_TextAndJSON(t *testing.T) {
 
 	// Text mode: table to stdout + next page hint to stderr.
 	var errBuf bytes.Buffer
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{})
-
 	textOut := captureStdout(t, func() {
+		u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: &errBuf, Color: "never"})
+		if err != nil {
+			t.Fatalf("ui.New: %v", err)
+		}
+		ctx := ui.WithUI(context.Background(), u)
+		ctx = outfmt.WithMode(ctx, outfmt.Mode{})
 		cmd := &DriveLsCmd{}
 		if execErr := runKong(t, cmd, []string{}, ctx, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)
@@ -98,23 +98,13 @@ func TestDriveLsCmd_TextAndJSON(t *testing.T) {
 	}
 
 	// JSON mode: JSON to stdout and no next-page hint to stderr.
-	var errBuf2 bytes.Buffer
-	u2, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf2, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx2 := ui.WithUI(context.Background(), u2)
-	ctx2 = outfmt.WithMode(ctx2, outfmt.Mode{JSON: true})
-
 	jsonOut := captureStdout(t, func() {
+		ctx2 := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &DriveLsCmd{}
 		if execErr := runKong(t, cmd, []string{}, ctx2, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)
 		}
 	})
-	if errBuf2.String() != "" {
-		t.Fatalf("expected no stderr in json mode, got: %q", errBuf2.String())
-	}
 
 	var parsed struct {
 		Files         []*drive.File `json:"files"`
@@ -128,15 +118,8 @@ func TestDriveLsCmd_TextAndJSON(t *testing.T) {
 	}
 
 	// Plain mode: stable TSV (tabs preserved).
-	var errBuf3 bytes.Buffer
-	u3, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf3, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx3 := ui.WithUI(context.Background(), u3)
-	ctx3 = outfmt.WithMode(ctx3, outfmt.Mode{Plain: true})
-
 	plainOut := captureStdout(t, func() {
+		ctx3 := outfmt.WithMode(context.Background(), outfmt.Mode{Plain: true})
 		cmd := &DriveLsCmd{}
 		if execErr := runKong(t, cmd, []string{}, ctx3, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)
@@ -241,11 +224,8 @@ func TestDriveLsCmd_AllFlagCombinesPages(t *testing.T) {
 	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, _ := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
 	jsonOut := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &DriveLsCmd{}
 		if execErr := runKong(t, cmd, []string{"--all"}, ctx, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)

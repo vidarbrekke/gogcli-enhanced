@@ -16,7 +16,6 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestGmailWatchStartCmd_JSON(t *testing.T) {
@@ -70,13 +69,7 @@ func TestGmailWatchStartCmd_JSON(t *testing.T) {
 
 	flags := &RootFlags{Account: "a@b.com"}
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if execErr := runKong(t, &GmailWatchStartCmd{}, []string{
 			"--topic", "projects/p/topics/t",
 			"--label", "INBOX",

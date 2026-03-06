@@ -165,7 +165,7 @@ func TestApplyDeferredBullets_NilBody(t *testing.T) {
 // =============================================================================
 
 func TestRunManualInner_NoMatch(t *testing.T) {
-	doc := buildDoc(para(plain("hello world")))
+	doc := buildDoc(sedPara(plain("hello world")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 
@@ -453,7 +453,7 @@ func TestSedIntegration_ClearDocument(t *testing.T) {
 }
 
 func TestSedIntegration_PipeTableCreate(t *testing.T) {
-	doc := buildDoc(para(plain("[TABLE]")))
+	doc := buildDoc(sedPara(plain("[TABLE]")))
 	reqs := runSedIntegration(t, doc, `s/\[TABLE\]/|A|B|\n|1|2|/`, nil)
 	hasTableInsert := false
 	for _, r := range reqs {
@@ -471,14 +471,14 @@ func TestSedIntegration_CellReplace(t *testing.T) {
 
 func TestSedIntegration_DeleteCommand(t *testing.T) {
 	doc := buildDoc(
-		para(plain("keep this")),
-		para(plain("delete this")),
+		sedPara(plain("keep this")),
+		sedPara(plain("delete this")),
 	)
 	runSedIntegration(t, doc, "d/delete/", nil)
 }
 
 func TestSedIntegration_TransliterateCommand(t *testing.T) {
-	doc := buildDoc(para(plain("hello")))
+	doc := buildDoc(sedPara(plain("hello")))
 	runSedIntegration(t, doc, "y/helo/HELO/", nil)
 }
 
@@ -573,7 +573,7 @@ func TestRunTableCellReplace_WildcardRow(t *testing.T) {
 // =============================================================================
 
 func TestFetchDoc(t *testing.T) {
-	doc := buildDoc(para(plain("hello")))
+	doc := buildDoc(sedPara(plain("hello")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 	mockDocsService(t, svc)
@@ -879,8 +879,8 @@ func TestCanBatchCell_MoreCases(t *testing.T) {
 
 func TestFindDocMatches_AcrossElements(t *testing.T) {
 	doc := buildDoc(
-		para(bold("Hello "), plain("world")),
-		para(plain("Hello again")),
+		sedPara(bold("Hello "), plain("world")),
+		sedPara(plain("Hello again")),
 	)
 	expr := sedExpr{pattern: "Hello", replacement: "Hi", global: true}
 	re, err := expr.compilePattern()
@@ -911,7 +911,7 @@ func TestFindDocMatches_InTable(t *testing.T) {
 // =============================================================================
 
 func TestSedIntegration_BatchWithImageReplacement(t *testing.T) {
-	doc := buildDoc(para(plain("LOGO here and text")))
+	doc := buildDoc(sedPara(plain("LOGO here and text")))
 
 	var captured []*docs.Request
 	srv := mockDocsServerAdvanced(t, doc, func(reqs []*docs.Request) {

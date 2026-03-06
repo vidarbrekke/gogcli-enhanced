@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,7 +12,6 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestGmailSendAsListCmd_JSON(t *testing.T) {
@@ -62,13 +60,7 @@ func TestGmailSendAsListCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com", Force: true}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailSendAsListCmd{}, []string{}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
@@ -132,13 +124,7 @@ func TestGmailSendAsGetCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com", Force: true}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailSendAsGetCmd{}, []string{"work@company.com"}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
@@ -196,13 +182,7 @@ func TestGmailBatchDeleteCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com", Force: true}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailBatchDeleteCmd{}, []string{"msg1", "msg2", "msg3"}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
@@ -272,13 +252,7 @@ func TestGmailBatchModifyCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com", Force: true}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailBatchModifyCmd{}, []string{
 			"msg1", "msg2",
 			"--add", "INBOX",
@@ -343,13 +317,7 @@ func TestGmailSendAsCreateCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com", Force: true}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailSendAsCreateCmd{}, []string{
 			"alias@example.com",
 			"--display-name", "Test Alias",
@@ -404,13 +372,7 @@ func TestGmailSendAsDeleteCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com", Force: true}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailSendAsDeleteCmd{}, []string{"delete-me@example.com"}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
@@ -461,13 +423,7 @@ func TestGmailSendAsVerifyCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailSendAsVerifyCmd{}, []string{"verify-me@example.com"}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
@@ -529,13 +485,7 @@ func TestGmailSendAsUpdateCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailSendAsUpdateCmd{}, []string{
 			"update@example.com",
 			"--display-name", "New Name",

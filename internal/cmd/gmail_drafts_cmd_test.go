@@ -69,13 +69,7 @@ func TestGmailDraftsListCmd_TextAndJSON(t *testing.T) {
 	}
 
 	jsonOut := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &GmailDraftsListCmd{}
 		if err := runKong(t, cmd, []string{}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
@@ -197,13 +191,7 @@ func TestGmailDraftsDeleteCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com", Force: true}
 
 	jsonOut := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &GmailDraftsDeleteCmd{}
 		if err := runKong(t, cmd, []string{"d1"}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
@@ -302,13 +290,7 @@ func TestGmailDraftsCreateCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	jsonOut := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailDraftsCreateCmd{}, []string{"--to", "a@example.com", "--subject", "S", "--body", "Hello"}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
@@ -380,13 +362,7 @@ func TestGmailDraftsCreateCmd_NoTo(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	_ = captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailDraftsCreateCmd{}, []string{"--subject", "S", "--body", "Hello"}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
@@ -455,13 +431,7 @@ func TestGmailDraftsCreateCmd_WithFromAndReply(t *testing.T) {
 	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 	_ = captureStdout(t, func() {
 		if err := runKong(t, &GmailDraftsCreateCmd{}, []string{
 			"--to", "a@example.com",
@@ -576,13 +546,7 @@ func TestGmailDraftsCreateCmd_WithQuote(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	_ = captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailDraftsCreateCmd{}, []string{
 			"--to", "a@example.com",
 			"--subject", "S",
@@ -704,13 +668,7 @@ func TestGmailDraftsUpdateCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	jsonOut := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailDraftsUpdateCmd{}, []string{
 			"d1",
 			"--to", "a@example.com",
@@ -821,13 +779,7 @@ func TestGmailDraftsUpdateCmd_PreservesToWhenNotProvided(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	_ = captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailDraftsUpdateCmd{}, []string{
 			"d1",
 			"--subject", "Updated",
@@ -1001,13 +953,7 @@ func TestGmailDraftsUpdateCmd_WithQuoteFromExistingThread(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	_ = captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailDraftsUpdateCmd{}, []string{
 			"d1",
 			"--subject", "Updated",
@@ -1202,13 +1148,7 @@ func TestGmailDraftsUpdateCmd_WithQuoteAndReplyToMessageID(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	_ = captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailDraftsUpdateCmd{}, []string{
 			"d1",
 			"--to", "keep@example.com",

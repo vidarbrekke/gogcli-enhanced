@@ -203,7 +203,7 @@ func TestRunTableOp_OutOfRange(t *testing.T) {
 }
 
 func TestRunTableOp_NoTables(t *testing.T) {
-	doc := buildDoc(para(plain("no tables")))
+	doc := buildDoc(sedPara(plain("no tables")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 	mockDocsService(t, svc)
@@ -334,7 +334,7 @@ func TestRunTableRowColOp_DeleteCol(t *testing.T) {
 }
 
 func TestRunTableRowColOp_NoTables(t *testing.T) {
-	doc := buildDoc(para(plain("no tables")))
+	doc := buildDoc(sedPara(plain("no tables")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 	mockDocsService(t, svc)
@@ -743,7 +743,7 @@ func TestRunSingle_CellRef(t *testing.T) {
 }
 
 func TestRunSingle_TableCreate(t *testing.T) {
-	doc := buildDoc(para(plain("PLACEHOLDER")))
+	doc := buildDoc(sedPara(plain("PLACEHOLDER")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 	mockDocsService(t, svc)
@@ -874,7 +874,7 @@ func TestRunBatch_WithPositional(t *testing.T) {
 }
 
 func TestRunBatch_WithManualFormatting(t *testing.T) {
-	doc := buildDoc(para(plain("hello world")))
+	doc := buildDoc(sedPara(plain("hello world")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 	mockDocsService(t, svc)
@@ -915,7 +915,7 @@ func TestRunBatch_WithCommand(t *testing.T) {
 }
 
 func TestRunBatch_TableCreate(t *testing.T) {
-	doc := buildDoc(para(plain("TABLE_HERE")))
+	doc := buildDoc(sedPara(plain("TABLE_HERE")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 	mockDocsService(t, svc)

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -16,7 +15,6 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestReplyHeaders(t *testing.T) {
@@ -344,19 +342,13 @@ func TestGmailSendCmd_RunJSON(t *testing.T) {
 	defer cleanup()
 	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := &GmailSendCmd{
 		To:      "a@example.com",
 		Subject: "Hello",
 		Body:    "Body",
 	}
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
 			t.Fatalf("Run: %v", err)
 		}
@@ -409,20 +401,14 @@ func TestGmailSendCmd_RunJSON_WithFrom(t *testing.T) {
 	}
 	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := &GmailSendCmd{
 		To:      "a@example.com",
 		From:    "alias@example.com",
 		Subject: "Hello",
 		Body:    "Body",
 	}
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
 			t.Fatalf("Run: %v", err)
 		}
@@ -476,20 +462,14 @@ func TestGmailSendCmd_RunJSON_WithFromDisplayNameFallbackToList(t *testing.T) {
 	}
 	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := &GmailSendCmd{
 		To:      "a@example.com",
 		From:    " alias@example.com ",
 		Subject: "Hello",
 		Body:    "Body",
 	}
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
 			t.Fatalf("Run: %v", err)
 		}
@@ -544,20 +524,14 @@ func TestGmailSendCmd_RunJSON_PrimaryAccountDisplayName(t *testing.T) {
 	}
 	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := &GmailSendCmd{
 		To:      "recipient@example.com",
 		Subject: "Hello",
 		Body:    "Body",
 		// Note: No From field set - testing primary account display name lookup
 	}
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
 			t.Fatalf("Run: %v", err)
 		}
@@ -617,19 +591,13 @@ func TestGmailSendCmd_RunJSON_PrimaryAccountDisplayNameFallbackToList(t *testing
 	}
 	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := &GmailSendCmd{
 		To:      "recipient@example.com",
 		Subject: "Hello",
 		Body:    "Body",
 	}
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
 			t.Fatalf("Run: %v", err)
 		}
@@ -679,19 +647,13 @@ func TestGmailSendCmd_RunJSON_PrimaryAccountNoDisplayName(t *testing.T) {
 	}
 	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := &GmailSendCmd{
 		To:      "recipient@example.com",
 		Subject: "Hello",
 		Body:    "Body",
 	}
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
 			t.Fatalf("Run: %v", err)
 		}
@@ -738,12 +700,6 @@ func TestGmailSendCmd_RunJSON_PrimaryAccountLookupFails(t *testing.T) {
 	}
 	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := &GmailSendCmd{
 		To:      "recipient@example.com",
 		Subject: "Hello",
@@ -752,6 +708,7 @@ func TestGmailSendCmd_RunJSON_PrimaryAccountLookupFails(t *testing.T) {
 
 	// Should NOT fail even if send-as lookup fails - should gracefully fall back to plain email
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
 			t.Fatalf("Run: %v (should not fail when send-as lookup fails for primary account)", err)
 		}

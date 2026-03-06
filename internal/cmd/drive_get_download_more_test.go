@@ -75,8 +75,8 @@ func TestDriveGetCmd_TextWithDetailsAndJSON(t *testing.T) {
 		t.Fatalf("missing details: %q", textOut)
 	}
 
-	jsonCtx := outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
 	jsonOut := captureStdout(t, func() {
+		jsonCtx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &DriveGetCmd{}
 		if execErr := runKong(t, cmd, []string{"file1"}, jsonCtx, flags); execErr != nil {
 			t.Fatalf("execute json: %v", execErr)
@@ -131,14 +131,9 @@ func TestDriveDownloadCmd_GoogleDoc_JSON(t *testing.T) {
 	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	dest := filepath.Join(t.TempDir(), "out.bin")
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &DriveDownloadCmd{}
 		if execErr := runKong(t, cmd, []string{"doc1", "--out", dest}, ctx, flags); execErr != nil {
 			t.Fatalf("download: %v", execErr)

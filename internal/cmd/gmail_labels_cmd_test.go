@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -111,13 +112,7 @@ func TestGmailLabelsGetCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &GmailLabelsGetCmd{}
 		if err := runKong(t, cmd, []string{"INBOX"}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
@@ -179,7 +174,7 @@ func TestGmailLabelsListCmd_TextAndJSON(t *testing.T) {
 
 	// Text output uses tabwriter to os.Stdout.
 	textOut := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+		u, uiErr := ui.New(ui.Options{Stdout: os.Stdout, Stderr: io.Discard, Color: "never"})
 		if uiErr != nil {
 			t.Fatalf("ui.New: %v", uiErr)
 		}
@@ -199,13 +194,7 @@ func TestGmailLabelsListCmd_TextAndJSON(t *testing.T) {
 	}
 
 	jsonOut := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &GmailLabelsListCmd{}
 		if err := runKong(t, cmd, []string{}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
@@ -288,13 +277,7 @@ func TestGmailLabelsModifyCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &GmailLabelsModifyCmd{}
 		if err := runKong(t, cmd, []string{"t1", "t2", "--add", "INBOX", "--remove", "Custom"}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
@@ -355,13 +338,7 @@ func TestGmailLabelsCreateCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &GmailLabelsCreateCmd{}
 		if err := runKong(t, cmd, []string{"Test Label"}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)

@@ -115,13 +115,7 @@ func TestDocsCreateCopyCat_JSON(t *testing.T) {
 	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 	_ = captureStdout(t, func() {
 		cmd := &DocsCreateCmd{}
 		if err := runKong(t, cmd, []string{"Doc"}, ctx, flags); err != nil {
@@ -343,11 +337,8 @@ func TestDocsCat_AllTabs_JSON(t *testing.T) {
 	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, _ := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &DocsCatCmd{}
 		if err := runKong(t, cmd, []string{"doc1", "--all-tabs"}, ctx, flags); err != nil {
 			t.Fatalf("cat --all-tabs --json: %v", err)
@@ -496,11 +487,8 @@ func TestDocsCat_SingleTab_JSON(t *testing.T) {
 	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, _ := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &DocsCatCmd{}
 		if err := runKong(t, cmd, []string{"doc1", "--tab", "Overview"}, ctx, flags); err != nil {
 			t.Fatalf("cat --tab Overview --json: %v", err)

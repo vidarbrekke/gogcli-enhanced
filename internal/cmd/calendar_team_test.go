@@ -59,13 +59,8 @@ func TestCalendarTeamRunFreeBusy(t *testing.T) {
 	}
 
 	cmd := &CalendarTeamCmd{GroupEmail: "group@example.com"}
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := cmd.runFreeBusy(ctx, svc, []string{"a@example.com", "b@example.com"}, tr); err != nil {
 			t.Fatalf("runFreeBusy: %v", err)
 		}
@@ -135,13 +130,12 @@ func TestCalendarTeamRunEvents_Dedupe(t *testing.T) {
 	}
 
 	cmd := &CalendarTeamCmd{GroupEmail: "group@example.com"}
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	out := captureStdout(t, func() {
+		u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
+		if err != nil {
+			t.Fatalf("ui.New: %v", err)
+		}
+		ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
 		if err := cmd.runEvents(ctx, svc, u, []string{"a@example.com", "b@example.com"}, tr); err != nil {
 			t.Fatalf("runEvents: %v", err)
 		}

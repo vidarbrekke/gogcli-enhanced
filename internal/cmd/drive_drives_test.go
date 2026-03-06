@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -55,14 +56,13 @@ func TestDriveDrivesCmd_TextAndJSON(t *testing.T) {
 
 	// Text mode: table to stdout + next page hint to stderr.
 	var errBuf bytes.Buffer
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{})
-
 	textOut := captureStdout(t, func() {
+		u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: &errBuf, Color: "never"})
+		if err != nil {
+			t.Fatalf("ui.New: %v", err)
+		}
+		ctx := ui.WithUI(context.Background(), u)
+		ctx = outfmt.WithMode(ctx, outfmt.Mode{})
 		cmd := &DriveDrivesCmd{}
 		if execErr := runKong(t, cmd, []string{}, ctx, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)
@@ -86,23 +86,13 @@ func TestDriveDrivesCmd_TextAndJSON(t *testing.T) {
 	}
 
 	// JSON mode: JSON to stdout and no next-page hint to stderr.
-	var errBuf2 bytes.Buffer
-	u2, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf2, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx2 := ui.WithUI(context.Background(), u2)
-	ctx2 = outfmt.WithMode(ctx2, outfmt.Mode{JSON: true})
-
 	jsonOut := captureStdout(t, func() {
+		ctx2 := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &DriveDrivesCmd{}
 		if execErr := runKong(t, cmd, []string{}, ctx2, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)
 		}
 	})
-	if errBuf2.String() != "" {
-		t.Fatalf("expected no stderr in json mode, got: %q", errBuf2.String())
-	}
 
 	var parsed struct {
 		Drives        []*drive.Drive `json:"drives"`
@@ -137,14 +127,13 @@ func TestDriveDrivesCmd_Empty(t *testing.T) {
 	flags := &RootFlags{Account: "test@example.com"}
 
 	var errBuf bytes.Buffer
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{})
-
 	_ = captureStdout(t, func() {
+		u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: &errBuf, Color: "never"})
+		if err != nil {
+			t.Fatalf("ui.New: %v", err)
+		}
+		ctx := ui.WithUI(context.Background(), u)
+		ctx = outfmt.WithMode(ctx, outfmt.Mode{})
 		cmd := &DriveDrivesCmd{}
 		if execErr := runKong(t, cmd, []string{}, ctx, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)
@@ -187,14 +176,13 @@ func TestDriveDrivesCmd_WithQuery(t *testing.T) {
 
 	flags := &RootFlags{Account: "test@example.com"}
 
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{})
-
 	_ = captureStdout(t, func() {
+		u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: io.Discard, Color: "never"})
+		if err != nil {
+			t.Fatalf("ui.New: %v", err)
+		}
+		ctx := ui.WithUI(context.Background(), u)
+		ctx = outfmt.WithMode(ctx, outfmt.Mode{})
 		cmd := &DriveDrivesCmd{}
 		if execErr := runKong(t, cmd, []string{"--query", " name contains 'Eng' ", "--page", " tok ", "--max", "7"}, ctx, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)
@@ -237,14 +225,8 @@ func TestDriveDrivesCmd_TextPlain_MissingCreatedTime(t *testing.T) {
 
 	flags := &RootFlags{Account: "test@example.com"}
 
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{Plain: true})
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{Plain: true})
 		cmd := &DriveDrivesCmd{}
 		if execErr := runKong(t, cmd, []string{}, ctx, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)

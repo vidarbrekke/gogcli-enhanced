@@ -209,7 +209,7 @@ func TestParseSedExpr_HashDelimiter(t *testing.T) {
 // =============================================================================
 
 func TestSedIntegration_DryRun(t *testing.T) {
-	doc := buildDoc(para(plain("hello world")))
+	doc := buildDoc(sedPara(plain("hello world")))
 
 	srv := mockDocsServerAdvanced(t, doc, nil)
 	defer srv.Close()

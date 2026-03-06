@@ -69,13 +69,8 @@ func TestInfoViaDriveCmd_TextAndJSON(t *testing.T) {
 	}
 
 	jsonOut := captureStdout(t, func() {
-		u2, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx2 := ui.WithUI(context.Background(), u2)
-		ctx2 = outfmt.WithMode(ctx2, outfmt.Mode{JSON: true})
-
+		// No UI in context so stdoutWriter(ctx) uses os.Stdout (the pipe).
+		ctx2 := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := infoViaDrive(ctx2, flags, infoViaDriveOptions{ArgName: "id"}, "id1"); err != nil {
 			t.Fatalf("execute: %v", err)
 		}

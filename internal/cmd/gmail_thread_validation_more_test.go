@@ -74,14 +74,9 @@ func TestGmailThreadAttachments_EmptyThread_JSON(t *testing.T) {
 	}
 	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
 
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
 	flags := &RootFlags{Account: "a@b.com"}
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := (&GmailThreadAttachmentsCmd{ThreadID: "t1"}).Run(ctx, flags); err != nil {
 			t.Fatalf("attachments: %v", err)
 		}

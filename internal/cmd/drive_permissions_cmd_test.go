@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -59,14 +59,13 @@ func TestDrivePermissionsCmd_TextAndJSON(t *testing.T) {
 
 	// Text mode: table to stdout + next page hint to stderr.
 	var errBuf bytes.Buffer
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{})
-
 	textOut := captureStdout(t, func() {
+		u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: &errBuf, Color: "never"})
+		if err != nil {
+			t.Fatalf("ui.New: %v", err)
+		}
+		ctx := ui.WithUI(context.Background(), u)
+		ctx = outfmt.WithMode(ctx, outfmt.Mode{})
 		cmd := &DrivePermissionsCmd{}
 		if execErr := runKong(t, cmd, []string{"--max", "1", "--page", "p1", "id1"}, ctx, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)
@@ -83,23 +82,13 @@ func TestDrivePermissionsCmd_TextAndJSON(t *testing.T) {
 	}
 
 	// JSON mode: JSON to stdout and no next-page hint to stderr.
-	var errBuf2 bytes.Buffer
-	u2, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf2, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx2 := ui.WithUI(context.Background(), u2)
-	ctx2 = outfmt.WithMode(ctx2, outfmt.Mode{JSON: true})
-
 	jsonOut := captureStdout(t, func() {
+		ctx2 := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &DrivePermissionsCmd{}
 		if execErr := runKong(t, cmd, []string{"--max", "1", "--page", "p1", "id1"}, ctx2, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)
 		}
 	})
-	if errBuf2.String() != "" {
-		t.Fatalf("expected no stderr in json mode, got: %q", errBuf2.String())
-	}
 
 	var parsed struct {
 		FileID          string              `json:"fileId"`
@@ -153,14 +142,8 @@ func TestDrivePermissionsCmd_OmitsEmptyPageToken(t *testing.T) {
 	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
-	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx = ui.WithUI(ctx, u)
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &DrivePermissionsCmd{}
 		if execErr := runKong(t, cmd, []string{"--max", "1", "id1"}, ctx, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)

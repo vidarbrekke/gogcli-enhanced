@@ -3,21 +3,13 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"testing"
 
 	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestAuthServices_JSON(t *testing.T) {
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 	out := captureStdout(t, func() {
 		cmd := &AuthServicesCmd{}
 		if err := cmd.Run(ctx, &RootFlags{}); err != nil {

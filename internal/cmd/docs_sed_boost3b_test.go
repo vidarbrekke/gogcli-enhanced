@@ -65,7 +65,7 @@ func TestFillTableCells_NoMatchingTable(t *testing.T) {
 // =============================================================================
 
 func TestRunTableCreate(t *testing.T) {
-	doc := buildDoc(para(plain("PLACEHOLDER")))
+	doc := buildDoc(sedPara(plain("PLACEHOLDER")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 	mockDocsService(t, svc)
@@ -80,7 +80,7 @@ func TestRunTableCreate(t *testing.T) {
 }
 
 func TestRunTableCreate_WithHeader(t *testing.T) {
-	doc := buildDoc(para(plain("PLACEHOLDER")))
+	doc := buildDoc(sedPara(plain("PLACEHOLDER")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 	mockDocsService(t, svc)
@@ -95,7 +95,7 @@ func TestRunTableCreate_WithHeader(t *testing.T) {
 }
 
 func TestRunTableCreate_PipeTable(t *testing.T) {
-	doc := buildDoc(para(plain("PLACEHOLDER")))
+	doc := buildDoc(sedPara(plain("PLACEHOLDER")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 	mockDocsService(t, svc)
@@ -111,7 +111,7 @@ func TestRunTableCreate_PipeTable(t *testing.T) {
 }
 
 func TestRunTableCreate_NoMatch(t *testing.T) {
-	doc := buildDoc(para(plain("no match here")))
+	doc := buildDoc(sedPara(plain("no match here")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 	mockDocsService(t, svc)
@@ -130,13 +130,13 @@ func TestRunTableCreate_NoMatch(t *testing.T) {
 // =============================================================================
 
 func TestSedIntegration_BraceFormatting(t *testing.T) {
-	doc := buildDoc(para(plain("highlight this")))
+	doc := buildDoc(sedPara(plain("highlight this")))
 	reqs := runSedIntegration(t, doc, "s/highlight/{b,c=red}highlight/", nil)
 	assert.NotEmpty(t, reqs)
 }
 
 func TestSedIntegration_BraceHeading(t *testing.T) {
-	doc := buildDoc(para(plain("Title Text")))
+	doc := buildDoc(sedPara(plain("Title Text")))
 	reqs := runSedIntegration(t, doc, "s/Title Text/{h1}Title Text/", nil)
 	assert.NotEmpty(t, reqs)
 }
@@ -146,7 +146,7 @@ func TestSedIntegration_BraceHeading(t *testing.T) {
 // =============================================================================
 
 func TestSedIntegration_BatchTableCreate(t *testing.T) {
-	doc := buildDoc(para(plain("TABLE1 and TABLE2")))
+	doc := buildDoc(sedPara(plain("TABLE1 and TABLE2")))
 	reqs := runSedIntegration(t, doc, "", []string{
 		"s/TABLE1/|2x3|/",
 		"s/TABLE2/|3x2|/",
@@ -226,7 +226,7 @@ func TestRunTableMerge_Unmerge(t *testing.T) {
 // =============================================================================
 
 func TestRunBatch_ImageExpressions(t *testing.T) {
-	doc := buildDoc(para(plain("LOGO here")))
+	doc := buildDoc(sedPara(plain("LOGO here")))
 	svc, cleanup := newSedTestServer(t, doc)
 	defer cleanup()
 	mockDocsService(t, svc)
@@ -486,7 +486,7 @@ func TestRunNative(t *testing.T) {
 // =============================================================================
 
 func TestSedIntegration_DryRunMulti(t *testing.T) {
-	doc := buildDoc(para(plain("hello world")))
+	doc := buildDoc(sedPara(plain("hello world")))
 
 	srv := mockDocsServerAdvanced(t, doc, nil)
 	defer srv.Close()

@@ -75,11 +75,6 @@ func TestCalendarCreateCmd_WithExtras(t *testing.T) {
 	}
 	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
 	flags := &RootFlags{Account: "a@b.com"}
 
 	yes := true
@@ -110,7 +105,8 @@ func TestCalendarCreateCmd_WithExtras(t *testing.T) {
 		SharedProps:           []string{"s=v"},
 	}
 	out := captureStdout(t, func() {
-		if err := cmd.Run(ctx, flags); err != nil {
+		jsonCtx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
+		if err := cmd.Run(jsonCtx, flags); err != nil {
 			t.Fatalf("Run: %v", err)
 		}
 	})

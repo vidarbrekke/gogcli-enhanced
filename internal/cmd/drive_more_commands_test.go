@@ -15,7 +15,6 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestDriveGetDownloadUploadURL_JSON(t *testing.T) {
@@ -81,13 +80,7 @@ func TestDriveGetDownloadUploadURL_JSON(t *testing.T) {
 	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
 
 	flags := &RootFlags{Account: "a@b.com", Force: true}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 	_ = captureStdout(t, func() {
 		cmd := &DriveGetCmd{}
 		if err := runKong(t, cmd, []string{"file1"}, ctx, flags); err != nil {

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -101,7 +102,7 @@ func TestDriveCommentsList_NoQuoted(t *testing.T) {
 
 	flags := &RootFlags{Account: "a@b.com"}
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+		u, uiErr := ui.New(ui.Options{Stdout: os.Stdout, Stderr: io.Discard, Color: "never"})
 		if uiErr != nil {
 			t.Fatalf("ui.New: %v", uiErr)
 		}

@@ -69,13 +69,7 @@ func TestGmailThreadModifyCmd_JSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	out := captureStdout(t, func() {
-		u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-		if uiErr != nil {
-			t.Fatalf("ui.New: %v", uiErr)
-		}
-		ctx := ui.WithUI(context.Background(), u)
-		ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailThreadModifyCmd{}, []string{
 			"t1",
 			"--add", "INBOX",

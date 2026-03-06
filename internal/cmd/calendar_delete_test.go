@@ -56,12 +56,6 @@ func TestCalendarDeleteCmd_ScopeSingle(t *testing.T) {
 	}
 	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := CalendarDeleteCmd{
 		CalendarID:        "cal@example.com",
 		EventID:           "ev",
@@ -70,6 +64,7 @@ func TestCalendarDeleteCmd_ScopeSingle(t *testing.T) {
 	}
 	flags := &RootFlags{Account: "a@b.com", Force: true}
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, flags); err != nil {
 			t.Fatalf("CalendarDeleteCmd: %v", err)
 		}
@@ -208,12 +203,6 @@ func TestCalendarDeleteCmd_ScopeFuture(t *testing.T) {
 	}
 	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := CalendarDeleteCmd{
 		CalendarID:        "cal@example.com",
 		EventID:           "ev",
@@ -222,6 +211,7 @@ func TestCalendarDeleteCmd_ScopeFuture(t *testing.T) {
 	}
 	flags := &RootFlags{Account: "a@b.com", Force: true}
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, flags); err != nil {
 			t.Fatalf("CalendarDeleteCmd: %v", err)
 		}

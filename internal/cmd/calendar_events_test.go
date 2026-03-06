@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,7 +14,6 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func newTestCalendarService(t *testing.T, handler http.Handler) (*calendar.Service, func()) {
@@ -48,14 +46,8 @@ func TestListCalendarEvents_JSON(t *testing.T) {
 	}))
 	defer closeServer()
 
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
 	jsonOut := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := listCalendarEvents(ctx, svc, "cal1", "2025-01-01T00:00:00Z", "2025-01-02T00:00:00Z", 10, "", false, false, "", "", "", "", false); err != nil {
 			t.Fatalf("listCalendarEvents: %v", err)
 		}
@@ -93,19 +85,13 @@ func TestCalendarEventsCmd_DefaultsToPrimary(t *testing.T) {
 	defer closeServer()
 	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-	flags := &RootFlags{Account: "a@b.com"}
-
 	cmd := &CalendarEventsCmd{
 		From: "2025-01-01T00:00:00Z",
 		To:   "2025-01-02T00:00:00Z",
 	}
 	out := captureStdout(t, func() {
-		if err := cmd.Run(ctx, flags); err != nil {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
+		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
 			t.Fatalf("Run: %v", err)
 		}
 	})
@@ -171,20 +157,14 @@ func TestCalendarEventsCmd_CalendarsFlag(t *testing.T) {
 	defer closeServer()
 	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-	flags := &RootFlags{Account: "a@b.com"}
-
 	cmd := &CalendarEventsCmd{
 		Calendars: "1,Family",
 		From:      "2025-01-01T00:00:00Z",
 		To:        "2025-01-02T00:00:00Z",
 	}
 	out := captureStdout(t, func() {
-		if err := cmd.Run(ctx, flags); err != nil {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
+		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
 			t.Fatalf("Run: %v", err)
 		}
 	})

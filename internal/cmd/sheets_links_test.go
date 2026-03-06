@@ -94,12 +94,8 @@ func TestSheetsLinksCmd_JSON(t *testing.T) {
 	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
+	// No UI in context when capturing JSON so stdoutWriter(ctx) uses os.Stdout (the pipe).
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 
 	out := captureStdout(t, func() {
 		cmd := &SheetsLinksCmd{}
@@ -202,12 +198,8 @@ func TestSheetsLinksCmd_OffsetRange_JSON(t *testing.T) {
 	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
+	// No UI in context when capturing JSON so stdoutWriter(ctx) uses os.Stdout (the pipe).
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 
 	out := captureStdout(t, func() {
 		if err := runKong(t, &SheetsLinksCmd{}, []string{"s1", "Sheet1!B2:C3"}, ctx, flags); err != nil {
@@ -341,12 +333,8 @@ func TestSheetsLinksCmd_RichTextRunsAndCellLevelLinks(t *testing.T) {
 	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
+	// No UI in context when capturing JSON so stdoutWriter(ctx) uses os.Stdout (the pipe).
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 
 	out := captureStdout(t, func() {
 		if err := runKong(t, &SheetsLinksCmd{}, []string{"s1", "Sheet1!C3"}, ctx, flags); err != nil {

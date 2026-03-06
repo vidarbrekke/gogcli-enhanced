@@ -99,9 +99,8 @@ func TestGmailLabelsDeleteCmd_JSON_ExactID(t *testing.T) {
 	})
 
 	flags := &RootFlags{Account: "a@b.com", Force: true}
-	ctx := newLabelsDeleteContext(t, true)
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := runKong(t, &GmailLabelsDeleteCmd{}, []string{"Label_123"}, ctx, flags); err != nil {
 			t.Fatalf("execute: %v", err)
 		}

@@ -75,13 +75,7 @@ func TestDriveUpload_Replace_JSON(t *testing.T) {
 	}
 
 	flags := &RootFlags{Account: "a@b.com", Force: true}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 	out := captureStdout(t, func() {
 		cmd := &DriveUploadCmd{}
 		if err := runKong(t, cmd, []string{local, "--replace", "file1"}, ctx, flags); err != nil {

@@ -18,7 +18,7 @@ import (
 // =============================================================================
 
 func TestSedIntegration_InvalidRegex(t *testing.T) {
-	doc := buildDoc(para(plain("test")))
+	doc := buildDoc(sedPara(plain("test")))
 	err := runSedIntegrationErr(t, doc, "s/[invalid/replacement/", nil)
 	if err == nil {
 		t.Error("expected error for invalid regex")
@@ -26,7 +26,7 @@ func TestSedIntegration_InvalidRegex(t *testing.T) {
 }
 
 func TestSedIntegration_EmptyDocID(t *testing.T) {
-	doc := buildDoc(para(plain("test")))
+	doc := buildDoc(sedPara(plain("test")))
 
 	srv := mockDocsServerAdvanced(t, doc, nil)
 	defer srv.Close()
@@ -51,7 +51,7 @@ func TestSedIntegration_EmptyDocID(t *testing.T) {
 }
 
 func TestSedIntegration_NoExpression(t *testing.T) {
-	doc := buildDoc(para(plain("test")))
+	doc := buildDoc(sedPara(plain("test")))
 
 	srv := mockDocsServerAdvanced(t, doc, nil)
 	defer srv.Close()
@@ -76,7 +76,7 @@ func TestSedIntegration_NoExpression(t *testing.T) {
 }
 
 func TestSedIntegration_InvalidExpression(t *testing.T) {
-	doc := buildDoc(para(plain("test")))
+	doc := buildDoc(sedPara(plain("test")))
 	err := runSedIntegrationErr(t, doc, "not-a-sed-expression", nil)
 	if err == nil {
 		t.Error("expected error for invalid sed expression")
@@ -88,7 +88,7 @@ func TestSedIntegration_InvalidExpression(t *testing.T) {
 // =============================================================================
 
 func TestSedIntegration_EmailObfuscation(t *testing.T) {
-	doc := buildDoc(para(plain("Contact us at user@example.com for info")))
+	doc := buildDoc(sedPara(plain("Contact us at user@example.com for info")))
 	reqs := runSedIntegration(t, doc, `s/(\w+)@(\w+)\.(\w+)/$1[at]$2[dot]$3/g`, nil)
 
 	// Capture group replacement uses manual path
@@ -108,8 +108,8 @@ func TestSedIntegration_EmailObfuscation(t *testing.T) {
 
 func TestSedIntegration_VersionBump(t *testing.T) {
 	doc := buildDoc(
-		para(plain("Version: v1.2.3")),
-		para(plain("Released: 2026-01-15")),
+		sedPara(plain("Version: v1.2.3")),
+		sedPara(plain("Released: 2026-01-15")),
 	)
 	reqs := runSedIntegration(t, doc, "s/v1\\.2\\.3/v1.3.0/", nil)
 
@@ -125,7 +125,7 @@ func TestSedIntegration_VersionBump(t *testing.T) {
 }
 
 func TestSedIntegration_CollapseWhitespace(t *testing.T) {
-	doc := buildDoc(para(plain("too    many     spaces    here")))
+	doc := buildDoc(sedPara(plain("too    many     spaces    here")))
 	reqs := runSedIntegration(t, doc, `s/ {2,}/ /g`, nil)
 
 	// Regex global may use native or manual path
@@ -141,7 +141,7 @@ func TestSedIntegration_CollapseWhitespace(t *testing.T) {
 }
 
 func TestSedIntegration_MarkdownBulletToPlain(t *testing.T) {
-	doc := buildDoc(para(plain("- Item one\n- Item two\n- Item three")))
+	doc := buildDoc(sedPara(plain("- Item one\n- Item two\n- Item three")))
 	reqs := runSedIntegration(t, doc, "s/^- //g", nil)
 
 	// Should strip bullet markers
@@ -152,12 +152,12 @@ func TestSedIntegration_MarkdownBulletToPlain(t *testing.T) {
 
 func TestSedIntegration_LongDocument(t *testing.T) {
 	// Build a document with many paragraphs
-	paras := make([]docParagraph, 50)
+	paras := make([]sedTestParagraph, 50)
 	for i := range paras {
 		if i%5 == 0 {
-			paras[i] = para(plain("Replace this target word here"))
+			paras[i] = sedPara(plain("Replace this target word here"))
 		} else {
-			paras[i] = para(plain("No matches in this paragraph at all"))
+			paras[i] = sedPara(plain("No matches in this paragraph at all"))
 		}
 	}
 	doc := buildDoc(paras...)
@@ -176,7 +176,7 @@ func TestSedIntegration_LongDocument(t *testing.T) {
 }
 
 func TestSedIntegration_UnicodeContent(t *testing.T) {
-	doc := buildDoc(para(plain("Héllo wörld 你好 🌍")))
+	doc := buildDoc(sedPara(plain("Héllo wörld 你好 🌍")))
 	reqs := runSedIntegration(t, doc, "s/wörld/world/", nil)
 
 	found := false
@@ -191,7 +191,7 @@ func TestSedIntegration_UnicodeContent(t *testing.T) {
 }
 
 func TestSedIntegration_NewlineInReplacement(t *testing.T) {
-	doc := buildDoc(para(plain("Line one. Line two.")))
+	doc := buildDoc(sedPara(plain("Line one. Line two.")))
 	reqs := runSedIntegration(t, doc, `s/\. /.\n/g`, nil)
 
 	if len(reqs) == 0 {
@@ -204,7 +204,7 @@ func TestSedIntegration_NewlineInReplacement(t *testing.T) {
 // =============================================================================
 
 func TestSedIntegration_ImageInsert(t *testing.T) {
-	doc := buildDoc(para(plain("[LOGO_PLACEHOLDER]")))
+	doc := buildDoc(sedPara(plain("[LOGO_PLACEHOLDER]")))
 	reqs := runSedIntegration(t, doc, "s/\\[LOGO_PLACEHOLDER\\]/!(https:\\/\\/example.com\\/logo.png)/", nil)
 
 	// Image insert generates: delete old text + InsertInlineImage
@@ -225,7 +225,7 @@ func TestSedIntegration_ImageInsert(t *testing.T) {
 }
 
 func TestSedIntegration_ImageWithDimensions(t *testing.T) {
-	doc := buildDoc(para(plain("[BANNER]")))
+	doc := buildDoc(sedPara(plain("[BANNER]")))
 	reqs := runSedIntegration(t, doc, "s/\\[BANNER\\]/!(https:\\/\\/example.com\\/banner.png){width=600 height=200}/", nil)
 
 	// Should at least delete the placeholder text and attempt image insert
@@ -249,7 +249,7 @@ func TestSedIntegration_ImageWithDimensions(t *testing.T) {
 // =============================================================================
 
 func TestSedIntegration_TableCreate(t *testing.T) {
-	doc := buildDoc(para(plain("[TABLE_HERE]")))
+	doc := buildDoc(sedPara(plain("[TABLE_HERE]")))
 	reqs := runSedIntegration(t, doc, "s/\\[TABLE_HERE\\]/|3x4|/", nil)
 
 	hasTableInsert := false
@@ -270,7 +270,7 @@ func TestSedIntegration_TableCreate(t *testing.T) {
 }
 
 func TestSedIntegration_TableCreateWithHeader(t *testing.T) {
-	doc := buildDoc(para(plain("[DATA]")))
+	doc := buildDoc(sedPara(plain("[DATA]")))
 	reqs := runSedIntegration(t, doc, "s/\\[DATA\\]/|5x3:header|/", nil)
 
 	hasTableInsert := false
@@ -290,7 +290,7 @@ func TestSedIntegration_TableCreateWithHeader(t *testing.T) {
 
 func TestSedIntegration_RequestsOrderedReverseIndex(t *testing.T) {
 	doc := buildDoc(
-		para(plain("aaa bbb ccc")),
+		sedPara(plain("aaa bbb ccc")),
 	)
 	reqs := runSedIntegration(t, doc, "s/[abc]{3}/X/g", nil)
 
@@ -316,7 +316,7 @@ func TestSedIntegration_RequestsOrderedReverseIndex(t *testing.T) {
 
 func TestSedIntegration_NativeFastPath(t *testing.T) {
 	// Plain text global replace should use the native ReplaceAllText API
-	doc := buildDoc(para(plain("Hello world")))
+	doc := buildDoc(sedPara(plain("Hello world")))
 	reqs := runSedIntegration(t, doc, "s/Hello/Hi/g", nil)
 
 	hasNative := false
@@ -332,7 +332,7 @@ func TestSedIntegration_NativeFastPath(t *testing.T) {
 
 func TestSedIntegration_FormattingForcesManualPath(t *testing.T) {
 	// Markdown formatting should NOT use native path
-	doc := buildDoc(para(plain("Hello world")))
+	doc := buildDoc(sedPara(plain("Hello world")))
 	reqs := runSedIntegration(t, doc, "s/Hello/**Hi**/", nil)
 
 	hasNative := false
@@ -347,7 +347,7 @@ func TestSedIntegration_FormattingForcesManualPath(t *testing.T) {
 }
 
 func TestSedIntegration_HeadingFormat(t *testing.T) {
-	doc := buildDoc(para(plain("H4_TARGET")))
+	doc := buildDoc(sedPara(plain("H4_TARGET")))
 	reqs := runSedIntegration(t, doc, `s/H4_TARGET/#### Heading 4 Demo/`, nil)
 
 	// Should have InsertText + UpdateParagraphStyle with HEADING_4
@@ -375,7 +375,7 @@ func TestSedIntegration_HeadingFormat(t *testing.T) {
 }
 
 func TestSedIntegration_BulletList(t *testing.T) {
-	doc := buildDoc(para(plain("bullet_item")))
+	doc := buildDoc(sedPara(plain("bullet_item")))
 	reqs := runSedIntegration(t, doc, `s/bullet_item/- First bullet/`, nil)
 
 	foundBullet := false

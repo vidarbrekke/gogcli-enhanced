@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -64,13 +65,12 @@ func TestDriveSearchCmd_TextAndJSON(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 
 	var errBuf bytes.Buffer
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-
 	textOut := captureStdout(t, func() {
+		u, uiErr := ui.New(ui.Options{Stdout: os.Stdout, Stderr: &errBuf, Color: "never"})
+		if uiErr != nil {
+			t.Fatalf("ui.New: %v", uiErr)
+		}
+		ctx := ui.WithUI(context.Background(), u)
 		cmd := &DriveSearchCmd{}
 		if execErr := runKong(t, cmd, []string{"hello"}, ctx, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)
@@ -83,8 +83,8 @@ func TestDriveSearchCmd_TextAndJSON(t *testing.T) {
 		t.Fatalf("missing next page hint: %q", errBuf.String())
 	}
 
-	jsonCtx := outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
 	jsonOut := captureStdout(t, func() {
+		jsonCtx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		cmd := &DriveSearchCmd{}
 		if execErr := runKong(t, cmd, []string{"hello"}, jsonCtx, flags); execErr != nil {
 			t.Fatalf("execute json: %v", execErr)
@@ -127,13 +127,12 @@ func TestDriveSearchCmd_NoResultsAndEmptyQuery(t *testing.T) {
 
 	flags := &RootFlags{Account: "a@b.com"}
 	var errBuf bytes.Buffer
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-
 	_ = captureStdout(t, func() {
+		u, uiErr := ui.New(ui.Options{Stdout: os.Stdout, Stderr: &errBuf, Color: "never"})
+		if uiErr != nil {
+			t.Fatalf("ui.New: %v", uiErr)
+		}
+		ctx := ui.WithUI(context.Background(), u)
 		cmd := &DriveSearchCmd{}
 		if execErr := runKong(t, cmd, []string{"empty"}, ctx, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)
@@ -143,6 +142,8 @@ func TestDriveSearchCmd_NoResultsAndEmptyQuery(t *testing.T) {
 		t.Fatalf("expected No results, got: %q", errBuf.String())
 	}
 
+	u, _ := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+	ctx := ui.WithUI(context.Background(), u)
 	cmd := &DriveSearchCmd{}
 	if err := runKong(t, cmd, []string{}, ctx, flags); err == nil {
 		t.Fatalf("expected empty query error")
@@ -246,12 +247,12 @@ func TestDriveSearchCmd_PassesThroughDriveFilterQueries(t *testing.T) {
 
 	flags := &RootFlags{Account: "a@b.com"}
 	var errBuf bytes.Buffer
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
 	_ = captureStdout(t, func() {
+		u, uiErr := ui.New(ui.Options{Stdout: os.Stdout, Stderr: &errBuf, Color: "never"})
+		if uiErr != nil {
+			t.Fatalf("ui.New: %v", uiErr)
+		}
+		ctx := ui.WithUI(context.Background(), u)
 		cmd := &DriveSearchCmd{}
 		if execErr := runKong(t, cmd, []string{query}, ctx, flags); execErr != nil {
 			t.Fatalf("execute: %v", execErr)

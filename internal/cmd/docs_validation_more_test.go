@@ -113,14 +113,9 @@ func TestDocsCat_JSON_EmptyDoc(t *testing.T) {
 	}
 	newDocsService = func(context.Context, string) (*docs.Service, error) { return svc, nil }
 
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
 	flags := &RootFlags{Account: "a@b.com"}
-
 	out := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		if err := (&DocsCatCmd{DocID: "doc1"}).Run(ctx, flags); err != nil {
 			t.Fatalf("cat: %v", err)
 		}

@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,7 +12,6 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestGmailSendAs_VerifyDeleteUpdate_JSON(t *testing.T) {
@@ -56,13 +54,7 @@ func TestGmailSendAs_VerifyDeleteUpdate_JSON(t *testing.T) {
 	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
 
 	flags := &RootFlags{Account: "a@b.com", Force: true}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 	// verify
 	_ = captureStdout(t, func() {
 		if err := runKong(t, &GmailSendAsVerifyCmd{}, []string{"work@company.com"}, ctx, flags); err != nil {

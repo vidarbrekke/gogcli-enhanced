@@ -62,7 +62,7 @@ func mockDocsServerAdvanced(t *testing.T, doc *docs.Document, onBatchUpdate func
 }
 
 // buildDoc constructs a realistic multi-paragraph Google Doc for testing.
-func buildDoc(paragraphs ...docParagraph) *docs.Document {
+func buildDoc(paragraphs ...sedTestParagraph) *docs.Document {
 	content := make([]*docs.StructuralElement, 0, len(paragraphs))
 	idx := int64(1) // Google Docs indices start at 1 (0 is reserved)
 
@@ -185,25 +185,27 @@ func buildDocWithTable(preText string, rows int, cols int, cellTexts [][]string,
 	}
 }
 
-type textRun struct {
+type sedTextRun struct {
 	text  string
 	style *docs.TextStyle
 }
 
-type docParagraph struct {
-	runs []textRun
+// sedTestParagraph is a test helper for building mock doc content in sed tests.
+// Renamed from docParagraph to avoid clash with upstream docs_paragraphs.go.
+type sedTestParagraph struct {
+	runs []sedTextRun
 }
 
-func plain(text string) textRun {
-	return textRun{text: text}
+func plain(text string) sedTextRun {
+	return sedTextRun{text: text}
 }
 
-func bold(text string) textRun {
-	return textRun{text: text, style: &docs.TextStyle{Bold: true}}
+func bold(text string) sedTextRun {
+	return sedTextRun{text: text, style: &docs.TextStyle{Bold: true}}
 }
 
-func para(runs ...textRun) docParagraph {
-	return docParagraph{runs: runs}
+func sedPara(runs ...sedTextRun) sedTestParagraph {
+	return sedTestParagraph{runs: runs}
 }
 
 // runSedIntegration runs a DocsSedCmd against a mock server and returns captured requests.
@@ -277,7 +279,7 @@ func runSedIntegrationErr(t *testing.T, doc *docs.Document, expression string, e
 // =============================================================================
 
 func TestSedIntegration_SimpleReplace(t *testing.T) {
-	doc := buildDoc(para(plain("Hello world, hello universe!")))
+	doc := buildDoc(sedPara(plain("Hello world, hello universe!")))
 	reqs := runSedIntegration(t, doc, "s/hello/goodbye/g", nil)
 
 	if len(reqs) == 0 {
@@ -297,7 +299,7 @@ func TestSedIntegration_SimpleReplace(t *testing.T) {
 }
 
 func TestSedIntegration_FirstMatchOnly(t *testing.T) {
-	doc := buildDoc(para(plain("foo bar foo baz foo")))
+	doc := buildDoc(sedPara(plain("foo bar foo baz foo")))
 	reqs := runSedIntegration(t, doc, "s/foo/qux/", nil)
 
 	// Without 'g' flag, should only replace first match
@@ -314,7 +316,7 @@ func TestSedIntegration_FirstMatchOnly(t *testing.T) {
 
 func TestSedIntegration_GlobalReplace(t *testing.T) {
 	// Plain text global replace uses native ReplaceAllText API (single call)
-	doc := buildDoc(para(plain("foo bar foo baz foo")))
+	doc := buildDoc(sedPara(plain("foo bar foo baz foo")))
 	reqs := runSedIntegration(t, doc, "s/foo/qux/g", nil)
 
 	hasNative := false
@@ -333,7 +335,7 @@ func TestSedIntegration_GlobalReplace(t *testing.T) {
 
 func TestSedIntegration_CaseInsensitive(t *testing.T) {
 	// Case-insensitive global plain replace uses native API
-	doc := buildDoc(para(plain("Hello HELLO hello")))
+	doc := buildDoc(sedPara(plain("Hello HELLO hello")))
 	reqs := runSedIntegration(t, doc, "s/hello/hi/gi", nil)
 
 	hasNative := false
@@ -351,7 +353,7 @@ func TestSedIntegration_CaseInsensitive(t *testing.T) {
 }
 
 func TestSedIntegration_RegexCapture(t *testing.T) {
-	doc := buildDoc(para(plain("John Smith and Jane Doe")))
+	doc := buildDoc(sedPara(plain("John Smith and Jane Doe")))
 	reqs := runSedIntegration(t, doc, `s/(\w+) (\w+)/$2, $1/`, nil)
 
 	// Should replace first match "John Smith" → "Smith, John"
@@ -367,7 +369,7 @@ func TestSedIntegration_RegexCapture(t *testing.T) {
 }
 
 func TestSedIntegration_DeleteText(t *testing.T) {
-	doc := buildDoc(para(plain("remove THIS word")))
+	doc := buildDoc(sedPara(plain("remove THIS word")))
 	reqs := runSedIntegration(t, doc, "s/THIS //", nil)
 
 	// Should have a delete for "THIS " and insert for ""
@@ -383,7 +385,7 @@ func TestSedIntegration_DeleteText(t *testing.T) {
 }
 
 func TestSedIntegration_EmptyReplacement(t *testing.T) {
-	doc := buildDoc(para(plain("hello world")))
+	doc := buildDoc(sedPara(plain("hello world")))
 	reqs := runSedIntegration(t, doc, "s/hello //", nil)
 
 	hasDelete := false
@@ -402,7 +404,7 @@ func TestSedIntegration_EmptyReplacement(t *testing.T) {
 // =============================================================================
 
 func TestSedIntegration_BoldFormatting(t *testing.T) {
-	doc := buildDoc(para(plain("Make this WARNING bold")))
+	doc := buildDoc(sedPara(plain("Make this WARNING bold")))
 	reqs := runSedIntegration(t, doc, "s/WARNING/**WARNING**/", nil)
 
 	hasBold := false
@@ -417,7 +419,7 @@ func TestSedIntegration_BoldFormatting(t *testing.T) {
 }
 
 func TestSedIntegration_ItalicFormatting(t *testing.T) {
-	doc := buildDoc(para(plain("Make this note italic")))
+	doc := buildDoc(sedPara(plain("Make this note italic")))
 	reqs := runSedIntegration(t, doc, "s/note/*note*/", nil)
 
 	hasItalic := false
@@ -432,7 +434,7 @@ func TestSedIntegration_ItalicFormatting(t *testing.T) {
 }
 
 func TestSedIntegration_BoldItalic(t *testing.T) {
-	doc := buildDoc(para(plain("important text here")))
+	doc := buildDoc(sedPara(plain("important text here")))
 	reqs := runSedIntegration(t, doc, "s/important/***important***/", nil)
 
 	hasBold := false
@@ -453,7 +455,7 @@ func TestSedIntegration_BoldItalic(t *testing.T) {
 }
 
 func TestSedIntegration_Strikethrough(t *testing.T) {
-	doc := buildDoc(para(plain("delete this old text")))
+	doc := buildDoc(sedPara(plain("delete this old text")))
 	reqs := runSedIntegration(t, doc, "s/old/~~old~~/", nil)
 
 	hasStrike := false
@@ -468,7 +470,7 @@ func TestSedIntegration_Strikethrough(t *testing.T) {
 }
 
 func TestSedIntegration_CodeFormatting(t *testing.T) {
-	doc := buildDoc(para(plain("Use the config variable")))
+	doc := buildDoc(sedPara(plain("Use the config variable")))
 	reqs := runSedIntegration(t, doc, "s/config/`config`/", nil)
 
 	hasMonospace := false
@@ -492,7 +494,7 @@ func TestSedIntegration_CodeFormatting(t *testing.T) {
 }
 
 func TestSedIntegration_Underline(t *testing.T) {
-	doc := buildDoc(para(plain("underline this word")))
+	doc := buildDoc(sedPara(plain("underline this word")))
 	reqs := runSedIntegration(t, doc, "s/this/__this__/", nil)
 
 	// Underline replacement should produce requests (style update, insert, or native)
@@ -508,7 +510,7 @@ func TestSedIntegration_Underline(t *testing.T) {
 }
 
 func TestSedIntegration_LinkFormatting(t *testing.T) {
-	doc := buildDoc(para(plain("Visit the homepage for details")))
+	doc := buildDoc(sedPara(plain("Visit the homepage for details")))
 	reqs := runSedIntegration(t, doc, `s/homepage/[homepage](https:\/\/example.com)/`, nil)
 
 	// Link formatting produces delete + insert + UpdateTextStyle with Link
@@ -517,7 +519,7 @@ func TestSedIntegration_LinkFormatting(t *testing.T) {
 }
 
 func TestSedIntegration_HeadingConversion(t *testing.T) {
-	doc := buildDoc(para(plain("Summary:")))
+	doc := buildDoc(sedPara(plain("Summary:")))
 	reqs := runSedIntegration(t, doc, "s/Summary:/# Summary/", nil)
 
 	hasHeading := false
@@ -534,7 +536,7 @@ func TestSedIntegration_HeadingConversion(t *testing.T) {
 }
 
 func TestSedIntegration_H2Heading(t *testing.T) {
-	doc := buildDoc(para(plain("Section Title")))
+	doc := buildDoc(sedPara(plain("Section Title")))
 	reqs := runSedIntegration(t, doc, "s/Section Title/## Section Title/", nil)
 
 	hasH2 := false
@@ -556,8 +558,8 @@ func TestSedIntegration_H2Heading(t *testing.T) {
 
 func TestSedIntegration_MultipleExpressions(t *testing.T) {
 	doc := buildDoc(
-		para(plain("Hello world")),
-		para(plain("Goodbye universe")),
+		sedPara(plain("Hello world")),
+		sedPara(plain("Goodbye universe")),
 	)
 	reqs := runSedIntegration(t, doc, "", []string{
 		"s/Hello/**Hello**/g",
@@ -570,7 +572,7 @@ func TestSedIntegration_MultipleExpressions(t *testing.T) {
 }
 
 func TestSedIntegration_FileExpressions(t *testing.T) {
-	doc := buildDoc(para(plain("alpha beta gamma")))
+	doc := buildDoc(sedPara(plain("alpha beta gamma")))
 
 	// Create a temp file with expressions
 	tmpFile, err := os.CreateTemp("", "sedtest-*.txt")
@@ -619,7 +621,7 @@ func TestSedIntegration_FileExpressions(t *testing.T) {
 // =============================================================================
 
 func TestSedIntegration_AppendText(t *testing.T) {
-	doc := buildDoc(para(plain("Existing content")))
+	doc := buildDoc(sedPara(plain("Existing content")))
 	reqs := runSedIntegration(t, doc, "s/$/\\nNew line appended/", nil)
 
 	hasInsert := false
@@ -634,7 +636,7 @@ func TestSedIntegration_AppendText(t *testing.T) {
 }
 
 func TestSedIntegration_PrependText(t *testing.T) {
-	doc := buildDoc(para(plain("Existing content")))
+	doc := buildDoc(sedPara(plain("Existing content")))
 	reqs := runSedIntegration(t, doc, "s/^/Prepended: /", nil)
 
 	hasInsert := false
@@ -653,7 +655,7 @@ func TestSedIntegration_PrependText(t *testing.T) {
 // =============================================================================
 
 func TestSedIntegration_RegexDigitClass(t *testing.T) {
-	doc := buildDoc(para(plain("Item 42 costs $99")))
+	doc := buildDoc(sedPara(plain("Item 42 costs $99")))
 	reqs := runSedIntegration(t, doc, `s/\d+/NUM/g`, nil)
 
 	// Regex global uses native path if possible, or manual path
@@ -669,7 +671,7 @@ func TestSedIntegration_RegexDigitClass(t *testing.T) {
 }
 
 func TestSedIntegration_RegexWordBoundary(t *testing.T) {
-	doc := buildDoc(para(plain("cat concatenate catalog")))
+	doc := buildDoc(sedPara(plain("cat concatenate catalog")))
 	reqs := runSedIntegration(t, doc, `s/\bcat\b/dog/g`, nil)
 
 	// Word boundary regex — should produce replacement requests
@@ -685,7 +687,7 @@ func TestSedIntegration_RegexWordBoundary(t *testing.T) {
 }
 
 func TestSedIntegration_SpecialCharsInPattern(t *testing.T) {
-	doc := buildDoc(para(plain("Price is $100.00 (USD)")))
+	doc := buildDoc(sedPara(plain("Price is $100.00 (USD)")))
 	reqs := runSedIntegration(t, doc, `s/\$100\.00/€95.00/`, nil)
 
 	found := false
@@ -700,7 +702,7 @@ func TestSedIntegration_SpecialCharsInPattern(t *testing.T) {
 }
 
 func TestSedIntegration_AlternateDelimiter(t *testing.T) {
-	doc := buildDoc(para(plain("path /usr/local/bin")))
+	doc := buildDoc(sedPara(plain("path /usr/local/bin")))
 	reqs := runSedIntegration(t, doc, "s#/usr/local/bin#/opt/bin#", nil)
 
 	found := false
@@ -715,7 +717,7 @@ func TestSedIntegration_AlternateDelimiter(t *testing.T) {
 }
 
 func TestSedIntegration_NoMatchIsNotError(t *testing.T) {
-	doc := buildDoc(para(plain("Hello world")))
+	doc := buildDoc(sedPara(plain("Hello world")))
 	// This should succeed without error even with no matches
 	_ = runSedIntegration(t, doc, "s/nonexistent/replacement/g", nil)
 }
@@ -736,9 +738,9 @@ func TestSedIntegration_EmptyDocument(t *testing.T) {
 
 func TestSedIntegration_MultiParagraphGlobal(t *testing.T) {
 	doc := buildDoc(
-		para(plain("First paragraph with word")),
-		para(plain("Second paragraph with word")),
-		para(plain("Third paragraph no match")),
+		sedPara(plain("First paragraph with word")),
+		sedPara(plain("Second paragraph with word")),
+		sedPara(plain("Third paragraph no match")),
 	)
 	reqs := runSedIntegration(t, doc, "s/word/WORD/g", nil)
 
@@ -757,7 +759,7 @@ func TestSedIntegration_MultiParagraphGlobal(t *testing.T) {
 func TestSedIntegration_FormattedTextRuns(t *testing.T) {
 	// Document with mixed formatting — bold + plain text
 	doc := buildDoc(
-		para(bold("Important: "), plain("This is a warning message")),
+		sedPara(bold("Important: "), plain("This is a warning message")),
 	)
 	reqs := runSedIntegration(t, doc, "s/warning/**critical**/", nil)
 
@@ -832,9 +834,9 @@ func TestSedIntegration_TableGlobalReplace(t *testing.T) {
 
 func TestSedIntegration_BoldGlobalAcrossParagraphs(t *testing.T) {
 	doc := buildDoc(
-		para(plain("WARNING: System overloaded")),
-		para(plain("No issues here")),
-		para(plain("WARNING: Disk space low")),
+		sedPara(plain("WARNING: System overloaded")),
+		sedPara(plain("No issues here")),
+		sedPara(plain("WARNING: Disk space low")),
 	)
 	reqs := runSedIntegration(t, doc, "s/WARNING/**WARNING**/g", nil)
 
@@ -851,9 +853,9 @@ func TestSedIntegration_BoldGlobalAcrossParagraphs(t *testing.T) {
 
 func TestSedIntegration_MixedFormattingBatch(t *testing.T) {
 	doc := buildDoc(
-		para(plain("Title: My Document")),
-		para(plain("Status: DRAFT")),
-		para(plain("Note: review needed")),
+		sedPara(plain("Title: My Document")),
+		sedPara(plain("Status: DRAFT")),
+		sedPara(plain("Note: review needed")),
 	)
 	reqs := runSedIntegration(t, doc, "", []string{
 		"s/Title:/**Title:**/",

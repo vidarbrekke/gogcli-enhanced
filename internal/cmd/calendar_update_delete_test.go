@@ -67,7 +67,6 @@ func TestCalendarUpdateAndDelete(t *testing.T) {
 		t.Fatalf("ui.New: %v", uiErr)
 	}
 	ctx := ui.WithUI(context.Background(), u)
-	jsonCtx := outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
 
 	// update requires changes
 	updateCmd := &CalendarUpdateCmd{}
@@ -77,6 +76,7 @@ func TestCalendarUpdateAndDelete(t *testing.T) {
 
 	// update json
 	jsonOut := captureStdout(t, func() {
+		jsonCtx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		updateCmd = &CalendarUpdateCmd{}
 		if err := runKong(t, updateCmd, []string{"cal1@example.com", "evt1", "--summary", "Updated"}, jsonCtx, flags); err != nil {
 			t.Fatalf("update: %v", err)
@@ -88,6 +88,7 @@ func TestCalendarUpdateAndDelete(t *testing.T) {
 
 	// delete json
 	_ = captureStdout(t, func() {
+		jsonCtx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 		deleteCmd := &CalendarDeleteCmd{}
 		if err := runKong(t, deleteCmd, []string{"cal1@example.com", "evt1"}, jsonCtx, flags); err != nil {
 			t.Fatalf("delete: %v", err)

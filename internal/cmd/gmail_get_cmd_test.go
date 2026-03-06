@@ -63,13 +63,7 @@ func TestGmailGetCmd_JSON_Full(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-			if uiErr != nil {
-				t.Fatalf("ui.New: %v", uiErr)
-			}
-			ctx := ui.WithUI(context.Background(), u)
-			ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+			ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 			cmd := &GmailGetCmd{}
 			if err := runKong(t, cmd, []string{"m1", "--format", "full"}, ctx, flags); err != nil {
 				t.Fatalf("execute: %v", err)
@@ -154,13 +148,7 @@ func TestGmailGetCmd_JSON_Full_WithAttachments(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-			if uiErr != nil {
-				t.Fatalf("ui.New: %v", uiErr)
-			}
-			ctx := ui.WithUI(context.Background(), u)
-			ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+			ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 			cmd := &GmailGetCmd{}
 			if err := runKong(t, cmd, []string{"m1", "--format", "full"}, ctx, flags); err != nil {
 				t.Fatalf("execute: %v", err)
@@ -249,13 +237,7 @@ func TestGmailGetCmd_JSON_Metadata_WithAttachments(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com"}
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-			if uiErr != nil {
-				t.Fatalf("ui.New: %v", uiErr)
-			}
-			ctx := ui.WithUI(context.Background(), u)
-			ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
+			ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 			cmd := &GmailGetCmd{}
 			if err := runKong(t, cmd, []string{"m1", "--format", "metadata"}, ctx, flags); err != nil {
 				t.Fatalf("execute: %v", err)
