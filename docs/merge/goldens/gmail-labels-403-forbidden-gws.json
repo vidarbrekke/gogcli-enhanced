@@ -1,0 +1,8 @@
+{
+  "_replace_with_real_gws_stdout": "Run gws gmail users labels list with credentials that have no Gmail scope (e.g. OAuth client with only Drive scope); save full stdout here, then delete this key.",
+  "error": {
+    "code": 403,
+    "message": "Insufficient Permission",
+    "reason": "forbidden"
+  }
+}

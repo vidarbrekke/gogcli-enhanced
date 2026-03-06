@@ -1,6 +1,20 @@
-# Handover: gogcli-enhanced (Hybrid Provider Parity Pivot)
+# handover.md — gogcli-enhanced
+
+This is the **single source of truth** for a new developer takeover.
+
+## Handover: gogcli-enhanced (Hybrid Provider Parity Pivot)
 
 ## Developer Quickstart (First 60 Minutes)
+
+## Repo layout pointers (from PROJECT-LAYOUT.md)
+
+- Canonical takeover doc: `handover.md` (this file, repo root)
+- Supporting bundle folder: `gogcli-developer-handover/` (contains artifacts + templates)
+- Merge/parity docs and fixtures live under: `docs/merge/`
+- Golden fixtures and schemas live under: `docs/merge/goldens/` and `docs/merge/schemas/`
+- CLI entrypoints live under: `cmd/`
+- Implementation lives under: `internal/` (including `internal/mcp/`)
+
 
 Use this if you are new and need to execute without prior context.
 
@@ -12,7 +26,7 @@ Use this if you are new and need to execute without prior context.
 ### 2) Read only what matters first (10 min)
 Start here, in this order:
 1. `handover.md` (this file)
-2. `gogcli-developer-handover/HANDOVER.md` (full handover bundle)
+2. `AGENTS.md` (repo conventions, build/test, PR workflow)
 3. `docs/merge/discovery-drift-policy.md` (drift stance + CI philosophy)
 4. `docs/merge/GWS-SAMPLES.md` (validated gws stdout/stderr behaviors)
 5. `docs/merge/CAPTURE-403-RUNBOOK.md` (one-time 403 capture)
@@ -69,7 +83,7 @@ PR review rule:
 ## 0) Read This First
 
 This file is the **single developer takeover guide** for the current workstream.
-If you are new to this repository, start here, then open `gogcli-developer-handover/HANDOVER.md`.
+If you are new to this repository, start here, then use the links below for deeper reference.
 
 Primary objective:
 - Keep `gogcli-enhanced` as the **agent-safe control plane** (stable contracts, deterministic behavior, safety semantics).
@@ -109,7 +123,6 @@ These are mandatory and override convenience:
 6. `gws` upgrades are value-triggered/quarterly, not continuous churn.
 
 Reference:
-- `gogcli-developer-handover/HANDOVER.md`
 - `docs/merge/discovery-drift-policy.md`
 
 ---
@@ -127,12 +140,12 @@ Reference:
 
 Read in this order:
 
-1. `gogcli-developer-handover/HANDOVER.md`
-2. `docs/merge/discovery-drift-policy.md`
-3. `docs/merge/GWS-SAMPLES.md`
-4. `docs/merge/CAPTURE-403-RUNBOOK.md`
-5. `gogcli-developer-handover/templates/PARITY-RUNNER-README.md`
-6. `AGENTS.md` (repo conventions and guardrails)
+1. `handover.md` (this file)
+2. `AGENTS.md` (repo conventions and guardrails)
+3. `docs/merge/discovery-drift-policy.md`
+4. `docs/merge/GWS-SAMPLES.md`
+5. `docs/merge/CAPTURE-403-RUNBOOK.md`
+6. `gogcli-developer-handover/templates/PARITY-RUNNER-README.md`
 
 Support material:
 - `gogcli-developer-handover/artifacts/envelope-artifacts-v2.zip`
@@ -261,6 +274,7 @@ Exit criteria:
 
 ## 6) Implementation Checklist (Copy Into PR)
 
+- [ ] **No duplicate handover docs edited; canonical handover is repo-root `handover.md`.**
 - [ ] Read handover + drift policy + samples
 - [ ] Implement fixture loader
 - [ ] Implement classification (exit/stderr/stdout error)
@@ -359,3 +373,57 @@ Reviewers must explicitly check the artifact and ensure there are **no breaking 
 
 Start **PR #1** with fixture loading + classification only.
 If uncertain, optimize for smaller diff and deterministic behavior over feature completeness.
+
+---
+
+## 12) Folder/File Structure Checklist (Decisions)
+
+Goal: keep the repo DRY/YAGNI while enabling the parity + drift-control pivot.
+
+### 1) One canonical handover doc
+- [x] **Decision: YES** — Repo-root `handover.md` is the **only** canonical handover doc.
+- Any other handover-like content (e.g. inside `gogcli-developer-handover/`) must be **pointer-only** or supporting reference (artifacts/templates). Do not maintain a second full handover document.
+
+### 2) Parity runner placement
+- [x] **Decision: Option A** — Parity runner lives in `cmd/gog-parity/` (first-class CLI).
+- Rule: choose A unless there is a strong reason parity must be test-only.
+
+### 3) Where parity assets live (schemas/goldens/runbooks)
+- [x] **Decision:** `docs/merge/` is the **permanent home** for schemas, goldens, normalization rules, and capture runbooks.
+- No rename until ≥5 command groups migrate; then consider `docs/parity/` only if it reduces confusion. See `docs/merge/README.md`.
+
+### 4) Provider adapter location
+- [x] **Decision:** For now only the gws adapter exists; keep normalization inside `internal/parity/` (e.g. `internal/parity/normalize`). When a **second** provider lands, introduce a dedicated boundary (e.g. `internal/parity/providers/` or `internal/providers/`).
+- Rule: do not create a separate providers package until there are at least two provider implementations.
+
+### 5) Naming clarity (“merge” vs “parity” vs “contracts”)
+- [x] **Decision:** Keep `docs/merge/`; add `docs/merge/README.md` explaining it is parity/contracts/drift-control (done). Prefer README over renaming midstream.
+
+### 6) MCP reuse boundary
+- [x] **Decision: NO** for now — Keep parity normalization **local to the parity runner** (`internal/parity/`). Do not share canonical error normalization with CLI commands or MCP tools yet; reduces blast radius. Revisit when we have a clear need to share.
+
+### 7) Bundle folder (`gogcli-developer-handover/`) policy
+- [x] **Decision:** Keep `gogcli-developer-handover/` **in-repo** — It contains living templates used by CI (parity skeleton, GitHub Action) and artifact zips. Keep it versioned.
+- Rule: do not maintain a second full handover file inside this folder; canonical entrypoint is `handover.md`.
+
+### 8) Preventing future duplication (DRY guardrail)
+- [x] **Guardrail chosen:** PR checklist item — *“No duplicate handover docs edited; canonical handover is repo-root `handover.md`.”* Add to PR template or to Section 6 (Implementation Checklist) so reviewers confirm.
+
+### 9) Minimal churn principle
+- [x] **Decision:** No moves/renames for PR #1–#3. Only document decisions (this section) and add `docs/merge/README.md`. Do the smallest possible change that improves shipping.
+
+### Outcome (filled in)
+
+| Item | Decision |
+|------|----------|
+| **Canonical handover file** | `handover.md` (repo root) |
+| **Parity runner location** | `cmd/gog-parity/` |
+| **Parity assets location** | `docs/merge/` (permanent) |
+| **Provider adapter location** | `internal/parity/` (e.g. `normalize`); dedicated `internal/parity/providers/` when second provider lands |
+| **Guardrail chosen** | PR checklist: “No duplicate handover docs edited; canonical handover is handover.md” |
+
+---
+
+### Single-source rule (DRY/YAGNI)
+
+Maintain **only this file** as the developer handover going forward. Avoid maintaining other full handover documents; keep this file authoritative and treat anything else as pointers only.

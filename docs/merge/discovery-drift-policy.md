@@ -89,3 +89,13 @@ For each difference between native and backend:
 | Unknown or high-impact variance | Block | Do not promote backend until resolved (pin or accept+detect). |
 
 This policy should be referenced in the merge plan and in each command dossier that compares native vs gws.
+
+---
+
+## 7) Parity runner: error envelope — treat `reason` as drift-only
+
+**Rule:** In the parity runner, treat **`google_reason`** (the gws/Google `error.reason` string) as **drift-only by default**, even after the 403 golden is captured.
+
+**Why:** Reason strings can vary subtly across auth flows and environments. Automation value is in **stable classification** (`error_code` / HTTP `code`) and **safety controls**, not mirroring Google's reason vocabulary. Avoid burning time on reason-string diffs.
+
+**Implementation:** Normalize gws `error.code` (and optionally `error.reason`) to a stable `error_code` for classification and CI. In diff/conformance, do **not** fail on `reason` string mismatches; only require that the error is correctly classified (e.g. 401 → authError, 403 → forbidden, 404 → notFound). Optionally record reason in logs or drift report for debugging.

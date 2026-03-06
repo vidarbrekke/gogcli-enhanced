@@ -51,5 +51,7 @@ See `../discovery-drift-policy.md` for when to pin/capture vs accept+detect.
 | `gmail-labels-list-native.json` | `gog --json gmail labels list` | List response (test fixture). |
 | `gmail-labels-get-native.json` | `gog --json gmail labels get INBOX` | Single label with counts (test fixture). |
 | `drive-ls-native.json` | `gog --json drive ls` | One page of files (test fixture). |
-| `gmail-labels-list-gws.json` | `gws gmail users labels list --params '{"userId":"me"}'` | **Placeholder** — replace with gws stdout when captured (authenticated). |
-| `gmail-labels-get-not-found-gws.json` | `gws gmail users labels get --params '{"userId":"me","id":"Label_DoesNotExist_123"}'` | **Placeholder** — replace with gws 404 stdout when captured (authenticated). |
+| `gmail-labels-list-gws.json` | `gws gmail users labels list --params '{"userId":"me"}'` | List success (authenticated; set `GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE`). |
+| `gmail-labels-get-not-found-gws.json` | `gws gmail users labels get --params '{"userId":"me","id":"Label_DoesNotExist_123"}'` | 404 not_found (authenticated). |
+| `gmail-labels-401-unauthenticated-gws.json` | Same as list, **no** credentials | 401 authError (unauthenticated). |
+| `gmail-labels-403-forbidden-gws.json` | Same as list, credentials **without Gmail scope** | 403 — maintainer captures (see `../CAPTURE-403-RUNBOOK.md`); developer has no env access. |

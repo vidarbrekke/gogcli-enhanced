@@ -1,0 +1,27 @@
+name: parity
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Build parity runner
+        run: |
+          go build -o bin/gog-parity ./cmd/gog-parity
+      - name: Run parity suite (fixtures only)
+        run: |
+          ./bin/gog-parity --fixtures docs/merge/goldens --schemas docs/merge/schemas --provider gws > parity-report.json
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-report
+          path: parity-report.json
