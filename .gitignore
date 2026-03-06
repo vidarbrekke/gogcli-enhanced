@@ -43,6 +43,18 @@ bin/
 
 # Node (optional dev scripts)
 node_modules/
+/package.json
+/package-lock.json
 
 # Maton capability capture (run script output; may contain session data)
 docs/maton-capture/
+
+# Local deployment helpers and generated review artifacts
+linode.env
+.artifact-bundle/
+.playwright-mcp/
+.prompts.txt
+REVIEW-BUNDLE-README.txt
+parity-report.json
+gog-parity
+*.zip

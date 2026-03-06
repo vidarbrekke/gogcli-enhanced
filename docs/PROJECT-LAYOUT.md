@@ -163,10 +163,9 @@ Commands are grouped by service; each area has many `*_test.go` files.
 | `scripts/live-test.sh` | Live test runner |
 | `scripts/live-tests/` | Per-service live test scripts (calendar, docs, drive, gmail, sheets, etc.) |
 | `scripts/release.sh` | Release workflow |
-| `scripts/install.sh`, `scripts/setup.sh` | Install/setup |
+| `scripts/install.sh`, `scripts/setup.sh`, `scripts/setup-doctor.sh` | Install/setup (`setup.sh` = simple golden path, `setup-doctor.sh` = OpenClaw/MCP + repair flow) |
 | `scripts/gog-auth-diagnostic-report.sh` | Auth diagnostics |
 | `scripts/mcp-diagnose-gog.sh` | MCP diagnostics |
-| `scripts/get-drive-only-credentials.py` | One-off Drive-only OAuth for 403 capture |
 | Other `scripts/*.sh`, `*.go`, `*.mjs` | Helpers, generators, verification |
 
 ---
@@ -184,13 +183,12 @@ Commands are grouped by service; each area has many `*_test.go` files.
 
 - `DOCS_AGENT_PLAN.md` — Docs/agent roadmap
 - `DELIVERABLES_SUMMARY.md` — Deliverables summary
-- `google_gogcli_merge_plan.md` — Merge plan
 - `PROJECT_PLAN.md`, `PLANNING_README.md` — Planning
 - `PHASE_3_IMPLEMENTATION_PLAN.md` — Phase 3 plan
 - `SLIDES_ROADMAP.md` — Slides roadmap
 - `TS-Go-review.md` — TypeScript/Go review notes
-- `linode.env` — Linode SSH env (optional; do not commit secrets)
-- `package.json` / `package-lock.json` — Optional Node/pnpm (e.g. `pnpm gog`) |
+- `linode.env.example` — Example Linode/OpenClaw deploy env (copy to `linode.env` locally)
+- `linode.env` — Local Linode SSH env (optional; do not commit secrets)
 
 ---
 

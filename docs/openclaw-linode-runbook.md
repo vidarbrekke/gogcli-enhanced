@@ -2,17 +2,17 @@
 
 Use this when running OpenClaw on a Linode server and want the agent to create/edit Google Docs and Drive (e.g. “Create a new Google Doc called Test1 in a new Drive folder called testing123”).
 
-**Install/upgrade:** For cloning, building, and putting `gog` on PATH, see **[INSTALL.md](../INSTALL.md)** (quick ref: clone gogcli-enhanced → `make` → copy `bin/gog` to PATH; no `make install` or `make clean`). On the server, use **`./scripts/deploy.sh`** to pull, build, copy binary, and restart the MCP daemon.
+**Install/upgrade:** For cloning, building, and putting `gog` on PATH, see **[INSTALL.md](../INSTALL.md)** (quick ref: clone gogcli-enhanced → `make` → copy `bin/gog` to PATH; no `make install` or `make clean`). On the server, use **`./scripts/deploy.sh`** as the single operational entrypoint; it can pull latest code, install missing dependencies, bootstrap first-time setup, build, and restart the MCP daemon.
 
 **Optional — gws on Linode:** If you also want the Google Workspace CLI (`gws`) on this server (e.g. for parity goldens or merge-plan work), see **[gws-on-linode.md](gws-on-linode.md)**. The recommended setup is **gcloud + `gws auth setup`** on your laptop so you skip manual GCP project and OAuth client creation; the doc has the full flow.
 
 ## 1. Automatic MCP registration during setup
 
-**No manual config is required** if you run the repo’s setup script where OpenClaw can see the config:
+**No manual config is required** if you run the repo’s OpenClaw-aware setup script where OpenClaw can see the config:
 
-- **Command:** From the repo root, run `./scripts/setup.sh`.
-- **CLI-only (backup scripts / cron):** If you only need the `gog` CLI (e.g. for a backup script or cron job) and not the MCP/OpenClaw agent, run `./scripts/setup.sh --cli-only`. This skips MCP registration, mcporter, and TOOLS.md; you still get build, OAuth, keyring, and account auth. For cron, set `GOG_KEYRING_PASSWORD` or `GOG_KEYRING_PASSWORD_FILE` in the environment (setup reminds you after keyring setup).
-- **What it does:** The script builds/installs `gog`, runs auth setup, and **registers the gog MCP server automatically** by writing (or merging) a `gog-agentic` entry into `config/mcporter.json` under a detected “workspace” directory.
+- **Command:** From the repo root, run `./scripts/setup-doctor.sh`.
+- **CLI-only (backup scripts / cron):** If you only need the `gog` CLI (e.g. for a backup script or cron job) and not the MCP/OpenClaw agent, run `./scripts/setup.sh`. This handles build + required `gws`-based auth import, but it does **not** register `gog-agentic`, write `mcporter.json`, or inject `TOOLS.md`.
+- **What it does:** `setup-doctor.sh` builds/installs `gog`, requires the official `gws auth setup` / `gws auth login` flow, imports that auth into `gog`, and **registers the gog MCP server automatically** by writing (or merging) a `gog-agentic` entry into `config/mcporter.json` under a detected “workspace” directory.
 - **Workspace detection:**
   - If `OPENCLAW_WORKSPACE` is set, that path is used.
   - Else if the repo lives under a path containing `/repositories/` (e.g. `.../workspace/repositories/gogcli-enhanced`), the workspace is the parent of `repositories` (e.g. `.../workspace`).
@@ -21,7 +21,7 @@ Use this when running OpenClaw on a Linode server and want the agent to create/e
 - **Fallback:** If `~/openclaw-stock-home/.openclaw/workspace` or `~/.openclaw/workspace` exists and is different from the detected workspace, the script also merges the same `gog-agentic` entry there, so OpenClaw finds gog even when the repo is cloned elsewhere.
 - **Env:** If `GOG_KEYRING_BACKEND` is set during setup (e.g. file keyring), the script adds `"env": {"GOG_KEYRING_BACKEND": "file"}` to the server entry so the spawned `gog mcp serve` process uses the file keyring. For headless MCP, the script can also create a keyring password file and add `GOG_KEYRING_PASSWORD_FILE` to that `env`: it will do so automatically when `GOG_KEYRING_PASSWORD` is set, or when you confirm at the prompt “Save keyring password to a file so the MCP server can unlock without a TTY?”. Otherwise add `GOG_KEYRING_PASSWORD_FILE` manually (see §4 and §8.2).
 
-After setup, the script has already started the mcporter daemon and restarted OpenClaw (when the gateway runs under the same user). You do not need to run any further commands—the agent should see gog-agentic tools. If the gateway runs under a different user, restart it manually so it picks up the config.
+After `setup-doctor.sh`, the script has already started the mcporter daemon and restarted OpenClaw (when the gateway runs under the same user). You do not need to run any further commands—the agent should see gog-agentic tools. If the gateway runs under a different user, restart it manually so it picks up the config.
 
 ## 2. Why it failed before
 
@@ -54,7 +54,7 @@ gog must have a valid refresh token for your Google account.
 
 When OpenClaw (or mcporter) spawns `gog mcp serve`, it only passes the `env` from `mcporter.json` to the child process. It does not pass your shell’s `GOG_KEYRING_PASSWORD`, so the keyring cannot be unlocked and gog suggests “authorize the app”. To fix this without putting the password in the config file:
 
-- **During setup:** When you run `./scripts/setup.sh` with file keyring, the script can create the password file and add `GOG_KEYRING_PASSWORD_FILE` to mcporter.json for you—either automatically if `GOG_KEYRING_PASSWORD` is set, or by answering yes to “Save keyring password to a file so the MCP server can unlock without a TTY?” (see §1).
+- **During setup:** When you run `./scripts/setup-doctor.sh` with file keyring, the script can create the password file and add `GOG_KEYRING_PASSWORD_FILE` to mcporter.json for you—either automatically if `GOG_KEYRING_PASSWORD` is set, or by answering yes to “Save keyring password to a file so the MCP server can unlock without a TTY?” (see §1).
 - **Manually:** Otherwise:
   1. Create a file that contains only the keyring password (one line), e.g. `/root/.config/gogcli/keyring.password`.
   2. Restrict access: `chmod 600 /root/.config/gogcli/keyring.password`
@@ -64,7 +64,7 @@ When OpenClaw (or mcporter) spawns `gog mcp serve`, it only passes the `env` fro
 
 **Option B – Run setup wizard once with a tunneled browser (advanced)**
 
-If you can expose a browser to the Linode box (e.g. SSH port-forward + run setup in that session), run `./scripts/setup.sh` and complete OAuth once; then use that keyring for headless runs.
+If you can expose a browser to the Linode box (e.g. SSH port-forward + run setup in that session), run `./scripts/setup-doctor.sh` and complete the official `gws` OAuth flow once; the script will import it into `gog`, then use that keyring for headless runs.
 
 ## 5. OpenClaw MCP configuration
 
@@ -183,7 +183,7 @@ If the agent reads TOOLS.md but reports that gog-agentic tools are not in its to
    - If it prints **"OK: gog-agentic responds and exposes tools"**, gog is fine; the issue is how the gateway loads MCP (step 3).
    - If it prints **"ERROR: gog mcp serve exited"** or **"gog-agentic not found"**, fix the config or keyring (see §8.1, §8.2) then retry.
 
-2. **Start or restart the mcporter daemon** (required when using `"lifecycle": { "mode": "keep-alive" }`). If you ran `./scripts/setup.sh`, it already started the daemon and restarted the OpenClaw gateway; if the agent still has no tools, run:
+2. **Start or restart the mcporter daemon** (required when using `"lifecycle": { "mode": "keep-alive" }`). If you ran `./scripts/setup-doctor.sh`, it already started the daemon and restarted the OpenClaw gateway; if the agent still has no tools, run:
    ```bash
    mcporter --config /root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json daemon restart
    mcporter --config /root/openclaw-stock-home/.openclaw/workspace/config/mcporter.json daemon status

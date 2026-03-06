@@ -42,7 +42,9 @@ For a step-by-step install and first-time setup guide, see **[INSTALL.md](INSTAL
 ./scripts/setup.sh
 ```
 
-The wizard provides interactive install/reinstall flows, dependency checks with permission prompts, optional auth/keyring setup, and optional MCP config template generation.
+`setup.sh` is the simple golden path: build/install, require the official `gws auth setup` / `gws auth login` flow, import that auth into `gog`, set the default alias, and validate Drive access.
+
+Use `./scripts/setup-doctor.sh` for the full OpenClaw/Linode flow, MCP registration, headless repair, or deeper setup diagnostics.
 
 ### Homebrew
 
@@ -79,6 +81,10 @@ Help:
 - Version: `gog --version` or `gog version`.
 
 ## Quick Start
+
+Recommended onboarding: run `./scripts/setup.sh` and let it require the official `gws` auth flow, then import the result into `gog` automatically.
+
+For server bootstrap or upgrades, prefer `./scripts/deploy.sh`; it is the single operational entrypoint for pull, dependency install, bootstrap, build, and daemon restart.
 
 ### 1. Get OAuth2 Credentials
 
@@ -165,7 +171,9 @@ gog gmail labels list
 
 `gog` stores your OAuth refresh tokens in a “keyring” backend. Default is `auto` (best available backend for your OS/environment).
 
-Before you can run `gog auth add`, you must store OAuth client credentials once via `gog auth credentials <credentials.json>` (download a Desktop app OAuth client JSON from the Cloud Console). For multiple clients, use `gog --client <name> auth credentials ...`; tokens are isolated per client.
+Required onboarding path: use the official Google Workspace CLI auth flow (`gws auth setup` or `gws auth login`) via `./scripts/setup.sh` / `./scripts/setup-doctor.sh`. Setup imports that client + refresh token into `gog`, so the user authenticates once.
+
+Manual/advanced path: before you can run `gog auth add`, you must store OAuth client credentials once via `gog auth credentials <credentials.json>` (download a Desktop app OAuth client JSON from the Cloud Console). For multiple clients, use `gog --client <name> auth credentials ...`; tokens are isolated per client.
 
 List accounts:
 

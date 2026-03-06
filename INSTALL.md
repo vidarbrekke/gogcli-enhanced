@@ -6,7 +6,7 @@ Step-by-step guide to install **gog** (gogcli) and start using it.
 
 - **Google account** (Gmail, Workspace, or both).
 - **OAuth 2.0 credentials** from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (Desktop app type). You’ll create these in the setup steps below.
-- For **build from source**: Go 1.21+ (`go version`). If Go is not installed, the install script will download it for you.
+- For **build from source**: Go 1.24+ (`go version`). If Go is not installed, the install script will download it for you.
 
 ---
 
@@ -40,7 +40,7 @@ gog --version
 gog --help
 ```
 
-### Option C (recommended on Linux): Interactive setup wizard
+### Option C (recommended on Ubuntu/macOS): Interactive setup wizard
 
 From the repository root:
 
@@ -48,17 +48,15 @@ From the repository root:
 ./scripts/setup.sh
 ```
 
-What it does:
+What `./scripts/setup.sh` does:
 
-- Linux-only interactive install/reinstall flow
-- Lets user choose install target (`~/.local/bin` recommended, or `/usr/local/bin`)
-- Detects dependencies and asks permission before apt installs
-- Supports reinstall modes:
-  - preserve config
-  - backup + reset config
-  - clean reset (remove config + installed binary)
-- Optional auth/keyring bootstrap
-- Optional minimal MCP client template generation
+- Builds/installs `gog`
+- Requires the official `gws auth setup` / `gws auth login` flow
+- Imports the resulting OAuth client + refresh token into `gog`
+- Sets the default alias
+- Validates non-interactive auth and Drive access
+
+Use `./scripts/setup-doctor.sh` instead when you need the full OpenClaw/MCP bootstrap, headless repair flow, or more aggressive recovery/diagnostics.
 
 ### Option D: Build from source (manual)
 
@@ -99,7 +97,7 @@ What it does:
    cp bin/gog ~/bin/gog   # ensure ~/bin is in your PATH
    ```
 
-**Note:** This project has **no** `make install` or `make clean` targets. Use `make` to build and copy the binary manually (or use `./scripts/install.sh` and then `cp` as above). On a deployment server, use `./scripts/deploy.sh` to pull, build, copy to `~/.local/bin/gog`, and restart the MCP daemon.
+**Note:** This project has **no** `make install` or `make clean` targets. Use `make` to build and copy the binary manually (or use `./scripts/install.sh` and then `cp` as above). On a deployment server, use `./scripts/deploy.sh` to pull, build, copy to `~/.local/bin/gog`, and restart the MCP daemon. Normal build/deploy does not require a root-level `package.json`.
 
 ### Install / upgrade quick reference (gogcli-enhanced)
 
@@ -108,7 +106,7 @@ What it does:
 | **First install** | `git clone https://github.com/vidarbrekke/gogcli-enhanced.git && cd gogcli-enhanced` |
 | Build | `make` (or `./scripts/install.sh` if Go is not installed) |
 | Put on PATH | `cp bin/gog ~/.local/bin/gog` or `sudo cp bin/gog /usr/local/bin/gog` |
-| **Upgrade** | `git pull origin main` (or your branch), then `make`, then copy `bin/gog` to your PATH again |
+| **Upgrade** | `git pull origin <branch>` (or just `git pull` on your tracked branch), then `make`, then copy `bin/gog` to your PATH again |
 
 Do **not** use `sudo make install` or `make clean` — those targets do not exist in this repo.
 
@@ -117,6 +115,26 @@ Do **not** use `sudo make install` or `make clean` — those targets do not exis
 ## 2. First-time setup
 
 Before using Gmail, Drive, Calendar, etc., you must store OAuth credentials and authorize an account.
+
+### Recommended: single official auth flow
+
+Use one of the setup scripts and let it prefer the official Google Workspace CLI auth flow:
+
+```bash
+./scripts/setup.sh
+```
+
+For OpenClaw/headless/MCP setups:
+
+```bash
+./scripts/setup-doctor.sh
+```
+
+Those flows require `gws auth setup` / `gws auth login`, then automatically import the resulting credentials into `gog`, so the user authenticates once.
+
+### Manual low-level auth commands
+
+These commands still exist for low-level maintenance and debugging, but they are no longer the recommended onboarding path.
 
 ### Step 1: Create OAuth credentials (Google Cloud)
 
@@ -164,6 +182,26 @@ gog gmail labels list
 ```
 
 If you see your Gmail labels, installation and auth are complete.
+
+### OpenClaw / headless MCP deployment
+
+For a CLI-only install, `./scripts/setup.sh` is enough and now requires the official `gws` auth flow before importing into `gog`.
+
+For OpenClaw/Linode setups where you want the repo to register `gog-agentic`, write `mcporter.json`, inject `TOOLS.md`, and restart the daemon/gateway, use:
+
+```bash
+./scripts/setup-doctor.sh
+```
+
+For first-time server bootstrap and later upgrades, use:
+
+```bash
+./scripts/deploy.sh
+```
+
+`deploy.sh` is the single operational entrypoint: it can pull the latest code, install missing system/npm dependencies, bootstrap a first-time setup when needed, build `gog`, and restart the MCP daemon.
+
+If you need a starting point for SSH/deploy variables, copy `linode.env.example` to `linode.env` and fill in your host-specific values. Do not commit the real file.
 
 ---
 
@@ -258,8 +296,10 @@ If you also use or evaluate **gws** (Google Workspace CLI) on this repo—e.g. f
 |------|--------|
 | Install (Homebrew) | `brew install steipete/tap/gogcli` |
 | Install (source) | `git clone ... && ./scripts/install.sh` (or `make` if Go is installed) |
-| Store OAuth client | `gog auth credentials <path-to-json>` |
-| Add account | `gog auth add you@gmail.com` |
+| OpenClaw/Linode bootstrap | `./scripts/setup-doctor.sh` |
+| Required auth bootstrap | `gws auth setup` (run automatically by setup/deploy when needed) |
+| Manual store OAuth client | `gog auth credentials <path-to-json>` |
+| Manual add account | `gog auth add you@gmail.com` |
 | List accounts | `gog auth list` |
 | Use an account | `gog ... --account you@gmail.com` or `GOG_ACCOUNT=...` |
 | JSON output | `gog --json ...` |

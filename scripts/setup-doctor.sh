@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup-doctor.sh — advanced/repair setup for gogcli-enhanced (Linux)
+# setup-doctor.sh — advanced/repair setup for gogcli-enhanced (Ubuntu/macOS)
 # Contains the original full-featured setup flow (diagnostics, resets, recovery).
 
 set -euo pipefail
@@ -8,8 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
-if [[ "$(uname -s)" != "Linux" ]]; then
-  echo "This setup script currently supports Linux only." >&2
+source "$ROOT_DIR/scripts/lib/gws-auth-bridge.sh"
+
+OS_NAME="$(uname -s)"
+if [[ "$OS_NAME" != "Linux" && "$OS_NAME" != "Darwin" ]]; then
+  echo "This setup script currently supports Ubuntu/Linux and macOS only." >&2
   exit 1
 fi
 
@@ -152,6 +155,32 @@ ask_yes_no() {
 
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
+install_system_packages() {
+  local packages=("$@")
+  case "$OS_NAME" in
+    Linux)
+      has_cmd apt-get || { err "apt-get not available. Install missing deps manually and rerun."; exit 1; }
+      if ! ask_yes_no "Install missing dependencies using apt-get now?" n; then
+        err "Cannot continue without required dependencies. Install them manually and rerun."
+        exit 1
+      fi
+      log "Installing missing dependencies automatically with apt-get..."
+      if has_cmd sudo; then
+        sudo apt-get update
+        sudo apt-get install -y "${packages[@]}"
+      else
+        apt-get update
+        apt-get install -y "${packages[@]}"
+      fi
+      ;;
+    Darwin)
+      has_cmd brew || { err "Homebrew is required on macOS. Install Homebrew and rerun."; exit 1; }
+      log "Installing missing dependencies automatically with Homebrew..."
+      brew install "${packages[@]}"
+      ;;
+  esac
+}
+
 is_cloud_context() {
   [[ "$ROOT_DIR" == /root/openclaw-stock-home/.openclaw/workspace/repositories/* ]] && return 0
   [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]] && return 0
@@ -187,6 +216,77 @@ INSTALL_CMD_HINT=""
 
 AUTH_CREDENTIALS_OK=0
 AUTH_ACCOUNT_OK=0
+GWS_EXPORT_JSON=""
+
+cleanup() {
+  if [[ -n "$GWS_EXPORT_JSON" && -f "$GWS_EXPORT_JSON" ]]; then
+    rm -f "$GWS_EXPORT_JSON"
+  fi
+}
+
+trap cleanup EXIT
+
+ensure_gws_export() {
+  if [[ -n "$GWS_EXPORT_JSON" && -f "$GWS_EXPORT_JSON" ]]; then
+    return 0
+  fi
+
+  GWS_EXPORT_JSON="$(mktemp /tmp/gws-export-XXXXXX.json)"
+  if ! gws_bootstrap_export_file "$GWS_EXPORT_JSON" 0; then
+    rm -f "$GWS_EXPORT_JSON"
+    GWS_EXPORT_JSON=""
+    return 1
+  fi
+
+  return 0
+}
+
+bootstrap_doctor_credentials_from_gws() {
+  local creds_path="$1"
+  if ! ensure_gws_export; then
+    return 1
+  fi
+
+  if ! gws_write_gog_credentials_from_export "$GWS_EXPORT_JSON" "$creds_path"; then
+    return 1
+  fi
+
+  AUTH_CREDENTIALS_OK=1
+  log "Imported OAuth client credentials from official gws auth."
+}
+
+bootstrap_doctor_account_from_gws() {
+  local gog_cmd="$1"
+  local email="$2"
+  local import_json detected_email target_email
+
+  if ! ensure_gws_export; then
+    return 1
+  fi
+
+  detected_email="$(gws_guess_email_from_export "$GWS_EXPORT_JSON" 2>/dev/null || true)"
+  detected_email="$(printf '%s' "$detected_email" | tr -d '\r' | tr -d '\n' | xargs 2>/dev/null || true)"
+  target_email="${email:-$detected_email}"
+  if [[ -z "$target_email" ]]; then
+    return 1
+  fi
+
+  import_json="$(mktemp /tmp/gog-token-import-XXXXXX.json)"
+  if ! gws_write_gog_token_import_from_export "$GWS_EXPORT_JSON" "$target_email" "$import_json" ""; then
+    rm -f "$import_json"
+    return 1
+  fi
+
+  if ! "$gog_cmd" auth tokens import "$import_json" >/dev/null; then
+    rm -f "$import_json"
+    return 1
+  fi
+  rm -f "$import_json"
+
+  "$gog_cmd" auth alias set default "$target_email" >/dev/null 2>&1 || true
+  AUTH_ACCOUNT_OK=1
+  log "Imported refresh token from official gws auth for $target_email."
+}
 
 require_repo_layout() {
   [[ -f "$ROOT_DIR/go.mod" && -x "$ROOT_DIR/scripts/install.sh" ]] || {
@@ -214,7 +314,7 @@ print_plan() {
   echo "This setup will automatically:"
   echo "1) Install/update gogcli-enhanced"
   echo "2) Activate and verify the OpenClaw MCP server (gog-agentic)"
-  echo "3) Reuse your Google auth if available, or guide you step-by-step"
+  echo "3) Require the official gws auth flow, then import it into gog"
   echo
   echo "Detected context: $(is_cloud_context && echo 'cloud/headless' || echo 'local')"
   echo "Install target: $INSTALL_TARGET"
@@ -225,28 +325,54 @@ print_plan() {
 }
 
 check_dependencies_auto() {
-  local missing=()
-  for c in bash git make tar; do
-    has_cmd "$c" || missing+=("$c")
+  local missing_pkgs=()
+  for c in bash git make tar python3 jq; do
+    has_cmd "$c" || missing_pkgs+=("$c")
   done
   if ! has_cmd curl && ! has_cmd wget; then
-    missing+=("curl")
+    missing_pkgs+=("curl")
+  fi
+  if ! has_cmd npm; then
+    if [[ "$OS_NAME" == "Linux" ]]; then
+      missing_pkgs+=("npm")
+    else
+      missing_pkgs+=("node")
+    fi
+  fi
+  if ! has_cmd node; then
+    if [[ "$OS_NAME" == "Linux" ]]; then
+      missing_pkgs+=("nodejs")
+    else
+      missing_pkgs+=("node")
+    fi
   fi
 
-  if [[ ${#missing[@]} -eq 0 ]]; then
-    log "Dependencies look good."
-    return 0
+  if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
+    warn "Missing dependencies: ${missing_pkgs[*]}"
+    install_system_packages "${missing_pkgs[@]}"
   fi
 
-  warn "Missing dependencies: ${missing[*]}"
-  has_cmd apt-get || { err "apt-get not available. Install missing deps manually and rerun."; exit 1; }
-  if ! ask_yes_no "Install missing dependencies using apt-get now?" n; then
-    err "Cannot continue without required dependencies. Install them manually and rerun."
+  if ! gws_bridge_available; then
+    log "Installing official Google Workspace CLI (gws)..."
+    npm install -g @googleworkspace/cli
+  fi
+
+  if ! gws_bridge_available; then
+    err "gws is still unavailable after installation attempt."
     exit 1
   fi
-  log "Installing missing dependencies automatically..."
-  sudo apt-get update
-  sudo apt-get install -y "${missing[@]}"
+
+  if ! has_cmd mcporter; then
+    log "Installing mcporter..."
+    npm install -g mcporter
+  fi
+
+  if ! has_cmd mcporter; then
+    err "mcporter is still unavailable after installation attempt."
+    exit 1
+  fi
+
+  log "Dependencies look good."
 }
 
 backup_and_reset_if_requested() {
@@ -338,7 +464,17 @@ persist_keyring_env_auto() {
     grep -Fq 'export GOG_KEYRING_BACKEND=file' "$SHELL_RC_FILE" 2>/dev/null || \
       echo 'export GOG_KEYRING_BACKEND=file' >> "$SHELL_RC_FILE"
     if grep -Fq 'export GOG_KEYRING_PASSWORD=' "$SHELL_RC_FILE" 2>/dev/null; then
-      sed -i "s|^export GOG_KEYRING_PASSWORD=.*$|export GOG_KEYRING_PASSWORD='${pass//\'/\'\"\'\"\'}'|" "$SHELL_RC_FILE"
+      python3 - "$SHELL_RC_FILE" "$pass" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+pw = sys.argv[2].replace("'", "'\"'\"'")
+text = path.read_text(encoding="utf-8")
+text = re.sub(r"^export GOG_KEYRING_PASSWORD=.*$", f"export GOG_KEYRING_PASSWORD='{pw}'", text, flags=re.M)
+path.write_text(text, encoding="utf-8")
+PY
     else
       echo "export GOG_KEYRING_PASSWORD='${pass//\'/\'\"\'\"\'}'" >> "$SHELL_RC_FILE"
     fi
@@ -469,29 +605,15 @@ PY
     AUTH_CREDENTIALS_OK=1
     log "Reusing existing OAuth credentials."
   else
-    clear_screen
-    echo "Enter your Google OAuth app credentials."
-    echo "(Desktop app client from Google Cloud Console)"
-    local cid csec
-    prompt_line cid "Paste OAuth Client ID then press Enter: "
-    prompt_secret csec "Paste OAuth Client Secret (hidden) then Enter: " || csec=""
-    if [[ -n "$cid" && -n "$csec" ]]; then
-      mkdir -p "$CONFIG_DIR"
-      python3 - <<PY
-import json, os
-p=${creds@Q}
-flat={'client_id': ${cid@Q}, 'client_secret': ${csec@Q}}
-os.makedirs(os.path.dirname(p), exist_ok=True)
-with open(p,'w',encoding='utf-8') as f:
-    json.dump(flat,f,indent=2)
-    f.write('\n')
-PY
-      AUTH_CREDENTIALS_OK=1
-      log "Stored OAuth credentials."
-    else
-      err "OAuth credentials were not provided. Cannot continue auth setup."
-      return 1
+    if bootstrap_doctor_credentials_from_gws "$creds"; then
+      use_existing="gws"
     fi
+  fi
+
+  if [[ "$use_existing" != "y" && "$use_existing" != "gws" ]]; then
+    err "Official Google Workspace CLI auth is required for onboarding."
+    err "Run 'gws auth setup' or 'gws auth login', confirm 'gws auth export --unmasked' works, then rerun setup."
+    return 1
   fi
 
   configure_keyring_file "$gog_cmd"
@@ -504,62 +626,13 @@ PY
     return 0
   fi
 
-  clear_screen
-  echo "Final step: connect your Google account now."
-  echo "Type your Google email at the prompt below, then press Enter."
-  local email
-  prompt_line email "Google account email to authorize, then press Enter: "
-  if [[ -z "$email" ]]; then
-    err "Email is required for novice setup. Re-run and provide account email."
-    return 1
+  if bootstrap_doctor_account_from_gws "$gog_cmd" ""; then
+    return 0
   fi
 
-  if is_cloud_context; then
-    echo ""
-    echo -e "${BOLD}ACTION REQUIRED ON YOUR LOCAL MACHINE${RESET}"
-    echo "A browser URL will be shown next. Open it, approve, then paste the redirect URL back here."
-    step1_out="$("$gog_cmd" auth add "$email" --services user --remote --step 1 2>/dev/null)" || true
-    auth_url=""
-    if [[ -n "$step1_out" ]]; then
-      auth_url="$(echo "$step1_out" | awk -F'\t' '$1=="auth_url"{print $2; exit}')"
-    fi
-    if [[ -z "$auth_url" ]]; then
-      err "Could not get auth URL. Run manually: $gog_cmd auth add $email --services user --remote --step 1"
-      return 1
-    fi
-    echo ""
-    echo "Open this URL in your browser to authorize:"
-    echo "  $auth_url"
-    echo ""
-    echo "After you click Allow, paste the **entire** URL from your browser's address bar (it may start with https://localhost or similar)."
-    echo ""
-    local redirect_url
-    prompt_line redirect_url "Paste the full redirect URL here, then press Enter: "
-    if [[ -z "$redirect_url" ]]; then
-      err "Redirect URL is required. Re-run and paste the URL after authorizing."
-      return 1
-    fi
-    if "$gog_cmd" auth add "$email" --services user --remote --step 2 --auth-url "$redirect_url"; then
-      AUTH_ACCOUNT_OK=1
-    else
-      err "Authorization did not complete. Retry: $gog_cmd auth add $email --services user --remote --step 2 --auth-url <url>"
-      return 1
-    fi
-  else
-    if "$gog_cmd" auth add "$email"; then
-      AUTH_ACCOUNT_OK=1
-    else
-      err "Authorization did not complete. Retry now with: $gog_cmd auth add $email"
-      return 1
-    fi
-  fi
-
-  # Hard post-check: token must exist.
-  if ! $gog_cmd auth list --check >/tmp/gog-auth-postcheck.out 2>/tmp/gog-auth-postcheck.err; then
-    err "Post-auth check failed; no valid token found."
-    err "See /tmp/gog-auth-postcheck.err and /tmp/gog-auth-postcheck.out"
-    return 1
-  fi
+  err "Could not import account auth from official gws onboarding."
+  err "Run 'gws auth setup' or 'gws auth login', confirm 'gws auth export --unmasked' works, then rerun setup."
+  return 1
 }
 
 configure_openclaw_mcp_auto() {
@@ -930,44 +1003,15 @@ enforce_token_ready_for_mcp() {
     return 0
   fi
 
-  warn "No valid Google token found for MCP runtime. Completing auth now..."
-  clear_screen
-  echo "Final auth gate: connect your Google account now so MCP works immediately."
-  local email
-  prompt_line email "Google account email to authorize, then press Enter: "
-  if [[ -z "$email" ]]; then
-    err "Email is required to finish setup with a working MCP token."
+  warn "No valid Google token found for MCP runtime. Requiring official gws onboarding..."
+  if ! ensure_gws_export; then
+    err "Official gws onboarding did not complete successfully."
     return 1
   fi
 
-  if is_cloud_context; then
-    local step1_out auth_url redirect_url
-    echo ""
-    echo -e "${BOLD}ACTION REQUIRED ON YOUR LOCAL MACHINE${RESET}"
-    echo "Open the URL below in your browser, then paste the redirect URL back here."
-    step1_out="$("$gog_cmd" auth add "$email" --services user --remote --step 1 2>/dev/null)" || true
-    auth_url="$(echo "$step1_out" | awk -F'\t' '$1=="auth_url"{print $2; exit}')"
-    if [[ -z "$auth_url" ]]; then
-      err "Could not generate auth URL. Run manually: $gog_cmd auth add $email --services user --remote --step 1"
-      return 1
-    fi
-    echo
-    echo "Open this URL in your browser:"
-    echo "  $auth_url"
-    echo
-    echo "After you click Allow, paste the **entire** URL from your browser's address bar."
-    echo
-    prompt_line redirect_url "Paste the full redirect URL here, then press Enter: "
-    [[ -n "$redirect_url" ]] || { err "Redirect URL is required."; return 1; }
-    "$gog_cmd" auth add "$email" --services user --remote --step 2 --auth-url "$redirect_url" >/tmp/gog-auth-gate-step2.out 2>/tmp/gog-auth-gate-step2.err || {
-      err "Auth step 2 failed. See /tmp/gog-auth-gate-step2.err"
-      return 1
-    }
-  else
-    "$gog_cmd" auth add "$email" >/tmp/gog-auth-gate-local.out 2>/tmp/gog-auth-gate-local.err || {
-      err "Local auth failed. See /tmp/gog-auth-gate-local.err"
-      return 1
-    }
+  if ! bootstrap_doctor_account_from_gws "$gog_cmd" ""; then
+    err "Could not import official gws auth into gog for MCP runtime."
+    return 1
   fi
 
   if ! XDG_CONFIG_HOME="$XDG_CONFIG_HOME" \
@@ -991,11 +1035,8 @@ print_final() {
     echo "Status: ✅ Ready — MCP is active and your Google account is connected"
   else
     echo "Status: ⚠️ Almost ready — MCP is active, but your Google account is not connected yet"
-    if is_cloud_context; then
-      echo "Run: ${INSTALL_CMD_HINT:-$INSTALL_TARGET} auth add <you@gmail.com> --services user --manual"
-    else
-      echo "Run: ${INSTALL_CMD_HINT:-$INSTALL_TARGET} auth add <you@gmail.com>"
-    fi
+    echo "Run: gws auth setup"
+    echo "Then rerun: ./scripts/setup-doctor.sh"
   fi
 
   echo

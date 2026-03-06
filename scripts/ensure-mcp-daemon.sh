@@ -5,11 +5,12 @@
 # Usage:
 #   ./scripts/ensure-mcp-daemon.sh
 #   WORKSPACE_DIR=/path/to/workspace ./scripts/ensure-mcp-daemon.sh
-# Optional: RESTART_GATEWAY=1 to also restart openclaw-gateway (systemd user).
+# Optional: RESTART_GATEWAY=1 to also restart openclaw-gateway (systemd user on Linux).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+OS_NAME="$(uname -s)"
 
 # Workspace: where config/mcporter.json lives (OpenClaw workspace, not repo root).
 if [[ -n "${WORKSPACE_DIR:-}" ]]; then
@@ -47,7 +48,9 @@ log "mcporter daemon restarted (config: $MCPORTER_CONFIG)."
 mcporter --config "$MCPORTER_CONFIG" daemon status || true
 
 if [[ "${RESTART_GATEWAY:-0}" == "1" ]]; then
-  if systemctl --user restart openclaw-gateway 2>/dev/null; then
+  if [[ "$OS_NAME" == "Darwin" ]]; then
+    warn "Gateway restart is not automated on macOS. Restart your OpenClaw gateway manually using your normal launch method."
+  elif systemctl --user restart openclaw-gateway 2>/dev/null; then
     log "OpenClaw gateway restarted."
   else
     warn "Could not restart openclaw-gateway (not running as user with that service?)."

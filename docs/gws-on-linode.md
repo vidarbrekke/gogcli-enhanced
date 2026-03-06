@@ -56,7 +56,7 @@ Once you’re logged in (via `gws auth setup` or `gws auth login`), export crede
 # Export credentials (unmasked = full tokens; keep this file secret)
 gws auth export --unmasked > ~/gws-credentials.json
 
-# Copy to Linode (from repo root, with linode.env)
+# Copy to Linode (from repo root, with `linode.env` copied from `linode.env.example`)
 source linode.env   # or set SSH_HOST, SSH_USER, SSH_KEY_PATH yourself
 ssh -i "$SSH_KEY_PATH" "$SSH_USER@$SSH_HOST" "mkdir -p /root/.config/gws"
 scp -i "$SSH_KEY_PATH" ~/gws-credentials.json "$SSH_USER@$SSH_HOST:/root/.config/gws/credentials.json"
@@ -99,7 +99,7 @@ gws gmail users labels get --params '{"userId":"me","id":"Label_DoesNotExist_123
 Then copy the two files from Linode to your laptop into the repo:
 
 ```bash
-# From your laptop (repo root)
+# From your laptop (repo root; `linode.env` can be copied from `linode.env.example`)
 source linode.env
 scp -i "$SSH_KEY_PATH" "$SSH_USER@$SSH_HOST:/tmp/gmail-labels-list-gws.json" docs/merge/goldens/
 scp -i "$SSH_KEY_PATH" "$SSH_USER@$SSH_HOST:/tmp/gmail-labels-get-not-found-gws.json" docs/merge/goldens/

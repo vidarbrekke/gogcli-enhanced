@@ -8,6 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
+source "$ROOT_DIR/scripts/lib/gws-auth-bridge.sh"
+
 BOLD="\033[1m"
 GREEN="\033[32m"
 YELLOW="\033[33m"
@@ -20,11 +22,9 @@ err() { echo -e "${RED}Error:${RESET} $*"; }
 
 ACCOUNT="${GOG_ACCOUNT:-}"
 CLIENT="${GOG_CLIENT:-}"
-CREDENTIALS_PATH=""
-MANUAL=0
 NO_INPUT=0
-CREDENTIALS_STDIN=0
 CLI_ONLY=0
+GWS_EXPORT_JSON=""
 
 usage() {
   cat <<EOF
@@ -32,17 +32,14 @@ Usage: ./scripts/setup.sh [options]
 
 Simple setup (golden path):
   1) build/install gog
-  2) ensure OAuth client credentials
-  3) authorize account
+  2) require official gws auth setup/login
+  3) import that auth into gog automatically
   4) set default account
   5) validate Drive access
 
 Options:
   --account <email>            Account email to authorize/use
-  --credentials <path>         Path to OAuth client JSON to import
-  --credentials-stdin          Read full OAuth JSON from stdin (non-interactive friendly)
   --client <name>              Optional gog client profile
-  --manual                     Force manual auth flow
   --no-input                   Non-interactive mode (fails if prompts needed)
   --cli-only                   CLI/cron-only mode (no MCP registration; use for backup scripts)
   -h, --help                   Show this help
@@ -52,16 +49,21 @@ Advanced/repair workflow moved to:
 EOF
 }
 
+cleanup() {
+  if [[ -n "$GWS_EXPORT_JSON" && -f "$GWS_EXPORT_JSON" ]]; then
+    rm -f "$GWS_EXPORT_JSON"
+  fi
+}
+
+trap cleanup EXIT
+
 require_cmd() { command -v "$1" >/dev/null 2>&1 || { err "Missing command: $1"; exit 1; }; }
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --account) ACCOUNT="${2:-}"; shift 2 ;;
-      --credentials) CREDENTIALS_PATH="${2:-}"; shift 2 ;;
       --client) CLIENT="${2:-}"; shift 2 ;;
-      --credentials-stdin) CREDENTIALS_STDIN=1; shift ;;
-      --manual) MANUAL=1; shift ;;
       --no-input) NO_INPUT=1; shift ;;
       --cli-only) CLI_ONLY=1; shift ;;
       -h|--help) usage; exit 0 ;;
@@ -78,6 +80,85 @@ gog_cmd() {
   fi
 }
 
+ensure_gws_export() {
+  if [[ -n "$GWS_EXPORT_JSON" && -f "$GWS_EXPORT_JSON" ]]; then
+    return 0
+  fi
+
+  GWS_EXPORT_JSON="$(mktemp /tmp/gws-export-XXXXXX.json)"
+  if ! gws_bootstrap_export_file "$GWS_EXPORT_JSON" "$NO_INPUT"; then
+    rm -f "$GWS_EXPORT_JSON"
+    GWS_EXPORT_JSON=""
+    return 1
+  fi
+
+  return 0
+}
+
+detect_account_from_gws() {
+  local detected=""
+  if ! ensure_gws_export; then
+    return 1
+  fi
+
+  detected="$(gws_guess_email_from_export "$GWS_EXPORT_JSON" 2>/dev/null || true)"
+  detected="$(printf '%s' "$detected" | tr -d '\r' | tr -d '\n' | xargs 2>/dev/null || true)"
+  [[ -n "$detected" ]] || return 1
+  ACCOUNT="$detected"
+  log "Detected Google account from official gws auth: $ACCOUNT"
+}
+
+bootstrap_gog_credentials_from_gws() {
+  local creds_path
+  creds_path="$(python3 - <<'PY'
+from pathlib import Path
+import os
+base = Path(os.path.expanduser(os.environ.get("XDG_CONFIG_HOME", "~/.config"))).expanduser()
+print(base / "gogcli" / "credentials.json")
+PY
+)"
+
+  if ! ensure_gws_export; then
+    return 1
+  fi
+
+  if ! gws_write_gog_credentials_from_export "$GWS_EXPORT_JSON" "$creds_path"; then
+    return 1
+  fi
+
+  log "Imported OAuth client credentials from official gws auth."
+}
+
+bootstrap_gog_account_from_gws() {
+  local import_json detected_email target_email
+  if ! ensure_gws_export; then
+    return 1
+  fi
+
+  detected_email="$(gws_guess_email_from_export "$GWS_EXPORT_JSON" 2>/dev/null || true)"
+  detected_email="$(printf '%s' "$detected_email" | tr -d '\r' | tr -d '\n' | xargs 2>/dev/null || true)"
+  target_email="${ACCOUNT:-$detected_email}"
+  if [[ -z "$target_email" ]]; then
+    return 1
+  fi
+
+  import_json="$(mktemp /tmp/gog-token-import-XXXXXX.json)"
+  if ! gws_write_gog_token_import_from_export "$GWS_EXPORT_JSON" "$target_email" "$import_json" "$CLIENT"; then
+    rm -f "$import_json"
+    return 1
+  fi
+
+  if ! gog_cmd auth tokens import "$import_json" >/dev/null; then
+    rm -f "$import_json"
+    return 1
+  fi
+  rm -f "$import_json"
+
+  ACCOUNT="$target_email"
+  gog_cmd auth alias set default "$ACCOUNT" >/dev/null 2>&1 || true
+  log "Imported refresh token from official gws auth for $ACCOUNT."
+}
+
 build_and_install() {
   log "Building/installing gog..."
   ./scripts/install.sh
@@ -91,22 +172,6 @@ build_and_install() {
   gog --version || true
 }
 
-import_pasted_credentials() {
-  local pasted_json tmp_creds
-  pasted_json="$(cat)"
-  [[ -n "$pasted_json" ]] || { err "No JSON provided."; exit 1; }
-
-  if ! printf '%s' "$pasted_json" | jq -e . >/dev/null 2>&1; then
-    err "Provided content is not valid JSON."
-    exit 1
-  fi
-
-  tmp_creds="$(mktemp /tmp/gog-credentials-XXXXXX.json)"
-  printf '%s' "$pasted_json" > "$tmp_creds"
-  gog_cmd auth credentials "$tmp_creds"
-  rm -f "$tmp_creds"
-}
-
 ensure_credentials() {
   if gog_cmd auth credentials list >/dev/null 2>&1; then
     local count
@@ -117,49 +182,14 @@ ensure_credentials() {
     fi
   fi
 
-  if [[ "$CREDENTIALS_STDIN" -eq 1 ]]; then
-    log "Reading OAuth credentials JSON from stdin..."
-    import_pasted_credentials
+  if bootstrap_gog_credentials_from_gws; then
     return 0
   fi
 
-  if [[ -n "$CREDENTIALS_PATH" ]]; then
-    [[ -f "$CREDENTIALS_PATH" ]] || { err "Credentials file not found: $CREDENTIALS_PATH"; exit 1; }
-    log "Importing OAuth credentials from: $CREDENTIALS_PATH"
-    gog_cmd auth credentials "$CREDENTIALS_PATH"
-    return 0
-  fi
-
-  if [[ "$NO_INPUT" -eq 1 ]]; then
-    err "No credentials configured. Provide --credentials <path> or --credentials-stdin in --no-input mode."
-    exit 1
-  fi
-
-  echo
-  echo -e "${BOLD}OAuth credentials required${RESET}"
-  echo "Choose input mode:"
-  echo "  1) Path to Desktop OAuth JSON file"
-  echo "  2) Paste full raw OAuth JSON"
-  read -r -p "Select [1/2] (default 1): " mode
-  mode="${mode:-1}"
-
-  case "$mode" in
-    1)
-      read -r -p "Credentials JSON path: " CREDENTIALS_PATH
-      [[ -f "$CREDENTIALS_PATH" ]] || { err "Credentials file not found: $CREDENTIALS_PATH"; exit 1; }
-      gog_cmd auth credentials "$CREDENTIALS_PATH"
-      return 0
-      ;;
-    2)
-      echo "Paste full OAuth client JSON, then press Ctrl-D:"
-      import_pasted_credentials
-      return 0
-      ;;
-    *)
-      err "Invalid selection: $mode (choose 1 or 2)"
-      exit 1
-      ;;
-  esac
+  err "Official Google Workspace CLI auth is required for onboarding."
+  err "Run 'gws auth setup' or 'gws auth login', confirm 'gws auth export --unmasked' works, then rerun setup."
+  [[ "$NO_INPUT" -eq 1 ]] && err "Non-interactive mode requires an existing successful gws auth export."
+  exit 1
 }
 
 pick_account_if_needed() {
@@ -176,46 +206,25 @@ pick_account_if_needed() {
     return 0
   fi
 
-  if [[ "$NO_INPUT" -eq 1 ]]; then
-    err "No account found. Provide --account <email> in --no-input mode."
-    exit 1
+  if detect_account_from_gws; then
+    return 0
   fi
 
-  read -r -p "Google account email to authorize: " ACCOUNT
-  [[ -n "$ACCOUNT" ]] || { err "Account email is required"; exit 1; }
+  err "Could not determine the Google account from official gws auth."
+  err "Run 'gws auth status' and 'gws auth export --unmasked', or pass --account explicitly, then rerun setup."
+  exit 1
 }
 
 authorize_account() {
   # If already present, skip add
   if gog_cmd auth list 2>/dev/null | awk '{print $1}' | grep -Fxq "$ACCOUNT"; then
     log "Account already authorized: $ACCOUNT"
+  elif bootstrap_gog_account_from_gws; then
+    return 0
   else
-    log "Authorizing account: $ACCOUNT"
-    if [[ "$MANUAL" -eq 1 ]]; then
-      gog_cmd auth add "$ACCOUNT" --services user --manual
-    else
-      # Auto flow first; fallback to manual if it fails
-      if ! gog_cmd auth add "$ACCOUNT" --services user; then
-        warn "Auto OAuth flow failed; falling back to manual flow..."
-        gog_cmd auth add "$ACCOUNT" --services user --manual
-      fi
-    fi
-    
-    # For manual auth, we need to handle the redirect URL
-    if [[ "$MANUAL" -eq 1 ]]; then
-      echo
-      echo "${BOLD}Manual OAuth flow${RESET}"
-      echo "1. Open this URL in your browser:"
-      echo "   $(gog_cmd auth add "$ACCOUNT" --services user --manual --step 1 2>/dev/null | grep -o 'https://[^ ]*')"
-      echo "2. After authenticating, copy the FULL redirect URL from your browser"
-      echo "   (e.g., https://localhost:8080/oauth2/callback?code=...&state=...)"
-      echo "3. Paste it here when ready:"
-      read -r -p "Paste redirect URL: " REDIRECT_URL
-      [[ -n "$REDIRECT_URL" ]] || { err "No redirect URL provided."; exit 1; }
-      
-      # Complete manual auth
-      gog_cmd auth add "$ACCOUNT" --services user --manual --step 2 --auth-url "$REDIRECT_URL"
-    fi
+    err "Could not import account auth from official gws onboarding for $ACCOUNT."
+    err "Run 'gws auth setup' or 'gws auth login', confirm 'gws auth export --unmasked' works, then rerun setup."
+    exit 1
   fi
 
   # Set alias 'default' for easier non-interactive operations
@@ -238,6 +247,7 @@ print_next_steps() {
   echo "Try commands:"
   echo "  gog drive ls --account $ACCOUNT"
   echo "  gog drive upload /path/to/file --parent <folderId> --account $ACCOUNT"
+  echo "  gws auth status"
   echo
   [[ "$CLI_ONLY" -eq 1 ]] && echo "For cron/scripts: set GOG_KEYRING_PASSWORD or GOG_KEYRING_PASSWORD_FILE in the environment."
   echo "Advanced/repair workflows: ./scripts/setup-doctor.sh"
