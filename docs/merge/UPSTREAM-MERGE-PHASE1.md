@@ -27,13 +27,15 @@ Strategy: **Keep our behavior for all conflicted files**; take upstream’s new 
 
 - Some `TestSedIntegration_*` and `TestExecute_ClassroomMoreCommands_JSON` can fail with `encode json: write |1: broken pipe` under parallel runs. They pass when run in isolation or with `-p 1`. Treated as pre-existing; fix in a follow-up.
 
-## Phase 2 (later)
+## Phase 2 (done 2026-03-05)
 
-- **Selectively pull upstream features** into our tree (no “accept theirs” on whole files):
-  - `drive ls --all` (upstream’s `drive.go`).
-  - `sheets links` (upstream’s `sheets.go`).
-  - Gmail archive/read/unread/trash (we took `gmail_archive.go`; confirm wiring).
-  - Calendar `--to` expansion.
-  - Docs write/update (reconcile with our `DocsEditCmd` and tests).
-- **Resolve remaining conflicts** in `CHANGELOG`, `README`, and any shared docs by merging both sides’ content.
-- **Stabilize** the broken-pipe tests (capture/pipe handling).
+- **Sheets links, drive ls --global, Gmail archive/read/unread/trash, calendar --to expansion:** Already present on our branch from Phase 1 merge; no code changes.
+- **Drive flag:** We expose `drive ls --global` (same behavior as upstream’s `drive ls --all`). No alias added; documented in CHANGELOG.
+- **CHANGELOG:** Merged upstream 0.12.0 entries (Drive ls --global, Gmail drafts update --quote, Auth --gmail-scope, Gmail archive|read|unread|trash --dry-run).
+- **README:** Restored Gmail scope note and draft --quote examples; added `--gmail-scope` to least-privilege bullet and auth command reference.
+- **Broken-pipe test flakiness:** Deferred; documented as known issue (run with `-p 1` or in isolation).
+
+## Future (optional)
+
+- Docs write/update reconciliation with our `DocsEditCmd` (if upstream adds more).
+- Stabilize broken-pipe tests (capture/pipe handling when running with `--json`).

@@ -28,7 +28,7 @@ Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Sli
 - **Command allowlist** - restrict top-level commands for sandboxed/agent runs
 - **Secure credential storage** using OS keyring or encrypted on-disk keyring (configurable)
 - **Auto-refreshing tokens** - authenticate once, use indefinitely
-- **Least-privilege auth** - `--readonly` and `--drive-scope` to request fewer scopes
+- **Least-privilege auth** - `--readonly`, `--drive-scope`, and `--gmail-scope` to request fewer scopes
 - **Workspace service accounts** - domain-wide delegation auth (preferred when configured)
 - **Parseable output** - JSON mode for scripting and automation (Calendar adds day-of-week fields)
 
@@ -335,6 +335,8 @@ Notes:
 - `--drive-scope readonly` is enough for listing/downloading/exporting via Drive (write operations will 403).
 - `--drive-scope file` is write-capable (limited to files created/opened by this app) and can’t be combined with `--readonly`.
 
+- To control Gmail's scope (default: `full`): `gog auth add you@gmail.com --services gmail --gmail-scope full` or `--gmail-scope readonly`. For `--readonly`, `--drive-scope readonly|file`, or `--gmail-scope readonly`, auth disables Google `include_granted_scopes` to avoid scope accumulation.
+
 If you need to add services later and Google doesn't return a refresh token, re-run with `--force-consent`:
 
 ```bash
@@ -549,6 +551,7 @@ gog auth credentials <path>           # Store OAuth client credentials
 gog auth credentials list             # List stored OAuth client credentials
 gog --client work auth credentials <path>  # Store named OAuth client credentials
 gog auth add <email>                  # Authorize and store refresh token
+gog auth add <email> --services gmail --gmail-scope readonly  # Gmail read-only token
 gog auth service-account set <email> --key <path>  # Configure service account impersonation (Workspace only)
 gog auth service-account status <email>            # Show service account status
 gog auth service-account unset <email>             # Remove service account
@@ -594,6 +597,11 @@ gog gmail send --to a@b.com --subject "Hi" --body-file -   # Read body from stdi
 gog gmail send --to a@b.com --subject "Hi" --body "Plain fallback" --body-html "<p>Hello</p>"
 # Reply + include quoted original message (auto-generates HTML quote unless you pass --body-html)
 gog gmail send --reply-to-message-id <messageId> --quote --to a@b.com --subject "Re: Hi" --body "My reply"
+# Draft reply + quote (create requires explicit reply target)
+gog gmail drafts create --reply-to-message-id <messageId> --quote --subject "Re: Hi" --body "My reply"
+# Draft reply + quote (update accepts explicit target; else falls back to latest non-draft, non-self message in thread)
+gog gmail drafts update <draftId> --reply-to-message-id <messageId> --quote --subject "Re: Hi" --body "My reply"
+gog gmail drafts update <draftId> --quote --subject "Re: Hi" --body "My reply"
 gog gmail drafts list
 gog gmail drafts create --subject "Draft" --body "Body"
 gog gmail drafts create --to a@b.com --subject "Draft" --body "Body"
