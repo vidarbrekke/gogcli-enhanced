@@ -1,0 +1,13 @@
+---
+description: Prefer forward-looking fixes over restoring stale behavior
+alwaysApply: true
+---
+
+# Forward-Looking Fixes
+
+- Default to forward-looking fixes rather than restoring stale or legacy behavior.
+- Do not reintroduce removed, outdated, or superseded behavior only because old tests, docs, or habits expected it.
+- Restore backward compatibility only when the user explicitly asks for it or when it is clearly required by a current documented contract or active consumer.
+- When behavior has drifted, prefer preserving the newer, cleaner contract if it aligns with project goals.
+- Prefer updating stale tests and docs to match current intended behavior instead of regressing implementation to satisfy old assumptions.
+- If a change is intentionally breaking, call it out clearly and keep the migration path minimal and explicit.

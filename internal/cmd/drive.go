@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,9 +15,12 @@ import (
 	"google.golang.org/api/drive/v3"
 	gapi "google.golang.org/api/googleapi"
 
+	"github.com/steipete/gogcli/internal/backend/gws"
 	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/googleapi"
 	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/parity/classify"
+	"github.com/steipete/gogcli/internal/parity/normalize"
 	"github.com/steipete/gogcli/internal/ui"
 )
 
@@ -112,6 +116,10 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 	folderID := strings.TrimSpace(c.Parent)
 	if folderID == "" {
 		folderID = "root"
+	}
+
+	if Backend() == BackendGWS && !c.Global && !c.All {
+		return c.runGWSLs(ctx, folderID)
 	}
 
 	svc, err := newDriveService(ctx, account)
@@ -226,6 +234,65 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 		)
 	}
 	printNextPageHint(u, nextToken)
+	return nil
+}
+
+// runGWSLs runs drive ls via gws when GOG_BACKEND=gws (single-page, non-global only).
+func (c *DriveLsCmd) runGWSLs(ctx context.Context, folderID string) error {
+	res, err := gws.RunDriveLs(ctx, folderID, c.Page, c.Max)
+	if err != nil {
+		return err
+	}
+	if classify.Classify(gwsFixture{res.Stdout, res.Stderr, res.ExitCode}) == classify.OutcomeERROR {
+		ctxNorm := normalize.InvocationCtx{Service: "drive", Operation: "ls"}
+		env, ok := normalize.NormalizeError(res.Stdout, res.Stderr, ctxNorm)
+		if !ok {
+			return fmt.Errorf("gws drive ls failed (exit %d)", res.ExitCode)
+		}
+		return &BackendError{Env: env}
+	}
+	if outfmt.IsJSON(ctx) {
+		var payload map[string]any
+		if json.Unmarshal(res.Stdout, &payload) != nil {
+			return fmt.Errorf("gws output is not valid JSON")
+		}
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
+	}
+	return writeGWSDriveLsTable(ctx, res.Stdout)
+}
+
+// writeGWSDriveLsTable parses gws drive list JSON and prints ID/NAME/TYPE/SIZE/MODIFIED table.
+func writeGWSDriveLsTable(ctx context.Context, stdout []byte) error {
+	var out struct {
+		Files []map[string]any `json:"files"`
+	}
+	if json.Unmarshal(stdout, &out) != nil {
+		return fmt.Errorf("gws output is not valid JSON")
+	}
+	u := ui.FromContext(ctx)
+	if u == nil {
+		return nil
+	}
+	if len(out.Files) == 0 {
+		u.Err().Println("No files")
+		return nil
+	}
+	w, flush := tableWriter(ctx)
+	defer flush()
+	fmt.Fprintln(w, "ID\tNAME\tTYPE\tSIZE\tMODIFIED")
+	for _, f := range out.Files {
+		id, _ := f["id"].(string)
+		name, _ := f["name"].(string)
+		mimeType, _ := f["mimeType"].(string)
+		sizeStr := ""
+		if s, ok := f["size"].(string); ok {
+			sizeStr = s
+		} else if n, ok := f["size"].(float64); ok {
+			sizeStr = fmt.Sprintf("%.0f", n)
+		}
+		modTime, _ := f["modifiedTime"].(string)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", id, name, driveType(mimeType), sizeStr, modTime)
+	}
 	return nil
 }
 

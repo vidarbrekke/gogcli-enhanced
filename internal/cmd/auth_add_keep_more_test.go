@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +13,6 @@ import (
 	"github.com/steipete/gogcli/internal/googleauth"
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/secrets"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestAuthAddCmd_JSON_More(t *testing.T) {
@@ -42,14 +40,9 @@ func TestAuthAddCmd_JSON_More(t *testing.T) {
 	}
 	ensureKeychainAccess = func(bool) error { return nil }
 
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := &AuthAddCmd{Email: "a@b.com", ServicesCSV: "gmail,drive"}
 	out := captureStdout(t, func() {
+		ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, &RootFlags{}); err != nil {
 			t.Fatalf("Run: %v", err)
 		}
@@ -82,14 +75,9 @@ func TestAuthKeepCmd_JSON_More(t *testing.T) {
 		t.Fatalf("write key: %v", writeErr)
 	}
 
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := &AuthKeepCmd{Email: "user@example.com", Key: keyPath}
 	out := captureStdout(t, func() {
+		ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
 		if runErr := cmd.Run(ctx, &RootFlags{}); runErr != nil {
 			t.Fatalf("Run: %v", runErr)
 		}

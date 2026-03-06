@@ -302,3 +302,32 @@ func TestDriveLsCmd_GlobalAndParentMutuallyExclusive(t *testing.T) {
 		t.Fatalf("expected mutual exclusivity error, got: %v", err)
 	}
 }
+
+// TestDriveLsCmd_GOG_BACKEND_gws_uses_gws_path verifies that when GOG_BACKEND=gws,
+// drive ls uses the gws backend and does not call the native drive service.
+// When gws is not on PATH (typical in CI), we get an error from exec; native path must not run.
+func TestDriveLsCmd_GOG_BACKEND_gws_uses_gws_path(t *testing.T) {
+	os.Setenv("GOG_BACKEND", "gws")
+	defer os.Unsetenv("GOG_BACKEND")
+
+	nativeCalled := false
+	origNew := newDriveService
+	newDriveService = func(ctx context.Context, account string) (*drive.Service, error) {
+		nativeCalled = true
+		return origNew(ctx, account)
+	}
+	t.Cleanup(func() { newDriveService = origNew })
+
+	flags := &RootFlags{Account: "a@b.com"}
+	u, _ := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+	ctx := ui.WithUI(outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true}), u)
+	err := runKong(t, &DriveLsCmd{}, []string{}, ctx, flags)
+
+	if nativeCalled {
+		t.Error("GOG_BACKEND=gws should use gws path; native newDriveService must not be called")
+	}
+	// When gws is not on PATH we get an error; when it is we might succeed. Either way native was not used.
+	if err != nil && !strings.Contains(err.Error(), "gws") && !strings.Contains(err.Error(), "exec") && !strings.Contains(err.Error(), "drive ls") {
+		t.Logf("expected gws-related or exec error when gws unavailable, got: %v", err)
+	}
+}

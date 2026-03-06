@@ -252,6 +252,9 @@ func invocationCtxForCase(caseName string) normalize.InvocationCtx {
 	case "gmail-labels-get-not-found":
 		ctx.Service = "gmail"
 		ctx.Operation = "labels get"
+	case "drive-ls":
+		ctx.Service = "drive"
+		ctx.Operation = "ls"
 	}
 	return ctx
 }

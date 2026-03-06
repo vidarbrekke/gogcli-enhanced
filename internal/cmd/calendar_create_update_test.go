@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -34,11 +33,7 @@ func newCalendarServiceFromServer(t *testing.T, srv *httptest.Server) *calendar.
 func newCalendarJSONContext(t *testing.T) context.Context {
 	t.Helper()
 
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	return outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+	return newTestUIContext(t, outfmt.Mode{JSON: true})
 }
 
 func TestCalendarCreateCmd_RunJSON(t *testing.T) {
@@ -69,14 +64,9 @@ func TestCalendarCreateCmd_RunJSON(t *testing.T) {
 	}
 	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := &CalendarCreateCmd{}
 	out := captureStdout(t, func() {
+		ctx := newCalendarJSONContext(t)
 		if err := runKong(t, cmd, []string{
 			"cal@example.com",
 			"--summary", "Meeting",

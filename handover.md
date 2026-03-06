@@ -142,10 +142,12 @@ Read in this order:
 
 1. `handover.md` (this file)
 2. `AGENTS.md` (repo conventions and guardrails)
-3. `docs/merge/discovery-drift-policy.md`
-4. `docs/merge/GWS-SAMPLES.md`
-5. `docs/merge/CAPTURE-403-RUNBOOK.md`
-6. `gogcli-developer-handover/templates/PARITY-RUNNER-README.md`
+3. `gogcli-developer-handover/HANDOVER.md` (next-phase brief: GWS integration and routing; status and next steps)
+4. `docs/merge/discovery-drift-policy.md`
+5. `docs/merge/GWS-SAMPLES.md`
+6. `docs/merge/GWS-VS-GOG-ROUTING.md` (when gws vs gog; how to implement and test routing)
+7. `docs/merge/CAPTURE-403-RUNBOOK.md`
+8. `gogcli-developer-handover/templates/PARITY-RUNNER-README.md` (parity runner scope)
 
 Support material:
 - `gogcli-developer-handover/artifacts/envelope-artifacts-v2.zip`
@@ -156,17 +158,23 @@ Support material:
 
 ## 4) Current State (As Of This Handover)
 
-Completed:
-- Gmail 401 unauthenticated golden captured (under `docs/merge/goldens/`)
-- Gmail 404 not_found golden captured (under `docs/merge/goldens/`)
-- 403 placeholder + maintainer runbook in place
-- Drift policy documented (`google_reason` drift-only)
-- Bundle/templates staged under `gogcli-developer-handover/`
+### When gog binary+MCP vs gws is used
 
-Not yet implemented (code):
-- parity runner CLI (`cmd/gog-parity`)
-- fixture loader/classifier/normalizer/schema validator/diff reporter
-- CI parity workflow wiring
+| Context | What runs | Notes |
+|--------|-----------|--------|
+| **Live agent / MCP (default)** | **gog binary** (`gog mcp serve` = gog-agentic) | All MCP tool calls (Drive, Gmail, Docs, Sheets, etc.) are served by the **gog** Go binary and native Google APIs. Single MCP server; agent talks only to gog-agentic. |
+| **Live CLI with GOG_BACKEND=gws** | **gog** invokes **gws** (Rust CLI) for selected Tier A commands | Only when `GOG_BACKEND=gws` and only for commands that support it (currently `gmail labels list`, `gmail labels get`). gog runs the gws CLI, captures stdout/stderr/exit, normalizes with `internal/parity/normalize`, returns result. Default is `native` (gog only). |
+| **Parity / CI** | **Fixtures only** | No live API calls. Runner loads `docs/merge/goldens/<case>/{native,gws}/` fixtures and compares; gws is a fixture provider for validation only. |
+
+**Summary:** Default path for all live requests is **gog binary + gog-agentic MCP**. The **gws** (Google Workspace Rust CLI) is (1) used in parity as a fixture source and (2) optionally used at runtime for Tier A Gmail labels when `GOG_BACKEND=gws`. Writes and safety-critical flows stay on gog.
+
+Completed:
+- Parity runner implemented: `cmd/gog-parity`, `internal/parity/*` (io, classify, normalize, schema, diff). Fixture loading, outcome classification, gws error normalization (stdout + stderr), schema validation, breaking vs drift diff, deterministic report ordering. Hard-gate 401/404; 403 soft until real golden; runner failures and placeholders (PLACEHOLDER.txt) supported.
+- Gmail goldens under `docs/merge/goldens/` (401, 404, list success, 403 placeholder); schemas under `docs/merge/schemas/`. CI parity workflow; `make parity` runs the runner.
+- **Live gws routing (optional):** Backend switch via `GOG_BACKEND=gws`; `internal/backend/gws` runs gws CLI for `gmail labels list` and `gmail labels get`; `internal/cmd/backend.go` + `backend_error.go`; normalized errors via parity logic; Tier A Gmail labels use gws when env set, else native. See `gogcli-developer-handover/HANDOVER.md`.
+- Drift policy and routing logic documented (`docs/merge/discovery-drift-policy.md`, `docs/merge/GWS-VS-GOG-ROUTING.md`). Linode deploy and OpenClaw verification docs updated (`docs/TOOLS-gog-agentic-section.md`, `docs/LINODE-TEST-QUERIES.md`, `docs/openclaw-linode-runbook.md`).
+
+Next steps (see `gogcli-developer-handover/HANDOVER.md`): extend Tier A routing to more commands per matrix; add integration tests and manual smoke for `GOG_BACKEND=gws`; capture real 403 golden and promote to hard gate.
 
 ---
 
@@ -371,8 +379,9 @@ Reviewers must explicitly check the artifact and ensure there are **no breaking 
 
 ## 11) Immediate Next Action
 
-Start **PR #1** with fixture loading + classification only.
-If uncertain, optimize for smaller diff and deterministic behavior over feature completeness.
+For **parity runner and live gws routing** (current state): see §4 Current State and **When gog binary+MCP vs gws is used** there.
+
+For **next phase** (more Tier A commands, integration tests, 403 hard gate): read **`gogcli-developer-handover/HANDOVER.md`** for status, key files, and gotchas. Implement per `docs/merge/GWS-VS-GOG-ROUTING.md` and `docs/merge/command-migration-matrix.md`.
 
 ---
 

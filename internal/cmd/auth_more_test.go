@@ -24,14 +24,9 @@ func TestAuthKeepCmd_JSON(t *testing.T) {
 		t.Fatalf("write key: %v", err)
 	}
 
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := AuthKeepCmd{Email: "a@b.com", Key: keyPath}
 	out := captureStdout(t, func() {
+		ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, &RootFlags{}); err != nil {
 			t.Fatalf("AuthKeepCmd: %v", err)
 		}
@@ -75,14 +70,9 @@ func TestAuthManageCmd(t *testing.T) {
 }
 
 func TestAuthServicesCmd_Markdown(t *testing.T) {
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-
 	cmd := AuthServicesCmd{Markdown: true}
 	out := captureStdout(t, func() {
+		ctx := newTestUIContext(t, outfmt.Mode{})
 		if err := cmd.Run(ctx, &RootFlags{}); err != nil {
 			t.Fatalf("AuthServicesCmd: %v", err)
 		}
@@ -93,14 +83,9 @@ func TestAuthServicesCmd_Markdown(t *testing.T) {
 }
 
 func TestAuthServicesCmd_JSON(t *testing.T) {
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	cmd := AuthServicesCmd{}
 	out := captureStdout(t, func() {
+		ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, &RootFlags{}); err != nil {
 			t.Fatalf("AuthServicesCmd: %v", err)
 		}
@@ -111,14 +96,9 @@ func TestAuthServicesCmd_JSON(t *testing.T) {
 }
 
 func TestAuthServicesCmd_Table(t *testing.T) {
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-
 	cmd := AuthServicesCmd{}
 	out := captureStdout(t, func() {
+		ctx := newTestUIContext(t, outfmt.Mode{})
 		if err := cmd.Run(ctx, &RootFlags{}); err != nil {
 			t.Fatalf("AuthServicesCmd: %v", err)
 		}
@@ -160,18 +140,13 @@ func TestAuthStatusCmd_JSON(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
 
-	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
-
 	if _, err := config.ConfigPath(); err != nil {
 		t.Fatalf("ConfigPath: %v", err)
 	}
 
 	cmd := AuthStatusCmd{}
 	out := captureStdout(t, func() {
+		ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
 		if err := cmd.Run(ctx, &RootFlags{}); err != nil {
 			t.Fatalf("AuthStatusCmd: %v", err)
 		}

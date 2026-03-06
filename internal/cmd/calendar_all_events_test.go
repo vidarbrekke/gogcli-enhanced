@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,7 +12,6 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 func TestListAllCalendarsEvents_JSON(t *testing.T) {
@@ -75,14 +73,8 @@ func TestListAllCalendarsEvents_JSON(t *testing.T) {
 		t.Fatalf("NewService: %v", err)
 	}
 
-	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if err != nil {
-		t.Fatalf("ui.New: %v", err)
-	}
-	ctx := ui.WithUI(context.Background(), u)
-	ctx = outfmt.WithMode(ctx, outfmt.Mode{JSON: true})
-
 	jsonOut := captureStdout(t, func() {
+		ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
 		if err := listAllCalendarsEvents(ctx, svc, "2025-01-01T00:00:00Z", "2025-01-02T00:00:00Z", 10, "", false, false, "", "", "", "", false); err != nil {
 			t.Fatalf("listAllCalendarsEvents: %v", err)
 		}

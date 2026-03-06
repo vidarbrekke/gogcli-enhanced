@@ -39,6 +39,24 @@ func RunLabelsGet(ctx context.Context, labelID string) (Result, error) {
 	return run(ctx, []string{"gmail", "users", "labels", "get", "--params", params})
 }
 
+// RunDriveLs runs: gws drive files list (or equivalent) with params for folder list.
+// parentID is the folder ID (e.g. "root"); pageToken for pagination; max is page size.
+func RunDriveLs(ctx context.Context, parentID, pageToken string, pageSize int64) (Result, error) {
+	if parentID == "" {
+		parentID = "root"
+	}
+
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+
+	// Drive API v3 list: q = "'parentId' in parents and trashed = false", pageSize, pageToken.
+	q := fmt.Sprintf("'%s' in parents and trashed = false", parentID)
+	params := fmt.Sprintf(`{"pageSize":%d,"pageToken":%q,"q":%q}`, pageSize, pageToken, q)
+
+	return run(ctx, []string{"drive", "files", "list", "--params", params})
+}
+
 func run(ctx context.Context, args []string) (Result, error) {
 	bin := Path()
 	// #nosec G204 -- bin is from GOG_GWS_PATH env or literal "gws", not user input

@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -416,7 +418,7 @@ func TestExecute_ClassroomMoreCommands_JSON(t *testing.T) {
 	runJSON := func(args ...string) {
 		t.Helper()
 		full := append([]string{"--json", "--account", "a@b.com"}, args...)
-		if err := Execute(full); err != nil {
+		if err := ExecuteWithIO(full, io.Discard, io.Discard); err != nil {
 			t.Fatalf("execute %v: %v", args, err)
 		}
 	}
@@ -424,9 +426,20 @@ func TestExecute_ClassroomMoreCommands_JSON(t *testing.T) {
 	runJSONForce := func(args ...string) {
 		t.Helper()
 		full := append([]string{"--json", "--force", "--account", "a@b.com"}, args...)
-		if err := Execute(full); err != nil {
+		if err := ExecuteWithIO(full, io.Discard, io.Discard); err != nil {
 			t.Fatalf("execute %v: %v", args, err)
 		}
+	}
+
+	runJSONCapture := func(args ...string) string {
+		t.Helper()
+		full := append([]string{"--json", "--account", "a@b.com"}, args...)
+		var out bytes.Buffer
+		var errOut bytes.Buffer
+		if err := ExecuteWithIO(full, &out, &errOut); err != nil {
+			t.Fatalf("execute %v: %v stderr=%q", args, err, errOut.String())
+		}
+		return out.String()
 	}
 
 	_ = captureStderr(t, func() {
@@ -455,9 +468,7 @@ func TestExecute_ClassroomMoreCommands_JSON(t *testing.T) {
 
 		runJSON("classroom", "roster", "c1", "--max", "1", "--page", "p1")
 
-		courseworkOut := captureStdout(t, func() {
-			runJSON("classroom", "coursework", "c1", "--topic", "t1", "--state", "draft,published", "--max", "2", "--page", "p1")
-		})
+		courseworkOut := runJSONCapture("classroom", "coursework", "c1", "--topic", "t1", "--state", "draft,published", "--max", "2", "--page", "p1")
 		if got := decodeJSONArrayLen(t, courseworkOut, "coursework"); got != 1 {
 			t.Fatalf("expected 1 coursework item after topic filter, got %d", got)
 		}
@@ -467,9 +478,7 @@ func TestExecute_ClassroomMoreCommands_JSON(t *testing.T) {
 		runJSONForce("classroom", "coursework", "delete", "c1", "cw1")
 		runJSON("classroom", "coursework", "assignees", "c1", "cw1", "--mode", "ALL_STUDENTS")
 
-		materialsOut := captureStdout(t, func() {
-			runJSON("classroom", "materials", "c1", "--topic", "t1", "--state", "draft,published", "--max", "2", "--page", "p1")
-		})
+		materialsOut := runJSONCapture("classroom", "materials", "c1", "--topic", "t1", "--state", "draft,published", "--max", "2", "--page", "p1")
 		if got := decodeJSONArrayLen(t, materialsOut, "materials"); got != 1 {
 			t.Fatalf("expected 1 material item after topic filter, got %d", got)
 		}

@@ -19,11 +19,7 @@ import (
 )
 
 func TestAuthCredentialsCmd_ErrorsAndStdin(t *testing.T) {
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+	ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
 
 	if err := (&AuthCredentialsSetCmd{Path: "/nope/credentials.json"}).Run(ctx, &RootFlags{}); err == nil {
 		t.Fatalf("expected read error")
@@ -41,6 +37,7 @@ func TestAuthCredentialsCmd_ErrorsAndStdin(t *testing.T) {
 	t.Setenv("HOME", home)
 	creds := `{"installed":{"client_id":"id","client_secret":"secret"}}`
 	out := captureStdout(t, func() {
+		ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
 		withStdin(t, creds, func() {
 			if err := (&AuthCredentialsSetCmd{Path: "-"}).Run(ctx, &RootFlags{}); err != nil {
 				t.Fatalf("stdin run: %v", err)

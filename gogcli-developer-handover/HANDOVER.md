@@ -1,217 +1,72 @@
-# Developer Handover: Hybrid Provider Parity + Drift Control (gogcli-enhanced)
+# Developer handover: next phase
 
-> **Canonical handover:** repo-root **`handover.md`** is the single source of truth.  
-> This file is the **detailed implementation plan** and reference; do not duplicate full handover content here.
+**Quick start:** See **`README-NEXT-DEV.md`** in this folder for a one-page intro and next steps.
 
-**Audience:** core maintainer/developer implementing the parity runner + provider normalization + CI gates.  
-**Goal:** enable a **hybrid architecture** where `gogcli-enhanced` remains the **agent-safe control plane** while backends (notably `gws`) provide broad Workspace API coverage **without breaking determinism, safety semantics, or machine contracts**.
+**Canonical handover:** repo-root `handover.md`. This file is a **concise brief** for the developer taking over further development, testing, and debugging.
 
-Date: 2026-03-05
+**Date:** 2026-03-06
 
 ---
 
-## 0) North Star
+## 1. Purpose and problem
 
-We are not “building a Workspace API wrapper.”  
-We are building an **agentic control plane** with stable contracts:
+**App:** `gogcli-enhanced` is a Go CLI and MCP server (gog-agentic) for Google Workspace. It is the **agent-safe control plane**: deterministic lifecycle, stable JSON contracts (`error_code`), safety semantics. Agents call gog-agentic MCP tools; live requests are served by the **gog** binary (Go) and, optionally for some Tier A reads, by the **gws** (Google Workspace Rust CLI) invoked by gog and normalized.
 
-- deterministic request lifecycle (validate-only / dry-run / request files / replay)
-- stable JSON error classification (`error_code`) and safety semantics
-- cross-service consistency for machine consumption
+**When gog binary+MCP is used vs gws:**
+- **Default (all live requests):** gog binary runs `gog mcp serve` (gog-agentic). Every MCP tool call (Drive, Gmail, Docs, Sheets, etc.) is handled by gog and native Google APIs. gws is not in the path.
+- **Optional Tier A backend:** When `GOG_BACKEND=gws` is set, the **gog** binary still serves the request but for specific Tier A commands (currently `gmail labels list`, `gmail labels get`) it invokes the **gws** CLI, captures stdout/stderr/exit, normalizes with `internal/parity/normalize`, and returns the result. So the agent still talks only to gog-agentic; gws is a backend called by gog when the env is set.
+- **Parity/CI:** gws is used only as a **fixture provider** (no live API calls). Runner compares gws fixtures to native goldens and schemas.
 
-**Breadth is commodity. Determinism is product.**
-
-So the plan is: **Hybrid**  
-- Tier A (read/list/get): can route to `gws` via a strict adapter  
-- Tier C (edit/merge/write): remain native (reference implementation)
+**Problem for next phase:** Extend Tier A routing to more commands (per `docs/merge/command-migration-matrix.md`), add integration tests and manual smoke for `GOG_BACKEND=gws`, and hard-gate 403 after a real golden is captured.
 
 ---
 
-## 1) What you are implementing (deliverables)
+## 2. Completed work and outcomes
 
-### 1.1 Parity runner (fixtures-only)
-A small tool to compare provider outputs (native vs `gws`) using:
-- outcome classification (success/error)
-- normalization (esp. `gws` errors on stdout)
-- schema validation (envelope + command payload)
-- diff + reporting (breaking vs drift)
-
-**YAGNI constraints**
-- no live API calls
-- no dynamic discovery pinning inside the runner
-- no auto-upgrade logic
-- keep it fixture-driven and deterministic
-
-### 1.2 Provider normalization: `gws` → canonical gog envelope
-Validated facts:
-- `gws` emits **error JSON on stdout** with shape `{"error":{"code":<int>,"message":<string>,"reason":<string>}}`.
-
-Normalization rules:
-- classify as error if `stdout_json.error` OR `stderr_json.error` OR `exit_code != 0`
-- map `http_status := error.code`
-- map `google_reason := error.reason` (**drift-only**)
-- map canonical `error_code` via HTTP status mapping table
-- inject `service`, `operation`, `resource_id` from invocation context (argv/params), not from message text
-
-### 1.3 CI gates
-- Always enforce schema + parity for core Tier A commands with real goldens (401/404 now).
-- 403 becomes **hard required** only after maintainer captures real 403, per runbook.
+- **Parity runner** (`cmd/gog-parity`, `internal/parity/*`): fixture load from `docs/merge/goldens/<case>/{native,gws}/`, classification (ERROR if exit != 0 or top-level `error` in stdout/stderr), gws error normalization (HTTP → `error_code`; `google_reason` drift-only), schema validation, breaking vs drift diff, `parity-report.json`. CI runs it; 401/404 hard-gated; 403 soft. `make parity` to run.
+- **Live gws routing (optional):** `GOG_BACKEND=gws`; `internal/backend/gws` (RunLabelsList, RunLabelsGet, Path, HasTopLevelError); `internal/cmd/backend.go` (Backend()), `backend_error.go` (BackendError + stableExitCode mapping); `internal/cmd/gmail_labels.go` branches on Backend() for list/get, invokes gws, normalizes errors with parity logic. Default remains native.
+- **TOOLS doc:** `docs/TOOLS-gog-agentic-section.md` — auth status → exec (`gog auth status --json`), no auth.* MCP tools; Drive list vs search (folders vs mixed); tool names underscores.
+- **Linode/deploy:** gog deployed; `scripts/deploy.sh` (pull, build, copy binary, restart mcporter); docs: `docs/LINODE-TEST-QUERIES.md`, `docs/LINODE-AUTH-RESTORE.md`, `docs/openclaw-linode-runbook.md`.
 
 ---
 
-## 2) Artifacts you already have (and what each is for)
+## 3. Failures, open issues, lessons learned
 
-These are included verbatim in the attached handover zip under `artifacts/`:
-
-1. **`gog-parity-specs.zip`**
-   - Generated “executable parity spec” skeletons from dossiers
-   - Includes schema placeholders, mapping docs, normalization stubs, and golden folders
-
-2. **`envelope-artifacts-v2.zip`**
-   - Provider-agnostic parity rules + explicit gws stdout-error handling
-   - Includes gws normalization doc + Gmail labels parity rules
-
-3. **`gmail-error-taxonomy-lock.zip`**
-   - Consolidated Gmail taxonomy lock bundle:
-     - real 401 + 404 goldens
-     - 403 placeholder + runbook + capture-info guidance
-     - “google_reason is drift-only forever” posture
-
-> **DO NOT** invent new output fields or expand contracts unless a consumer needs it.  
-> Keep schemas minimal and stable.
+- **OAuth client deleted (Linode):** New client JSON deployed; re-auth via `gog auth add … --manual` and paste redirect URL over SSH. See `docs/LINODE-AUTH-RESTORE.md`.
+- **No MCP tool for Gmail labels or auth status:** Agents use exec: `gog gmail labels list -a ACCOUNT --json`, `gog auth status --json`. Tool names use underscores; `--server` is a flag of `mcporter call`. Documented in `docs/TOOLS-gog-agentic-section.md`.
+- **gws errors on stdout:** Classification and live gws invocation must check both stdout and stderr for top-level `error`.
+- **403 golden:** Placeholder only; 403 soft-gated. Real capture per `docs/merge/CAPTURE-403-RUNBOOK.md` (maintainer).
 
 ---
 
-## 3) Implementation plan (detailed, DRY & YAGNI)
+## 4. Files changed, insights, gotchas
 
-### Phase 1 — Wire the parity runner skeleton (1–2 sessions)
-1. Add `cmd/gog-parity` (skeleton provided in `templates/`).
-2. Implement fixture loading:
-   - discover cases under `docs/merge/goldens/<case>/<provider>/`
-   - load `stdout.json` (may be empty), `stderr.json` (may be empty), `exit_code.txt`
-3. Implement outcome classification:
-   - parse JSON if possible
-   - ERROR if:
-     - exit_code != 0 OR
-     - stderr_json has top-level `error` OR
-     - stdout_json has top-level `error` (needed for gws)
-
-**Acceptance:** runner can enumerate fixtures and classify outcomes deterministically.
-
-### Phase 2 — Implement normalization (Gmail first) (1–2 sessions)
-1. Implement provider normalization interface:
-   - `Normalize(provider, invocationCtx, stdout_json, stderr_json, exit_code) -> canonicalOutcome`
-2. Implement gws error normalization:
-   - if stdout_json.error exists: map to canonical error payload
-   - apply HTTP→error_code mapping:
-     - 401 unauthenticated
-     - 403 permission_denied
-     - 404 not_found
-     - 400 invalid_argument
-     - 429 resource_exhausted
-     - else unknown
-3. **Do not** treat `google_reason` as contractual; report as drift only.
-
-**Acceptance:** gws 401 + 404 goldens normalize into canonical errors with correct `error_code` and `http_status`.
-
-### Phase 3 — Schema validation (1–2 sessions)
-1. Add shared envelope schema validation:
-   - validate canonical errors against `schemas/gmail.error.schema.json` (Gmail scope)
-   - validate success payloads against command schemas (e.g., `gmail-labels-list.result.schema.json`)
-2. Schema stance for maintenance:
-   - top-level payload strict (`additionalProperties: false`) where feasible
-   - inner objects allow `additionalProperties: true` for controlled growth
-   - require only minimal fields (`id`, `name`) for lists
-
-**Acceptance:** the current goldens validate cleanly.
-
-### Phase 4 — Diffing + reporting (1–2 sessions)
-1. Implement a minimal recursive diff:
-   - output json-pointer path + summary
-   - support allowlists for:
-     - ordering differences (lists compare as sets by key)
-     - drift-only fields (message, google_reason)
-2. Gmail labels specific rules:
-   - compare `labels` as set keyed by `id` (order drift allowed)
-
-**Acceptance:** report separates `breaking` vs `drift`.
-
-### Phase 5 — CI integration (1 session)
-1. Add a GitHub Actions workflow (template provided) that:
-   - builds parity runner
-   - runs it on fixtures only
-   - uploads report artifact
-2. Gate policy:
-   - require 401 + 404 parity always
-   - require 403 parity only for “promotion” PRs until 403 is captured
-
-**Acceptance:** CI runs on PR and produces a parity report.
+- **Backend/routing:** `internal/cmd/backend.go`, `backend_error.go`, `gmail_labels.go`; `internal/backend/gws/gws.go`. `exit_codes.go`: BackendError mapped to exit codes. Do not parse `message` for semantics; `google_reason` is drift-only.
+- **Parity:** `cmd/gog-parity/main.go` (hard-gated cases, schemaFileForCase, invocationCtxForCase); `internal/parity/io` (DiscoverCases, LoadFixture, IsPlaceholder); `internal/parity/classify`, `normalize`, `schema`, `diff`. Gmail labels compared set-by-id; sort keys/diff entries for deterministic reports. Discovery must not silently skip unreadable case dirs.
+- **Gotchas:** gws binary from `GOG_GWS_PATH` or `"gws"`. When adding Tier A commands, reuse parity normalizer; add fixtures for both providers; run `make parity` before and after.
 
 ---
 
-## 4) “Only the maintainer can do this” items (explicit guidance)
+## 5. Key files and directories
 
-### 4.1 Capture real 403 permission denied (one-time)
-- Follow `docs/merge/CAPTURE-403-RUNBOOK.md`
-- Capture stdout JSON into `gmail-labels-403-forbidden-gws.json`
-- Optionally capture:
-  - `gmail-labels-403-forbidden-gws.capture-info.txt` (version, argv, scopes, optional creds/profile line)
-- Commit both
+| Path | Purpose |
+|------|---------|
+| `handover.md` (repo root) | Single source of truth; gog vs gws usage; full execution plan. |
+| `AGENTS.md` | Build, test, lint, PR workflow. |
+| `gogcli-developer-handover/HANDOVER.md` | This file; next-phase brief. |
+| `docs/merge/` | Parity goldens, schemas, policy, runbooks. |
+| `docs/merge/goldens/` | Fixtures per case/provider (stdout.json, stderr.json, exit_code.txt; PLACEHOLDER.txt). |
+| `docs/merge/schemas/` | JSON schemas (e.g. gmail-labels-list.json). |
+| `docs/merge/GWS-VS-GOG-ROUTING.md` | When gws vs gog; how to implement/test routing. |
+| `docs/merge/command-migration-matrix.md` | Tier A/B/C; per-command migration. |
+| `docs/merge/CAPTURE-403-RUNBOOK.md` | One-time 403 golden capture. |
+| `cmd/gog-parity/` | Parity runner CLI. |
+| `internal/parity/` | io, classify, normalize, schema, diff. |
+| `internal/backend/gws/` | gws CLI invocation (RunLabelsList, RunLabelsGet). |
+| `internal/cmd/backend.go`, `backend_error.go` | Backend switch (GOG_BACKEND); normalized gws errors. |
+| `docs/TOOLS-gog-agentic-section.md` | MCP tool names; auth/labels via exec; Drive list vs search. |
+| `docs/LINODE-TEST-QUERIES.md` | CLI and OpenClaw verification. |
+| `docs/openclaw-linode-runbook.md` | OpenClaw + gog on Linode. |
+| `scripts/deploy.sh` | Pull, build, copy binary, restart mcporter. |
 
-**After capture:** upload the real 403 JSON (+ optional capture-info) and we will generate the final promotion-ready bundle where 403 becomes a hard CI requirement.
-
-### 4.2 Discovery drift policy enforcement (quarterly / value-triggered)
-- Upgrades to `gws` must run parity suite
-- Do not auto-upgrade `gws` based on upstream churn
-- Focus on value-driven upgrades only
-
----
-
-## 5) File placement recommendations (minimal churn)
-
-Recommended repo locations (adjust to match your tree):
-- `docs/merge/schemas/` — JSON schemas
-- `docs/merge/goldens/` — fixture goldens
-- `docs/merge/normalization/` — human-readable normalization rules
-- `cmd/gog-parity/` — parity runner
-- `internal/parity/` — implementation modules
-
----
-
-## 6) Acceptance checklist
-
-### Must pass before routing defaults to `gws` for Gmail reads
-- [ ] Parity runner classifies errors from stdout + stderr correctly
-- [ ] 401 + 404 gws goldens normalize to canonical error_code + http_status
-- [ ] Gmail labels list success validates against minimal schema
-- [ ] Diff report shows zero breaking diffs (drift diffs allowed: message, google_reason, ordering)
-- [ ] CI job runs and produces parity report
-
-### Must pass before promoting 403 to hard requirement
-- [ ] Real 403 golden captured + committed
-- [ ] 403 normalizes to canonical `permission_denied`
-- [ ] CI gate updated so 403 is required alongside 401 + 404
-
----
-
-## 7) Appendix: What’s attached
-
-See `artifacts/` in the zip:
-- `gog-parity-specs.zip`
-- `envelope-artifacts-v2.zip`
-- `gmail-error-taxonomy-lock.zip`
-
-See `templates/`:
-- `PARITY-RUNNER-README.md`
-- `gog-parity-skeleton.go`
-- `github-actions-parity.yml`
-
----
-
-## 8) Non-negotiables (to prevent “keep up with Google” tax)
-
-- **google_reason is drift-only forever** (per drift policy §7)
-- never parse `message` for semantics
-- schemas promise only minimal fields needed by automation
-- upgrade `gws` only on purpose (quarterly or value-triggered)
-- no contract changes without goldens + schema updates + explicit review
+**Next steps:** Add more Tier A commands to routing per matrix; integration tests for `GOG_BACKEND=gws`; manual smoke with gws on PATH; capture 403 golden and promote to hard gate.

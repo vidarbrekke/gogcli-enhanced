@@ -14,6 +14,8 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/steipete/gogcli/internal/googleauth"
+	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/ui"
 )
 
 // withPrimaryCalendar wraps an http.Handler to also respond to primary calendar requests
@@ -106,6 +108,17 @@ func captureStderr(t *testing.T, fn func()) string {
 	b, _ := io.ReadAll(r)
 	_ = r.Close()
 	return string(b)
+}
+
+func newTestUIContext(t *testing.T, mode outfmt.Mode) context.Context {
+	t.Helper()
+
+	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: io.Discard, Color: "never"})
+	if err != nil {
+		t.Fatalf("ui.New: %v", err)
+	}
+
+	return outfmt.WithMode(ui.WithUI(context.Background(), u), mode)
 }
 
 func withStdin(t *testing.T, input string, fn func()) {

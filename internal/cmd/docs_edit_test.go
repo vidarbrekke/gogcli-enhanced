@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -704,20 +705,47 @@ func TestExecute_DocsEditReplace_DryRun_JSON(t *testing.T) {
 
 func TestExecute_DocsEditReplace_DryRun_NoAuth(t *testing.T) {
 	// Dry-run must not require auth or network: agents build plans without credentials.
-	if err := Execute([]string{"--json", "docs", "edit", "replace", "d1", "--find", "old", "--replace", "new", "--dry-run"}); err != nil {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if err := ExecuteWithIO([]string{"--json", "docs", "edit", "replace", "d1", "--find", "old", "--replace", "new", "--dry-run"}, &out, &errOut); err != nil {
 		t.Fatalf("dry-run without auth should succeed: %v", err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(out.Bytes(), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q stderr=%q", err, out.String(), errOut.String())
+	}
+	if parsed["dryRun"] != true || parsed["service"] != "docs" || parsed["resourceId"] != "d1" {
+		t.Fatalf("unexpected dry-run payload: %#v", parsed)
 	}
 }
 
 func TestExecute_DocsEditInsert_DryRun_NoAuth(t *testing.T) {
-	if err := Execute([]string{"--json", "docs", "edit", "insert", "d1", "x", "--index", "1", "--dry-run"}); err != nil {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if err := ExecuteWithIO([]string{"--json", "docs", "edit", "insert", "d1", "x", "--index", "1", "--dry-run"}, &out, &errOut); err != nil {
 		t.Fatalf("dry-run without auth should succeed: %v", err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(out.Bytes(), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q stderr=%q", err, out.String(), errOut.String())
+	}
+	if parsed["dryRun"] != true || parsed["service"] != "docs" || parsed["resourceId"] != "d1" {
+		t.Fatalf("unexpected dry-run payload: %#v", parsed)
 	}
 }
 
 func TestExecute_DocsEditDelete_DryRun_NoAuth(t *testing.T) {
-	if err := Execute([]string{"--json", "docs", "edit", "delete", "d1", "1", "5", "--dry-run"}); err != nil {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if err := ExecuteWithIO([]string{"--json", "docs", "edit", "delete", "d1", "1", "5", "--dry-run"}, &out, &errOut); err != nil {
 		t.Fatalf("dry-run without auth should succeed: %v", err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(out.Bytes(), &parsed); err != nil {
+		t.Fatalf("parse json: %v; out=%q stderr=%q", err, out.String(), errOut.String())
+	}
+	if parsed["dryRun"] != true || parsed["service"] != "docs" || parsed["resourceId"] != "d1" {
+		t.Fatalf("unexpected dry-run payload: %#v", parsed)
 	}
 }
 

@@ -15,6 +15,7 @@ This directory is the **permanent home** for the parity/merge workstream (not a 
 | `GWS-SAMPLES.md` | gws stdout/stderr samples and capture commands. |
 | `CAPTURE-403-RUNBOOK.md` | Maintainer-only 403 golden capture. |
 | `command-migration-matrix.md` | Per-command migration and risk. |
+| `GWS-VS-GOG-ROUTING.md` | When gws vs gog; how to implement live routing; how to test. |
 | `HANDOFF-FOR-REVIEWER.md` | Paste-ready samples for reviewers. |
 | `NATIVE-ENVELOPE-SAMPLES.md` | Native envelope examples. |
 
