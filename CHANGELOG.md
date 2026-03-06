@@ -24,6 +24,7 @@
 - Calendar: respond patches only attendees to avoid custom reminders validation errors. (#265) — thanks @sebasrodriguez.
 - Secrets: respect empty `GOG_KEYRING_PASSWORD` (treat set-to-empty as intentional; avoids headless prompts). (#269) — thanks @zerone0x.
 - Calendar: reject ambiguous calendar-name selectors for `calendar events` instead of guessing. (#131) — thanks @salmonumbrella.
+- Auth: fix Gmail search example in auth success template. (#89) — thanks @rvben.
 
 ## 0.11.0 - 2026-02-15
 
@@ -84,7 +85,6 @@
 
 ### Fixed
 
-- Auth: fix Gmail search example in auth success template. (#89) — thanks @rvben.
 - CLI: remove redundant newlines in text output for calendar, chat, Gmail, and groups commands. (#91) — thanks @salmonumbrella.
 - Gmail: include primary account display name in send From header when available. (#93) — thanks @salmonumbrella.
 - Keyring: persist OAuth tokens across Homebrew upgrades. (#94) — thanks @salmonumbrella.
