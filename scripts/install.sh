@@ -118,3 +118,15 @@ else
 	ln -sf "$BINARY" "$LINK_PATH"
 	echo "Linked: $LINK_PATH -> $BINARY" >&2
 fi
+
+WRAPPER_SRC="$ROOT_DIR/scripts/gog-agentic-call.sh"
+WRAPPER_LINK="$LINK_DIR/gog-agentic-call"
+if [[ -x "$WRAPPER_SRC" ]]; then
+	if [[ -e "$WRAPPER_LINK" ]] && [[ ! -L "$WRAPPER_LINK" ]]; then
+		echo "install.sh: $WRAPPER_LINK exists and is not a symlink; skipping link (update manually if needed)" >&2
+	else
+		mkdir -p "$LINK_DIR"
+		ln -sf "$WRAPPER_SRC" "$WRAPPER_LINK"
+		echo "Linked: $WRAPPER_LINK -> $WRAPPER_SRC" >&2
+	fi
+fi

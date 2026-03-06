@@ -10,6 +10,7 @@ fail() { echo "[FAIL] $*"; exit 1; }
 # 1) scripts exist
 [[ -f scripts/setup.sh ]] || fail "scripts/setup.sh missing"
 [[ -f scripts/setup-doctor.sh ]] || fail "scripts/setup-doctor.sh missing"
+[[ -f scripts/gog-agentic-call.sh ]] || fail "scripts/gog-agentic-call.sh missing"
 [[ -f scripts/lib/gws-auth-bridge.sh ]] || fail "gws auth bridge helper missing"
 [[ -f scripts/lib/gog-agentic-config.sh ]] || fail "gog-agentic config helper missing"
 pass "Both setup scripts exist"
@@ -17,6 +18,7 @@ pass "Both setup scripts exist"
 # 2) syntax valid
 bash -n scripts/setup.sh || fail "setup.sh syntax invalid"
 bash -n scripts/setup-doctor.sh || fail "setup-doctor.sh syntax invalid"
+bash -n scripts/gog-agentic-call.sh || fail "gog-agentic-call.sh syntax invalid"
 pass "Syntax checks pass"
 
 # 3) help output mentions doctor path
@@ -44,6 +46,12 @@ grep -q "gws-auth-bridge.sh" scripts/setup.sh || fail "setup.sh missing gws auth
 grep -q "gws-auth-bridge.sh" scripts/setup-doctor.sh || fail "setup-doctor.sh missing gws auth bridge"
 grep -q "gog-agentic-config.sh" scripts/setup-doctor.sh || fail "setup-doctor.sh missing gog-agentic config helper"
 grep -q "gog-agentic-config.sh" scripts/ensure-mcp-daemon.sh || fail "ensure-mcp-daemon.sh missing gog-agentic config helper"
+grep -q "gog-agentic-call" scripts/install.sh || fail "install.sh missing gog-agentic-call link"
+grep -q "gog-agentic-call" scripts/setup-doctor.sh || fail "setup-doctor.sh missing gog-agentic-call guidance"
+grep -q "gog-agentic-call" docs/TOOLS-gog-agentic-section.md || fail "TOOLS doc missing gog-agentic-call guidance"
+grep -q "Never try to complete OAuth interactively inside chat/exec" scripts/setup-doctor.sh || fail "setup-doctor.sh missing auth failure policy"
+grep -q "Never try to complete OAuth interactively inside chat/exec" docs/TOOLS-gog-agentic-section.md || fail "TOOLS doc missing auth failure policy"
+grep -q "./scripts/setup.sh" docs/TOOLS-gog-agentic-section.md || fail "TOOLS doc missing single recovery path"
 grep -q "gws auth setup" scripts/lib/gws-auth-bridge.sh || fail "gws auth bridge missing official setup flow"
 grep -q "gws auth login" scripts/lib/gws-auth-bridge.sh || fail "gws auth bridge missing official login flow"
 if grep -q "auth add" scripts/setup-doctor.sh; then fail "setup-doctor.sh should not fall back to native gog auth add"; fi

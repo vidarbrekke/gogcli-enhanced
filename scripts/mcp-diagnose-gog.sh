@@ -80,10 +80,10 @@ for line in lines:
             tools_count = len(tools)
             names = [t.get("name") for t in tools if t.get("name")]
             print("tools/list returned", tools_count, "tools")
-            if "drive.ensureFolder" in names:
-                print("  (drive.ensureFolder present)")
-            if "docs.create" in names:
-                print("  (docs.create present)")
+            if "drive.ensureFolder" in names or "drive_ensureFolder" in names:
+                print("  (drive ensure-folder tool present)")
+            if "docs.create" in names or "docs_create" in names:
+                print("  (docs create tool present)")
             break
     except json.JSONDecodeError:
         pass

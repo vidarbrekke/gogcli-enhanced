@@ -709,17 +709,23 @@ tools_path = sys.argv[1]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-**Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names use underscores (e.g. drive_listFiles, docs_create). You can use: `mcporter call gog-agentic.drive_listFiles --args '{}'` or `mcporter call --server gog-agentic --tool drive_listFiles --args '{}'`.
+**Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately**. Prefer the installed wrapper `gog-agentic-call`, which accepts both dotted and underscored tool names and resolves the right mcporter config automatically. Example: `gog-agentic-call drive.listFiles '{}'`. Raw mcporter still works as a fallback: `mcporter call gog-agentic.drive_listFiles --args '{}'`.
 
-- **List Drive root (files and folders):** `mcporter call gog-agentic.drive_listFiles --args '{}' --output json`
-- **List all accessible Drive files (global):** `mcporter call gog-agentic.drive_listFiles --args '{"global":true,"maxResults":20}' --output json` (cannot combine `global:true` with `parentId`)
-- **List only folders (use when user asks for "folders" or "all folders"):** `mcporter call gog-agentic.drive_searchFiles --args '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\"\",\"rawQuery\":true}' --output json` — returns one page + nextPageToken. **For "how many folders in root" use one call with fetchAllPages:** `--args '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\" and \\\"root\\\" in parents\",\"rawQuery\":true,\"fetchAllPages\":true}'` — response includes totalCount. Tool names use **underscores** (drive_searchFiles not drive.searchFiles). When user asks for "first N", add \"maxResults\": N. To get all folders page-by-page, call again with \"page\": \"<nextPageToken>\" until no nextPageToken.
-- **Create folder:** `mcporter call gog-agentic.drive_ensureFolder --args '{"path":"FolderName"}' --output json`
-- **Create doc:** `mcporter call gog-agentic.docs_create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
-- **Search files:** `mcporter call gog-agentic.drive_searchFiles --args '{"query":"name or text"}' --output json`
-- **Get spreadsheet values:** `mcporter call gog-agentic.sheets_valuesGet --args '{\"spreadsheetId\":\"<id>\",\"range\":\"Sheet1!A1:D10\"}' --output json`
+- **List Drive root (files and folders):** `gog-agentic-call drive.listFiles '{}'`
+- **List all accessible Drive files (global):** `gog-agentic-call drive.listFiles '{"global":true,"maxResults":20}'` (cannot combine `global:true` with `parentId`)
+- **List only folders (use when user asks for "folders" or "all folders"):** `gog-agentic-call drive.searchFiles '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\"\",\"rawQuery\":true}'` — returns one page + nextPageToken. **For "how many folders in root" use one call with fetchAllPages:** `gog-agentic-call drive.searchFiles '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\" and \\\"root\\\" in parents\",\"rawQuery\":true,\"fetchAllPages\":true}'` — response includes totalCount. When user asks for "first N", add \"maxResults\": N. To get all folders page-by-page, call again with \"page\": \"<nextPageToken>\" until no nextPageToken.
+- **Create folder:** `gog-agentic-call drive.ensureFolder '{"path":"FolderName"}'`
+- **Create doc:** `gog-agentic-call docs.create '{"title":"Doc Title"}'` (add `"parentId":"<folderId>"` to place doc in a folder)
+- **Search files:** `gog-agentic-call drive.searchFiles '{"query":"name or text"}'`
+- **Get spreadsheet values:** `gog-agentic-call sheets.valuesGet '{\"spreadsheetId\":\"<id>\",\"range\":\"Sheet1!A1:D10\"}'`
 
 OAuth is already set up. If the exec call fails (e.g. command not found or error output), report the error and then suggest the user ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0). Never reveal the keyring password or credentials.
+
+**Auth failure policy:** Never try to complete OAuth interactively inside chat/exec. Do **not** run `mcporter auth gog-agentic`, and do **not** run `gws auth login` or `gog auth login` from the chat tool runner because they may wait for browser interaction and produce a blank line or hang. If a Google request fails with unauthenticated/authError/invalid_grant/missing refresh token/no credentials:
+1. Run `gog auth status --json`.
+2. Briefly report that the workspace auth is missing or expired.
+3. Tell the user to run `./scripts/setup.sh` in a real terminal as the single supported recovery path, then retry the original request.
+4. If they need advanced repair, point them to `./scripts/setup-doctor.sh`.
 
 Never invent or assume folder or file names. Only report what the API returned. If you got only N items, say so and offer to fetch more with page/pageToken; do not make up names.
 
@@ -759,17 +765,23 @@ tools_path = sys.argv[1]
 section = """
 ## Google Drive and Docs (gog-agentic MCP)
 
-**Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately** with one of these commands. Tool names use underscores (e.g. drive_listFiles, docs_create). You can use: `mcporter call gog-agentic.drive_listFiles --args '{}'` or `mcporter call --server gog-agentic --tool drive_listFiles --args '{}'`.
+**Do not say tools are unavailable or that the gateway may not be loading config. Do not read TOOLS.md or config files to "diagnose".** For any Google Drive or Docs request, **call the exec tool immediately**. Prefer the installed wrapper `gog-agentic-call`, which accepts both dotted and underscored tool names and resolves the right mcporter config automatically. Example: `gog-agentic-call drive.listFiles '{}'`. Raw mcporter still works as a fallback: `mcporter call gog-agentic.drive_listFiles --args '{}'`.
 
-- **List Drive root (files and folders):** `mcporter call gog-agentic.drive_listFiles --args '{}' --output json`
-- **List all accessible Drive files (global):** `mcporter call gog-agentic.drive_listFiles --args '{"global":true,"maxResults":20}' --output json` (cannot combine `global:true` with `parentId`)
-- **List only folders (use when user asks for "folders" or "all folders"):** `mcporter call gog-agentic.drive_searchFiles --args '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\"\",\"rawQuery\":true}' --output json` — returns one page + nextPageToken. **For "how many folders in root" use one call with fetchAllPages:** `--args '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\" and \\\"root\\\" in parents\",\"rawQuery\":true,\"fetchAllPages\":true}'` — response includes totalCount. Tool names use **underscores** (drive_searchFiles not drive.searchFiles). When user asks for "first N", add \"maxResults\": N. To get all folders page-by-page, call again with \"page\": \"<nextPageToken>\" until no nextPageToken.
-- **Create folder:** `mcporter call gog-agentic.drive_ensureFolder --args '{"path":"FolderName"}' --output json`
-- **Create doc:** `mcporter call gog-agentic.docs_create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
-- **Search files:** `mcporter call gog-agentic.drive_searchFiles --args '{"query":"name or text"}' --output json`
-- **Get spreadsheet values:** `mcporter call gog-agentic.sheets_valuesGet --args '{\"spreadsheetId\":\"<id>\",\"range\":\"Sheet1!A1:D10\"}' --output json`
+- **List Drive root (files and folders):** `gog-agentic-call drive.listFiles '{}'`
+- **List all accessible Drive files (global):** `gog-agentic-call drive.listFiles '{"global":true,"maxResults":20}'` (cannot combine `global:true` with `parentId`)
+- **List only folders (use when user asks for "folders" or "all folders"):** `gog-agentic-call drive.searchFiles '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\"\",\"rawQuery\":true}'` — returns one page + nextPageToken. **For "how many folders in root" use one call with fetchAllPages:** `gog-agentic-call drive.searchFiles '{\"query\":\"mimeType = \\\"application/vnd.google-apps.folder\\\" and \\\"root\\\" in parents\",\"rawQuery\":true,\"fetchAllPages\":true}'` — response includes totalCount. When user asks for "first N", add \"maxResults\": N. To get all folders page-by-page, call again with \"page\": \"<nextPageToken>\" until no nextPageToken.
+- **Create folder:** `gog-agentic-call drive.ensureFolder '{"path":"FolderName"}'`
+- **Create doc:** `gog-agentic-call docs.create '{"title":"Doc Title"}'` (add `"parentId":"<folderId>"` to place doc in a folder)
+- **Search files:** `gog-agentic-call drive.searchFiles '{"query":"name or text"}'`
+- **Get spreadsheet values:** `gog-agentic-call sheets.valuesGet '{\"spreadsheetId\":\"<id>\",\"range\":\"Sheet1!A1:D10\"}'`
 
 OAuth is already set up. If the exec call fails (e.g. command not found or error output), report the error and then suggest the user ask the workspace admin to run the diagnostic and restart the daemon and gateway (runbook §8.0). Never reveal the keyring password or credentials.
+
+**Auth failure policy:** Never try to complete OAuth interactively inside chat/exec. Do **not** run `mcporter auth gog-agentic`, and do **not** run `gws auth login` or `gog auth login` from the chat tool runner because they may wait for browser interaction and produce a blank line or hang. If a Google request fails with unauthenticated/authError/invalid_grant/missing refresh token/no credentials:
+1. Run `gog auth status --json`.
+2. Briefly report that the workspace auth is missing or expired.
+3. Tell the user to run `./scripts/setup.sh` in a real terminal as the single supported recovery path, then retry the original request.
+4. If they need advanced repair, point them to `./scripts/setup-doctor.sh`.
 
 Never invent or assume folder or file names. Only report what the API returned. If you got only N items, say so and offer to fetch more with page/pageToken; do not make up names.
 
