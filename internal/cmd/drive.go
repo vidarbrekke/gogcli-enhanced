@@ -107,6 +107,12 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return usage("--global cannot be combined with --parent")
 	}
 
+	if Backend() == BackendGWS && !c.Global && !c.All {
+		if err := validateGWSExplicitAccountSelection(flags); err != nil {
+			return err
+		}
+	}
+
 	u := ui.FromContext(ctx)
 	account, err := requireAccount(flags)
 	if err != nil {
@@ -185,21 +191,7 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 			u.Err().Println("No files")
 			return nil
 		}
-		w, flush := tableWriter(ctx)
-		defer flush()
-		fmt.Fprintln(w, "ID\tNAME\tTYPE\tSIZE\tMODIFIED")
-		for _, f := range allFiles {
-			fmt.Fprintf(
-				w,
-				"%s\t%s\t%s\t%s\t%s\n",
-				f.Id,
-				f.Name,
-				driveType(f.MimeType),
-				formatDriveSize(f.Size),
-				formatDateTime(f.ModifiedTime),
-			)
-		}
-		return nil
+		return writeDriveLsTable(ctx, driveRowsFromFiles(allFiles))
 	}
 
 	files, nextToken, err := fetchPage(c.Page)
@@ -219,19 +211,8 @@ func (c *DriveLsCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	w, flush := tableWriter(ctx)
-	defer flush()
-	fmt.Fprintln(w, "ID\tNAME\tTYPE\tSIZE\tMODIFIED")
-	for _, f := range files {
-		fmt.Fprintf(
-			w,
-			"%s\t%s\t%s\t%s\t%s\n",
-			f.Id,
-			f.Name,
-			driveType(f.MimeType),
-			formatDriveSize(f.Size),
-			formatDateTime(f.ModifiedTime),
-		)
+	if err := writeDriveLsTable(ctx, driveRowsFromFiles(files)); err != nil {
+		return err
 	}
 	printNextPageHint(u, nextToken)
 	return nil
@@ -269,29 +250,54 @@ func writeGWSDriveLsTable(ctx context.Context, stdout []byte) error {
 	if json.Unmarshal(stdout, &out) != nil {
 		return fmt.Errorf("gws output is not valid JSON")
 	}
-	u := ui.FromContext(ctx)
-	if u == nil {
-		return nil
+	rows := make([]driveListRow, 0, len(out.Files))
+	for _, f := range out.Files {
+		rows = append(rows, driveListRow{
+			ID:           stringValue(f["id"]),
+			Name:         stringValue(f["name"]),
+			MIMEType:     stringValue(f["mimeType"]),
+			Size:         int64Value(f["size"]),
+			ModifiedTime: stringValue(f["modifiedTime"]),
+		})
 	}
-	if len(out.Files) == 0 {
-		u.Err().Println("No files")
+	return writeDriveLsTable(ctx, rows)
+}
+
+type driveListRow struct {
+	ID           string
+	Name         string
+	MIMEType     string
+	Size         int64
+	ModifiedTime string
+}
+
+func driveRowsFromFiles(files []*drive.File) []driveListRow {
+	rows := make([]driveListRow, 0, len(files))
+	for _, f := range files {
+		rows = append(rows, driveListRow{
+			ID:           f.Id,
+			Name:         f.Name,
+			MIMEType:     f.MimeType,
+			Size:         f.Size,
+			ModifiedTime: f.ModifiedTime,
+		})
+	}
+	return rows
+}
+
+func writeDriveLsTable(ctx context.Context, rows []driveListRow) error {
+	u := ui.FromContext(ctx)
+	if len(rows) == 0 {
+		if u != nil {
+			u.Err().Println("No files")
+		}
 		return nil
 	}
 	w, flush := tableWriter(ctx)
 	defer flush()
 	fmt.Fprintln(w, "ID\tNAME\tTYPE\tSIZE\tMODIFIED")
-	for _, f := range out.Files {
-		id, _ := f["id"].(string)
-		name, _ := f["name"].(string)
-		mimeType, _ := f["mimeType"].(string)
-		sizeStr := ""
-		if s, ok := f["size"].(string); ok {
-			sizeStr = s
-		} else if n, ok := f["size"].(float64); ok {
-			sizeStr = fmt.Sprintf("%.0f", n)
-		}
-		modTime, _ := f["modifiedTime"].(string)
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", id, name, driveType(mimeType), sizeStr, modTime)
+	for _, row := range rows {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", row.ID, row.Name, driveType(row.MIMEType), formatDriveSize(row.Size), formatDateTime(row.ModifiedTime))
 	}
 	return nil
 }

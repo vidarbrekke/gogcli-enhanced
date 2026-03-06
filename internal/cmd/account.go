@@ -79,6 +79,20 @@ func requireAccount(flags *RootFlags) (string, error) {
 	return "", usage("missing --account (or set GOG_ACCOUNT, set default via `gog auth manage`, or store exactly one token)")
 }
 
+func validateGWSExplicitAccountSelection(flags *RootFlags) error {
+	if flags != nil {
+		if v := strings.TrimSpace(flags.Account); v != "" && !shouldAutoSelectAccount(v) {
+			return usage("explicit --account is not supported with GOG_BACKEND=gws; use the default imported account or switch to the native backend")
+		}
+	}
+
+	if v := strings.TrimSpace(os.Getenv("GOG_ACCOUNT")); v != "" && !shouldAutoSelectAccount(v) {
+		return usage("explicit GOG_ACCOUNT is not supported with GOG_BACKEND=gws; use the default imported account or switch to the native backend")
+	}
+
+	return nil
+}
+
 func resolveAccountAlias(value string) (string, bool, error) {
 	value = strings.TrimSpace(value)
 	if value == "" || strings.Contains(value, "@") || shouldAutoSelectAccount(value) {

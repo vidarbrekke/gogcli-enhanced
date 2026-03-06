@@ -54,4 +54,24 @@ grep -q "mcporter" scripts/deploy.sh || fail "deploy.sh missing mcporter handlin
 grep -q "Homebrew is required on macOS" scripts/deploy.sh || fail "deploy.sh missing macOS dependency handling"
 pass "deploy.sh covers bootstrap and update flow"
 
+# 8) embedded TOOLS.md injector should execute without undefined variables
+python3 - <<'PY' || fail "setup-doctor.sh TOOLS.md injector is not runnable"
+import pathlib
+import re
+import sys
+import tempfile
+
+text = pathlib.Path("scripts/setup-doctor.sh").read_text(encoding="utf-8")
+match = re.search(r'python3 - "\$tools_md" <<\'PY\'\n(.*?)\nPY', text, re.S)
+if not match:
+    raise SystemExit("missing tools injector block")
+
+tmp = tempfile.NamedTemporaryFile(delete=False)
+tmp.close()
+sys.argv = ["-", tmp.name]
+ns = {"__name__": "__main__"}
+exec(match.group(1), ns, ns)
+PY
+pass "setup-doctor.sh TOOLS.md injector runs cleanly"
+
 echo "All setup split tests passed."

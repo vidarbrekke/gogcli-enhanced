@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 
 	"google.golang.org/api/gmail/v1"
@@ -28,6 +30,12 @@ type GmailLabelsGetCmd struct {
 }
 
 func (c *GmailLabelsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
+	if Backend() == BackendGWS {
+		if err := validateGWSExplicitAccountSelection(flags); err != nil {
+			return err
+		}
+	}
+
 	account, err := requireAccount(flags)
 	if err != nil {
 		return err
@@ -62,15 +70,15 @@ func (c *GmailLabelsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"label": l})
 	}
-	u := ui.FromContext(ctx)
-	u.Out().Printf("id\t%s", l.Id)
-	u.Out().Printf("name\t%s", l.Name)
-	u.Out().Printf("type\t%s", l.Type)
-	u.Out().Printf("messages_total\t%d", l.MessagesTotal)
-	u.Out().Printf("messages_unread\t%d", l.MessagesUnread)
-	u.Out().Printf("threads_total\t%d", l.ThreadsTotal)
-	u.Out().Printf("threads_unread\t%d", l.ThreadsUnread)
-	return nil
+	return writeLabelGetText(ctx, labelGetTextView{
+		ID:             l.Id,
+		Name:           l.Name,
+		Type:           l.Type,
+		MessagesTotal:  l.MessagesTotal,
+		MessagesUnread: l.MessagesUnread,
+		ThreadsTotal:   l.ThreadsTotal,
+		ThreadsUnread:  l.ThreadsUnread,
+	})
 }
 
 // gwsFixture adapts gws.Result to classify.FixtureData.
@@ -163,17 +171,61 @@ func writeGWSLabelsGetTable(ctx context.Context, stdout []byte) error {
 	if label == nil {
 		label = m
 	}
-	u := ui.FromContext(ctx)
-	if u == nil {
-		return nil
-	}
-	id, _ := label["id"].(string)
-	name, _ := label["name"].(string)
-	typeVal, _ := label["type"].(string)
-	u.Out().Printf("id\t%s", id)
-	u.Out().Printf("name\t%s", name)
-	u.Out().Printf("type\t%s", typeVal)
+	return writeLabelGetText(ctx, labelGetTextView{
+		ID:             stringValue(label["id"]),
+		Name:           stringValue(label["name"]),
+		Type:           stringValue(label["type"]),
+		MessagesTotal:  int64Value(label["messagesTotal"]),
+		MessagesUnread: int64Value(label["messagesUnread"]),
+		ThreadsTotal:   int64Value(label["threadsTotal"]),
+		ThreadsUnread:  int64Value(label["threadsUnread"]),
+	})
+}
+
+type labelGetTextView struct {
+	ID             string
+	Name           string
+	Type           string
+	MessagesTotal  int64
+	MessagesUnread int64
+	ThreadsTotal   int64
+	ThreadsUnread  int64
+}
+
+func writeLabelGetText(ctx context.Context, label labelGetTextView) error {
+	w := stdoutWriter(ctx)
+	fmt.Fprintf(w, "id\t%s\n", label.ID)
+	fmt.Fprintf(w, "name\t%s\n", label.Name)
+	fmt.Fprintf(w, "type\t%s\n", label.Type)
+	fmt.Fprintf(w, "messages_total\t%d\n", label.MessagesTotal)
+	fmt.Fprintf(w, "messages_unread\t%d\n", label.MessagesUnread)
+	fmt.Fprintf(w, "threads_total\t%d\n", label.ThreadsTotal)
+	fmt.Fprintf(w, "threads_unread\t%d\n", label.ThreadsUnread)
 	return nil
+}
+
+func stringValue(v any) string {
+	s, _ := v.(string)
+	return s
+}
+
+func int64Value(v any) int64 {
+	switch n := v.(type) {
+	case int:
+		return int64(n)
+	case int64:
+		return n
+	case float64:
+		return int64(math.Round(n))
+	case string:
+		parsed, err := strconv.ParseInt(strings.TrimSpace(n), 10, 64)
+		if err == nil {
+			return parsed
+		}
+		return 0
+	default:
+		return 0
+	}
 }
 
 type GmailLabelsCreateCmd struct {
@@ -226,6 +278,11 @@ type GmailLabelsListCmd struct{}
 
 func (c *GmailLabelsListCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
+	if Backend() == BackendGWS {
+		if err := validateGWSExplicitAccountSelection(flags); err != nil {
+			return err
+		}
+	}
 	account, err := requireAccount(flags)
 	if err != nil {
 		return err

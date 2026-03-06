@@ -766,6 +766,10 @@ Never invent or assume folder or file names. Only report what the API returned. 
 
 For "create folder then doc": run drive_ensureFolder first, then docs_create with the returned folderId as parentId.
 """
+existing = ""
+if os.path.isfile(tools_path):
+    with open(tools_path, "r", encoding="utf-8") as f:
+        existing = f.read()
 pattern = r'(?ms)^## Google Drive and Docs \(gog-agentic MCP\)\n.*?(?=^## |\Z)'
 canonical = section.strip() + "\n"
 if re.search(pattern, existing):
