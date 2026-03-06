@@ -8,7 +8,7 @@ import (
 
 func TestParseExtractSections(t *testing.T) {
 	valid := []struct {
-		in     string
+		in                     string
 		outline, tables, links bool
 	}{
 		{"", true, true, true},

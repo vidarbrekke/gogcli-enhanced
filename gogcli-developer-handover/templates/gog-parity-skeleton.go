@@ -9,9 +9,9 @@ import (
 )
 
 type Report struct {
-	Provider              string        `json:"provider"`
-	ProviderVersion       string        `json:"provider_version,omitempty"`
-	DiscoverySnapshotHash string        `json:"discovery_snapshot_hash,omitempty"`
+	Provider              string         `json:"provider"`
+	ProviderVersion       string         `json:"provider_version,omitempty"`
+	DiscoverySnapshotHash string         `json:"discovery_snapshot_hash,omitempty"`
 	Breaking              []DiffEntry    `json:"breaking,omitempty"`
 	Drift                 []DiffEntry    `json:"drift,omitempty"`
 	NormalizationsApplied []string       `json:"normalizations_applied,omitempty"`

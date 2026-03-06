@@ -864,11 +864,11 @@ func (c *DocsApplyStyleCmd) Run(ctx context.Context, flags *RootFlags) error {
 		payload := map[string]any{
 			"validateOnly": true,
 			"valid":        true,
-			"documentId":  docID,
-			"startIndex":  c.StartIndex,
-			"endIndex":    c.EndIndex,
-			"style":       style,
-			"requestHash": requestHash,
+			"documentId":   docID,
+			"startIndex":   c.StartIndex,
+			"endIndex":     c.EndIndex,
+			"style":        style,
+			"requestHash":  requestHash,
 		}
 		if normalizedForJSON != "" || c.Safety.Pretty {
 			if norm, nerr := NormalizedRequestString(batchReq); nerr == nil {

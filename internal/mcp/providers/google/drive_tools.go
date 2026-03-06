@@ -74,15 +74,15 @@ func driveSpecs(p *provider) []server.ToolSpec {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"parentId":   map[string]any{"type": "string"},
-					"query":      map[string]any{"type": "string"},
-					"max":        map[string]any{"type": "integer"},
-					"page":       map[string]any{"type": "string"},
-					"pageToken":  map[string]any{"type": "string"},
-					"maxResults": map[string]any{"type": "integer"},
-					"pageSize":   map[string]any{"type": "integer"},
+					"parentId":      map[string]any{"type": "string"},
+					"query":         map[string]any{"type": "string"},
+					"max":           map[string]any{"type": "integer"},
+					"page":          map[string]any{"type": "string"},
+					"pageToken":     map[string]any{"type": "string"},
+					"maxResults":    map[string]any{"type": "integer"},
+					"pageSize":      map[string]any{"type": "integer"},
 					"fetchAllPages": map[string]any{"type": "boolean", "description": "If true, fetch all pages server-side and return totalCount; use for 'how many' or 'count all'."},
-					"global":     map[string]any{"type": "boolean"},
+					"global":        map[string]any{"type": "boolean"},
 					"allDrives": map[string]any{
 						"type": "boolean",
 					},
