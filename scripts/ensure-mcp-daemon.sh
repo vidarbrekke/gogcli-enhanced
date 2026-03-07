@@ -13,6 +13,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 OS_NAME="$(uname -s)"
 
 source "$ROOT_DIR/scripts/lib/gog-agentic-config.sh"
+source "$ROOT_DIR/scripts/lib/openclaw-skill-sync.sh"
 
 # Workspace: where config/mcporter.json lives (OpenClaw workspace, not repo root).
 if [[ -n "${WORKSPACE_DIR:-}" ]]; then
@@ -48,6 +49,8 @@ fi
 
 gog_agentic_upsert_mcporter_config "$MCPORTER_CONFIG" "$GOG_CMD"
 log "gog-agentic config refreshed (backend=$(gog_agentic_backend))."
+sync_openclaw_gog_skill "$WORKSPACE_DIR"
+log "OpenClaw gog skill synced."
 
 if [[ -x "$ROOT_DIR/scripts/mcp-diagnose-gog.sh" ]]; then
   if "$ROOT_DIR/scripts/mcp-diagnose-gog.sh" "$MCPORTER_CONFIG" >/tmp/gog-mcp-diagnose.out 2>/tmp/gog-mcp-diagnose.err; then

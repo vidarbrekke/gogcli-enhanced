@@ -10,6 +10,7 @@ cd "$ROOT_DIR"
 
 source "$ROOT_DIR/scripts/lib/gws-auth-bridge.sh"
 source "$ROOT_DIR/scripts/lib/gog-agentic-config.sh"
+source "$ROOT_DIR/scripts/lib/openclaw-skill-sync.sh"
 
 OS_NAME="$(uname -s)"
 if [[ "$OS_NAME" != "Linux" && "$OS_NAME" != "Darwin" ]]; then
@@ -748,6 +749,8 @@ with open(tools_path, "w", encoding="utf-8") as f:
     f.write(new_content)
 PY
   log "Ensured gog-agentic directive in $tools_md (OpenClaw bootstrap)"
+  sync_openclaw_gog_skill "$workspace_dir"
+  log "Ensured OpenClaw gog skill in $workspace_dir/skills/gog/SKILL.md"
 
   # Fallback: if a well-known OpenClaw workspace exists elsewhere, register there too so OpenClaw finds gog regardless of repo location
   local fallback_dir
@@ -803,6 +806,8 @@ with open(tools_path, "w", encoding="utf-8") as f:
     f.write(new_content)
 PY
     log "Ensured gog-agentic directive in $tools_md_fb"
+    sync_openclaw_gog_skill "$fallback_dir"
+    log "Ensured OpenClaw gog skill in $fallback_dir/skills/gog/SKILL.md"
   done
 
   # So the gateway finds gog-agentic even when it uses the default mcporter path (~/.mcporter/mcporter.json)

@@ -13,12 +13,15 @@ fail() { echo "[FAIL] $*"; exit 1; }
 [[ -f scripts/gog-agentic-call.sh ]] || fail "scripts/gog-agentic-call.sh missing"
 [[ -f scripts/lib/gws-auth-bridge.sh ]] || fail "gws auth bridge helper missing"
 [[ -f scripts/lib/gog-agentic-config.sh ]] || fail "gog-agentic config helper missing"
+[[ -f scripts/lib/openclaw-skill-sync.sh ]] || fail "openclaw skill sync helper missing"
+[[ -f openclaw/skills/gog/SKILL.md ]] || fail "tracked OpenClaw gog skill missing"
 pass "Both setup scripts exist"
 
 # 2) syntax valid
 bash -n scripts/setup.sh || fail "setup.sh syntax invalid"
 bash -n scripts/setup-doctor.sh || fail "setup-doctor.sh syntax invalid"
 bash -n scripts/gog-agentic-call.sh || fail "gog-agentic-call.sh syntax invalid"
+bash -n scripts/lib/openclaw-skill-sync.sh || fail "openclaw-skill-sync.sh syntax invalid"
 pass "Syntax checks pass"
 
 # 3) help output mentions doctor path
@@ -46,6 +49,9 @@ grep -q "gws-auth-bridge.sh" scripts/setup.sh || fail "setup.sh missing gws auth
 grep -q "gws-auth-bridge.sh" scripts/setup-doctor.sh || fail "setup-doctor.sh missing gws auth bridge"
 grep -q "gog-agentic-config.sh" scripts/setup-doctor.sh || fail "setup-doctor.sh missing gog-agentic config helper"
 grep -q "gog-agentic-config.sh" scripts/ensure-mcp-daemon.sh || fail "ensure-mcp-daemon.sh missing gog-agentic config helper"
+grep -q "openclaw-skill-sync.sh" scripts/setup-doctor.sh || fail "setup-doctor.sh missing openclaw skill sync helper"
+grep -q "openclaw-skill-sync.sh" scripts/ensure-mcp-daemon.sh || fail "ensure-mcp-daemon.sh missing openclaw skill sync helper"
+grep -q "gog-agentic-call" openclaw/skills/gog/SKILL.md || fail "tracked OpenClaw gog skill missing wrapper guidance"
 grep -q "gog-agentic-call" scripts/install.sh || fail "install.sh missing gog-agentic-call link"
 grep -q "gog-agentic-call" scripts/setup-doctor.sh || fail "setup-doctor.sh missing gog-agentic-call guidance"
 grep -q "gog-agentic-call" docs/TOOLS-gog-agentic-section.md || fail "TOOLS doc missing gog-agentic-call guidance"
