@@ -218,11 +218,20 @@ func (p *provider) docsSmartEdit(ctx context.Context, input map[string]any) (map
 	// Route by intent
 	switch intentType {
 	case "batch":
+		var (
+			result map[string]any
+			err    error
+		)
 		if req, ok := input["request"].(map[string]any); ok {
 			if validateOnly {
-				return p.docsPlanBatch(ctx, map[string]any{"docId": docID, "request": req, "opId": input["opId"], "timeoutMs": input["timeoutMs"], "retries": input["retries"], "retryBackoffMs": input["retryBackoffMs"]})
+				result, err = p.docsPlanBatch(ctx, map[string]any{"docId": docID, "request": req, "opId": input["opId"], "timeoutMs": input["timeoutMs"], "retries": input["retries"], "retryBackoffMs": input["retryBackoffMs"]})
+			} else {
+				result, err = p.docsExecuteBatch(ctx, map[string]any{"docId": docID, "request": req, "opId": input["opId"], "timeoutMs": input["timeoutMs"], "retries": input["retries"], "retryBackoffMs": input["retryBackoffMs"]})
 			}
-			return p.docsExecuteBatch(ctx, map[string]any{"docId": docID, "request": req, "opId": input["opId"], "timeoutMs": input["timeoutMs"], "retries": input["retries"], "retryBackoffMs": input["retryBackoffMs"]})
+			if result != nil {
+				result["operation"] = "smartEdit"
+			}
+			return result, err
 		}
 		return map[string]any{"service": "docs", "operation": "smartEdit", "error_code": server.ErrorCodeInvalidArgument, "message": "intentType batch requires request"}, errMissingRequest
 	case "sed":
@@ -259,6 +268,9 @@ func (p *provider) docsSmartEdit(ctx context.Context, input map[string]any) (map
 			sedInput["expressions"] = toAnySlice(expressions)
 		}
 		result, err := p.docsSed(ctx, sedInput)
+		if result != nil {
+			result["operation"] = "smartEdit"
+		}
 		if err != nil {
 			return result, err
 		}
@@ -300,6 +312,9 @@ func (p *provider) docsCreate(_ context.Context, input map[string]any) (map[stri
 
 func (p *provider) docsCreateWithBody(ctx context.Context, input map[string]any) (map[string]any, error) {
 	createResult, err := p.docsCreate(ctx, input)
+	if createResult != nil {
+		createResult["operation"] = "createWithBody"
+	}
 	if err != nil {
 		return createResult, err
 	}
@@ -1218,7 +1233,11 @@ func (p *provider) driveListFiles(ctx context.Context, input map[string]any) (ma
 		}
 		searchInput["query"] = "mimeType = 'application/vnd.google-apps.folder' and '" + parentID + "' in parents"
 		searchInput["rawQuery"] = true
-		return p.driveSearchFiles(ctx, searchInput)
+		result, err := p.driveSearchFiles(ctx, searchInput)
+		if result != nil {
+			result["operation"] = "listFiles"
+		}
+		return result, err
 	}
 	args := []string{"--json"}
 	args = append(args, policyArgs(input)...)
@@ -1314,7 +1333,58 @@ func (p *provider) driveGetFile(_ context.Context, input map[string]any) (map[st
 	args = append(args, maybeAccountArgs(input)...)
 	args = append(args, maybeOpIDArgs(input)...)
 	args = append(args, "drive", "get", fileID)
-	return p.runCLI(cleanArgs(args), "drive", "getFile")
+	if asBool(input["pageCount"]) {
+		args = append(args, "--page-count")
+	}
+	result, err := p.runCLI(cleanArgs(args), "drive", "getFile")
+	if err != nil {
+		return result, err
+	}
+	if asBool(input["pageCount"]) {
+		normalizeDriveGetFilePDFMetadata(result)
+	}
+	return result, nil
+}
+
+func normalizeDriveGetFilePDFMetadata(result map[string]any) {
+	if len(result) == 0 {
+		return
+	}
+
+	rawMetadata, ok := result["pdfMetadata"].(map[string]any)
+	if !ok {
+		rawMetadata = map[string]any{}
+	}
+	metadata := copyStringAnyMap(rawMetadata)
+	if _, hasStatus := metadata["status"]; !hasStatus {
+		metadata["status"] = "unavailable"
+	}
+	if _, hasSource := metadata["source"]; !hasSource {
+		metadata["source"] = "unconfigured"
+	}
+	if _, hasConfidence := metadata["confidence"]; !hasConfidence {
+		metadata["confidence"] = 0.0
+	}
+	if _, hasAttempts := metadata["attempts"]; !hasAttempts {
+		metadata["attempts"] = []any{}
+	}
+	if _, hasPages := metadata["pages"]; !hasPages {
+		if pageCount, hasPageCount := result["pageCount"]; hasPageCount {
+			metadata["pages"] = pageCount
+		}
+	}
+	result["pdfMetadata"] = metadata
+	result["pdfMetadataEnvelope"] = map[string]any{
+		"pdf": metadata,
+	}
+}
+
+func copyStringAnyMap(src map[string]any) map[string]any {
+	out := make(map[string]any, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
 }
 
 func (p *provider) driveUploadFile(_ context.Context, input map[string]any) (map[string]any, error) {

@@ -33,6 +33,26 @@ func TestExecuteTool_ErrorNormalization(t *testing.T) {
 	}
 }
 
+func TestExecuteTool_ErrorNormalization_PropagatesRequestHash(t *testing.T) {
+	s := New()
+	s.RegisterTool("x", func(context.Context, map[string]any) (map[string]any, error) {
+		return map[string]any{
+			"service":     "docs",
+			"operation":   "batch",
+			"requestHash": "abc",
+			"error_code":  "invalid_argument",
+			"message":     "bad",
+		}, errBad
+	})
+	got := s.ExecuteTool(context.Background(), "x", map[string]any{})
+	if got.OK {
+		t.Fatal("expected error envelope")
+	}
+	if got.RequestHash != "abc" {
+		t.Fatalf("expected requestHash to propagate, got %q", got.RequestHash)
+	}
+}
+
 func TestListToolSpecs(t *testing.T) {
 	s := New()
 	s.RegisterToolSpec(ToolSpec{Name: "b.tool", Handler: func(context.Context, map[string]any) (map[string]any, error) { return map[string]any{}, nil }})

@@ -268,6 +268,9 @@ func TestGoogleTools_DriveListFiles_FolderQueryRedirectsToSearch(t *testing.T) {
 	if !env.OK {
 		t.Fatalf("expected success, got error: %#v", env.Error)
 	}
+	if env.Service != "drive" || env.Operation != "listFiles" {
+		t.Fatalf("unexpected service/op: %s %s", env.Service, env.Operation)
+	}
 	if !slices.Contains(gotArgs, "search") {
 		t.Fatalf("expected folders-only query to redirect to drive search, got %v", gotArgs)
 	}
@@ -311,6 +314,115 @@ func TestGoogleTools_DriveListFiles_GlobalAndParent_Invalid(t *testing.T) {
 	}
 	if env.Error == nil || env.Error.Code != "invalid_argument" {
 		t.Fatalf("unexpected error: %#v", env.Error)
+	}
+}
+
+func TestGoogleTools_DriveGetFile_WithPageCount_MapsArgs(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"file":{"id":"f1","mimeType":"application/pdf"},"pageCount":17,"pdfMetadata":{"status":"ok","source":"drive_download_pdfinfo","confidence":0.99,"attempts":[]}}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive_getFile", map[string]any{
+		"fileId":    "f1",
+		"pageCount": true,
+		"account":   "a@example.com",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "--page-count") {
+		t.Fatalf("expected --page-count, got %v", gotArgs)
+	}
+	if !slices.Contains(gotArgs, "--account") || !slices.Contains(gotArgs, "a@example.com") {
+		t.Fatalf("expected account args, got %v", gotArgs)
+	}
+	if !slices.Contains(gotArgs, "drive") || !slices.Contains(gotArgs, "get") {
+		t.Fatalf("expected drive get command, got %v", gotArgs)
+	}
+	if !slices.Contains(gotArgs, "f1") {
+		t.Fatalf("expected file id, got %v", gotArgs)
+	}
+}
+
+func TestGoogleTools_DriveGetFile_WithPageCount_NormalizesMetadataEnvelope(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		return `{"file":{"id":"f2","mimeType":"application/pdf"},"pageCount":11,"pdfMetadata":{"status":"ok","source":"drive_download_pdfinfo","confidence":0.99,"attempts":[],"pages":11}}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive_getFile", map[string]any{
+		"fileId":    "f2",
+		"pageCount": true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	pdfMetadata, ok := env.Result["pdfMetadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pdfMetadata map, got %#v", env.Result["pdfMetadata"])
+	}
+	if status, _ := pdfMetadata["status"].(string); status != "ok" {
+		t.Fatalf("unexpected status: %#v", status)
+	}
+	envelope, hasEnvelope := env.Result["pdfMetadataEnvelope"].(map[string]any)
+	if !hasEnvelope {
+		t.Fatalf("expected pdfMetadataEnvelope, got %#v", env.Result["pdfMetadataEnvelope"])
+	}
+	envelopePDF, hasEnvelopePDF := envelope["pdf"].(map[string]any)
+	if !hasEnvelopePDF {
+		t.Fatalf("expected pdfMetadataEnvelope.pdf map, got %#v", envelope["pdf"])
+	}
+	if _, hasPages := pdfMetadata["pages"]; !hasPages {
+		t.Fatalf("expected pages in pdfMetadata, got %#v", pdfMetadata)
+	}
+	if pages, ok := envelopePDF["pages"].(float64); !ok || int(pages) != 11 {
+		t.Fatalf("expected envelope pages 11, got %#v", envelopePDF["pages"])
+	}
+}
+
+func TestGoogleTools_DriveGetFile_WithPageCount_DefaultsMetadataEnvelope_OnMissingFields(t *testing.T) {
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		return `{"file":{"id":"f3","mimeType":"application/pdf"},"pageCount":9}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive_getFile", map[string]any{
+		"fileId":    "f3",
+		"pageCount": true,
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+
+	pdfMetadata, ok := env.Result["pdfMetadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pdfMetadata map, got %#v", env.Result["pdfMetadata"])
+	}
+	if status, _ := pdfMetadata["status"].(string); status != "unavailable" {
+		t.Fatalf("expected default status unavailable, got %#v", status)
+	}
+	if source, _ := pdfMetadata["source"].(string); source != "unconfigured" {
+		t.Fatalf("expected default source unconfigured, got %#v", source)
+	}
+	confidence := pdfMetadata["confidence"]
+	if _, has := confidence.(float64); !has {
+		t.Fatalf("expected confidence as float64, got %#v", confidence)
+	}
+	if attempts, okAttempts := pdfMetadata["attempts"].([]any); !okAttempts || len(attempts) != 0 {
+		t.Fatalf("expected attempts as empty array, got %#v", pdfMetadata["attempts"])
+	}
+	pages, ok := pdfMetadata["pages"].(float64)
+	if !ok || int(pages) != 9 {
+		t.Fatalf("expected pdfMetadata.pages 9, got %#v", pdfMetadata["pages"])
+	}
+
+	envelope, ok := env.Result["pdfMetadataEnvelope"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pdfMetadataEnvelope map, got %#v", env.Result["pdfMetadataEnvelope"])
+	}
+	envelopedPDF, ok := envelope["pdf"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pdfMetadataEnvelope.pdf map, got %#v", envelope["pdf"])
+	}
+	if _, has := envelopedPDF["pages"]; !has {
+		t.Fatalf("expected enveloped pdf pages, got %#v", envelopedPDF)
 	}
 }
 
@@ -729,6 +841,9 @@ func TestGoogleTools_DocsSmartEdit_RoutingAndEnvelope(t *testing.T) {
 	if !env.OK {
 		t.Fatalf("expected success, got error: %#v", env.Error)
 	}
+	if env.Operation != "smartEdit" {
+		t.Fatalf("expected operation smartEdit, got %s", env.Operation)
+	}
 	if env.Result != nil {
 		if e, _ := env.Result["engineSelected"].(string); e != "sed" && e != "batch" {
 			t.Fatalf("expected result.engineSelected sed or batch, got %v", env.Result["engineSelected"])
@@ -757,6 +872,9 @@ func TestGoogleTools_DocsSmartEdit_ValidateOnlyHighRisk(t *testing.T) {
 	if !env.OK {
 		t.Fatalf("expected success (assessment), got error: %#v", env.Error)
 	}
+	if env.Operation != "smartEdit" {
+		t.Fatalf("expected operation smartEdit, got %s", env.Operation)
+	}
 	if env.Result != nil {
 		if r, _ := env.Result["riskLevel"].(string); r != "high" {
 			t.Fatalf("expected riskLevel=high for delete, got %v", env.Result["riskLevel"])
@@ -764,6 +882,32 @@ func TestGoogleTools_DocsSmartEdit_ValidateOnlyHighRisk(t *testing.T) {
 		if rc, _ := env.Result["requiresConfirmation"].(bool); !rc {
 			t.Fatalf("expected requiresConfirmation=true for high risk with validateOnly")
 		}
+	}
+}
+
+func TestGoogleTools_DocsSmartEdit_BatchUsesOperationSmartEdit(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append(gotArgs, args...)
+		return `{"ok":true}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs_smartEdit", map[string]any{
+		"docId":      "d1",
+		"intentType": "batch",
+		"request": map[string]any{
+			"requests": []map[string]any{
+				{"insertText": map[string]any{"location": map[string]any{"index": 1}, "text": "hi"}},
+			},
+		},
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Operation != "smartEdit" {
+		t.Fatalf("expected operation smartEdit, got %s", env.Operation)
+	}
+	if !slices.Contains(gotArgs, "batch") {
+		t.Fatalf("expected batch path args, got %v", gotArgs)
 	}
 }
 
@@ -802,7 +946,7 @@ func TestGoogleTools_DocsCreateWithBody_NoRequest_ReturnsCreateResult(t *testing
 	if !env.OK {
 		t.Fatalf("expected success, got error: %#v", env.Error)
 	}
-	if env.Service != "docs" || env.Operation != "create" {
+	if env.Service != "docs" || env.Operation != "createWithBody" {
 		t.Fatalf("unexpected service/op: %s %s", env.Service, env.Operation)
 	}
 	if id := env.Result["documentId"]; id != "doc1" {
@@ -829,6 +973,9 @@ func TestGoogleTools_DocsCreateWithBody_WithRequest_CallsCreateThenBatch(t *test
 	})
 	if !env.OK {
 		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Operation != "createWithBody" {
+		t.Fatalf("unexpected operation %q", env.Operation)
 	}
 	if callCount != 2 {
 		t.Fatalf("expected 2 executor calls (create + batch), got %d", callCount)

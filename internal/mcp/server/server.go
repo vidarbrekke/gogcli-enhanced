@@ -83,11 +83,12 @@ func normalizeError(result map[string]any, err error) Envelope {
 	code := ErrorCodeAPI
 	message := err.Error()
 	details := map[string]any{}
-	var service, operation, opID string
+	var service, operation, opID, requestHash string
 	if result != nil {
 		service = str(result["service"])
 		operation = str(result["operation"])
 		opID = str(result["opId"])
+		requestHash = str(result["requestHash"])
 		if v := str(result["error_code"]); v != "" {
 			code = v
 		}
@@ -99,10 +100,11 @@ func normalizeError(result map[string]any, err error) Envelope {
 		}
 	}
 	return Envelope{
-		OK:        false,
-		Service:   service,
-		Operation: operation,
-		OpID:      opID,
+		OK:          false,
+		Service:     service,
+		Operation:   operation,
+		OpID:        opID,
+		RequestHash: requestHash,
 		Error: &ErrorEnvelope{
 			Code:    code,
 			Message: message,

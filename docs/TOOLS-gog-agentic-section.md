@@ -10,7 +10,7 @@
 
 - **Docs read:** `docs_get` (metadata/revision), `docs_cat` (plain text; optional maxBytes, tab, allTabs), `docs_listTabs`, `docs_positionsEnd`, `docs_positionsSearch` (text + matchCase), `docs_positionsHeadings`, `docs_export` (export to pdf/docx/txt; docId, format, optional out — if out omitted writes to temp and returns path)
 - **Docs write:** `docs_create`, `docs_createWithBody`, `docs_insertText`, `docs_deleteRange`, `docs_replaceAllText`, `docs_appendText`, `docs_planBatch`, `docs_executeBatch` (optional requireRevisionId), `docs_sed`, `docs_smartEdit`, `docs_mergeData` (templateId + data array; validateOnly/dryRun)
-- **Drive read:** `drive_listFiles` (parentId or global), `drive_searchFiles`, `drive_listPermissions`, `drive_listComments`
+- **Drive read:** `drive_listFiles` (parentId or global), `drive_searchFiles`, `drive_getFile` (supports `pageCount`), `drive_listPermissions`, `drive_listComments`
 - **Drive write:** `drive_ensureFolder`, `drive_moveFile`, `drive_renameFile`, `drive_shareFile` (to: anyone|user|domain), `drive_unshare`, `drive_createComment`, `drive_deleteComment`, `drive_copyFile`, `drive_uploadFile`, `drive_deleteFile` (validateOnly returns planned without executing)
 - **Drive bulk:** `drive_bulkExecute` (operations array: move|rename|share|delete; validateOnly to preview; max 50 per call)
 - **Sheets read:** `sheets_valuesGet`, `sheets_valuesRead` (alias; spreadsheetId, range; optional majorDimension, valueRenderOption), `sheets_links` (hyperlinks in range), `sheets_metadata` (spreadsheet title, locale, timeZone, sheet list)
@@ -34,6 +34,11 @@ Use `--args '{"key":"value"}'` with the appropriate JSON for each tool. Destruct
 - **List only folders (use when user asks for "folders" or "all folders"):** `gog-agentic-call drive.searchFiles '{"query":"mimeType = \"application/vnd.google-apps.folder\"","rawQuery":true}'` — returns one page of folders + nextPageToken. **For "how many folders in root" use one call with fetchAllPages:** `gog-agentic-call drive.searchFiles '{"query":"mimeType = \\\"application/vnd.google-apps.folder\\\" and \\\"root\\\" in parents","rawQuery":true,"fetchAllPages":true}'` — response includes `totalCount`. When the user asks for "first N" (e.g. first 15), add `"maxResults": N`. To get more pages manually: use `"page": "<nextPageToken>"` (or `"pageToken"`) until the response has no nextPageToken. **Choice:** If the user says **"only folders"** or **"just folders"** (or clarifies they wanted folders only), use `drive_searchFiles` with the folder mimeType query above; for root only add ` and "root" in parents` to the query. If the user says **"files and folders"** or **"files or folders"**, `drive_listFiles` is correct (mixed list).
 - **Create folder:** `mcporter call gog-agentic.drive_ensureFolder --args '{"path":"FolderName"}' --output json`
 - **Create doc:** `mcporter call gog-agentic.docs_create --args '{"title":"Doc Title"}' --output json` (add `"parentId":"<folderId>"` to place doc in a folder)
+- **Get file (including PDF metadata):** `mcporter call gog-agentic.drive_getFile --args '{"fileId":"<fileId>","pageCount":true}' --output json`
+  - For PDFs, the response includes:
+    - `pageCount` (top-level)
+    - `pdfMetadata` (`status`, `source`, `confidence`, `attempts`, `pages`)
+    - `pdfMetadataEnvelope.pdf` (same payload under a dedicated metadata namespace)
 - **Search files:** `mcporter call gog-agentic.drive_searchFiles --args '{"query":"name or text"}' --output json`
 - **Upload file (e.g. backup from server to Drive):** `mcporter call gog-agentic.drive_uploadFile --args '{"localPath":"/path/on/server/file.tar.gz","parentId":"<folderId>"}' --output json` (optional: `name`, `keepRevisionForever`)
 - **Get spreadsheet values:** `mcporter call gog-agentic.sheets_valuesGet --args '{"spreadsheetId":"<id>","range":"Sheet1!A1:D10"}' --output json`

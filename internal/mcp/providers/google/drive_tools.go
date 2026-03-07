@@ -132,6 +132,7 @@ func driveSpecs(p *provider) []server.ToolSpec {
 				"required": []string{"fileId"},
 				"properties": map[string]any{
 					"fileId":         map[string]any{"type": "string"},
+					"pageCount":      map[string]any{"type": "boolean", "description": "Include PDF page count if available"},
 					"account":        map[string]any{"type": "string"},
 					"opId":           map[string]any{"type": "string"},
 					"timeoutMs":      map[string]any{"type": "integer"},
