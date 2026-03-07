@@ -45,4 +45,24 @@ case "$args" in
     ;;
 esac
 
+unset WORKSPACE_DIR
+repo_root="$tmpdir/openclaw/workspace/repositories/gogcli-enhanced"
+mkdir -p "$repo_root/scripts" "$tmpdir/home/.local/bin" "$tmpdir/openclaw/workspace/config"
+printf '{}\n' > "$tmpdir/openclaw/workspace/config/mcporter.json"
+cp "$ROOT_DIR/scripts/gog-agentic-call.sh" "$repo_root/scripts/gog-agentic-call.sh"
+chmod +x "$repo_root/scripts/gog-agentic-call.sh"
+ln -sf "$repo_root/scripts/gog-agentic-call.sh" "$tmpdir/home/.local/bin/gog-agentic-call"
+resolved_workspace="$(cd "$tmpdir/openclaw/workspace" && pwd -P)"
+
+bash "$tmpdir/home/.local/bin/gog-agentic-call" "drive.listFiles" '{}'
+args="$(<"$tmpdir/args.txt")"
+case "$args" in
+  *"--config $resolved_workspace/config/mcporter.json call gog-agentic.drive_listFiles --args {} --output json"*)
+    pass "wrapper resolves repo path through symlink"
+    ;;
+  *)
+    fail "wrapper did not resolve symlinked repo path correctly: $args"
+    ;;
+esac
+
 echo "All gog-agentic call wrapper tests passed."
