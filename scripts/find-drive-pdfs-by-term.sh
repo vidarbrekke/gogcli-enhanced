@@ -28,6 +28,11 @@ if ! command -v gog-agentic-call >/dev/null 2>&1; then
   echo "find-drive-pdfs-by-term.sh: gog-agentic-call not found in PATH" >&2
   exit 1
 fi
+if command -v pdfinfo >/dev/null 2>&1; then
+  PDFINFO_AVAILABLE=1
+else
+  PDFINFO_AVAILABLE=0
+fi
 
 TERM=""
 MAX_RESULTS=25
@@ -72,6 +77,10 @@ fi
 
 if [[ -n "$WORKSPACE_DIR_OVERRIDE" ]]; then
   export WORKSPACE_DIR="$WORKSPACE_DIR_OVERRIDE"
+fi
+
+if [[ "$PDFINFO_AVAILABLE" -eq 0 ]]; then
+  echo "Warning: pdfinfo is not installed. Drive getFile page counts may use fallback extraction and be slower or incomplete." >&2
 fi
 
 if [[ "$OUTPUT_JSON" -eq 1 ]]; then
