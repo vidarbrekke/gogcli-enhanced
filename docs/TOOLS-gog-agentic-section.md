@@ -40,6 +40,12 @@ Use `--args '{"key":"value"}'` with the appropriate JSON for each tool. Destruct
     - `pdfMetadata` (`status`, `source`, `confidence`, `attempts`, `pages`)
     - `pdfMetadataEnvelope.pdf` (same payload under a dedicated metadata namespace)
 - **Search files:** `mcporter call gog-agentic.drive_searchFiles --args '{"query":"name or text"}' --output json`
+- **Generic folder+file lookup pattern (for any term):**
+   1. Find folders: `gog-agentic-call drive.searchFiles '{"query":"mimeType = 'application/vnd.google-apps.folder' and (name contains \'<TERM>\')","rawQuery":true}'`
+   2. For each returned folder ID, list PDFs inside it: `gog-agentic-call drive.listFiles '{"parentId":"<FOLDER_ID>","query":"mimeType = 'application/pdf'","maxResults":50}'`
+   3. If needed, continue with `"page":"<nextPageToken>"` using the same args.
+   4. For each PDF file ID, call: `gog-agentic-call drive.getFile '{"fileId":"<FILE_ID>","pageCount":true}'` to extract page counts.
+   This flow is generic: replace `<TERM>`, `<FOLDER_ID>`, and `<FILE_ID>` with user-provided values.
 - **Upload file (e.g. backup from server to Drive):** `mcporter call gog-agentic.drive_uploadFile --args '{"localPath":"/path/on/server/file.tar.gz","parentId":"<folderId>"}' --output json` (optional: `name`, `keepRevisionForever`)
 - **Get spreadsheet values:** `mcporter call gog-agentic.sheets_valuesGet --args '{"spreadsheetId":"<id>","range":"Sheet1!A1:D10"}' --output json`
 - **Sort sheet range by column:** `mcporter call gog-agentic.sheets_sortRange --args '{"spreadsheetId":"<id>","range":"Sheet1!A2:J200","sortByColumn":0,"desc":false}' --output json` (sortByColumn 0 = column A; use desc: true for descending). **To sort by Due_Date:** if Due_Date is in column B use `"sortByColumn":1`; range must include sheet name, e.g. `"range":"Sheet1!A2:J200"`.
