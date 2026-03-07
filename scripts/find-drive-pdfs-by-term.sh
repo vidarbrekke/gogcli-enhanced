@@ -104,19 +104,61 @@ fi
 call_mcp() {
   local tool="$1"
   local args_json="$2"
-  gog-agentic-call "$tool" "$args_json"
+  local resp
+  if ! resp="$(gog-agentic-call "$tool" "$args_json")"; then
+    printf '%s\n' '{"ok":false,"error":{"code":"command_failed","message":"gog-agentic-call exited non-zero"}}'
+    return 1
+  fi
+  printf '%s\n' "$resp"
+}
+
+response_ok() {
+  local resp="$1"
+  local ok
+  ok="$(jq -r '.ok // false' <<<"$resp" 2>/dev/null || true)"
+  [[ "$ok" == "true" ]]
 }
 
 require_ok() {
   local tool="$1"
   local args_json="$2"
   local resp
-  resp="$(call_mcp "$tool" "$args_json")"
-  if [[ "$(jq -r '.ok // false' <<<"$resp")" != "true" ]]; then
+  resp="$(call_mcp "$tool" "$args_json")" || true
+  if ! response_ok "$resp"; then
     echo "${tool} failed: $(jq -r '.error.message // "unknown error"' <<<"$resp")" >&2
     exit 1
   fi
   printf '%s\n' "$resp"
+}
+
+print_record_json() {
+  local folder_id="$1"
+  local folder_name="$2"
+  local file_id="$3"
+  local file_name="$4"
+  local page_count_json="$5"
+  local page_count_display="$6"
+  local file_mime_type="$7"
+  local pdf_metadata="$8"
+  local pdf_metadata_envelope="$9"
+  local file_lookup_ok="${10}"
+  local file_error_code="${11}"
+  local file_error_message="${12}"
+
+  jq -nc \
+    --arg folderId "$folder_id" \
+    --arg folderName "$folder_name" \
+    --arg fileId "$file_id" \
+    --arg fileName "$file_name" \
+    --argjson pageCount "$page_count_json" \
+    --arg pageCountDisplay "$page_count_display" \
+    --arg fileMimeType "$file_mime_type" \
+    --argjson pdfMetadata "$pdf_metadata" \
+    --argjson pdfMetadataEnvelope "$pdf_metadata_envelope" \
+    --argjson fileLookupOk "$file_lookup_ok" \
+    --arg errorCode "$file_error_code" \
+    --arg errorMessage "$file_error_message" \
+    '{folderId:$folderId, folderName:$folderName, fileId:$fileId, fileName:$fileName, fileMimeType:$fileMimeType, pageCount:$pageCount, pageCountDisplay:$pageCountDisplay, pdfMetadata:$pdfMetadata, pdfMetadataEnvelope:$pdfMetadataEnvelope, fileLookup:{ok:$fileLookupOk, error:(if $errorCode == "" then null else {code:$errorCode, message:$errorMessage} end)}}'
 }
 
 escape_drive_literal() {
@@ -135,7 +177,9 @@ while :; do
   fi
 
   folder_resp="$(require_ok drive.searchFiles "$folder_args")"
-  while IFS=$'\t' read -r folder_id folder_name; do
+  while IFS= read -r folder_json; do
+    folder_id="$(jq -r '.id // ""' <<<"$folder_json")"
+    folder_name="$(jq -r '.name // ""' <<<"$folder_json")"
     if [[ -z "$folder_id" ]]; then
       continue
     fi
@@ -149,15 +193,45 @@ while :; do
       fi
 
       file_resp="$(require_ok drive.listFiles "$file_args")"
-      while IFS=$'\t' read -r file_id file_name; do
+      while IFS= read -r file_obj; do
+        file_id="$(jq -r '.id // ""' <<<"$file_obj")"
+        file_name="$(jq -r '.name // ""' <<<"$file_obj")"
+        file_mime_type="$(jq -r '.mimeType // ""' <<<"$file_obj")"
         if [[ -z "$file_id" ]]; then
           continue
         fi
         get_file_args="$(jq -nc --arg fileId "$file_id" '{fileId:$fileId, pageCount:true}')"
-        file_resp_detail="$(require_ok drive.getFile "$get_file_args")"
-        page_count="$(jq -r '.result.pageCount // .result.pdfMetadata.pages // "n/a"' <<<"$file_resp_detail")"
-        print_record "$folder_id" "$folder_name" "$file_id" "$file_name" "$page_count"
-      done < <(jq -r '.result.files[]? | [.id, (.name // "")] | @tsv' <<<"$file_resp")
+        file_resp_detail="$(call_mcp drive.getFile "$get_file_args")" || true
+        file_lookup_ok="false"
+        file_error_code=""
+        file_error_message=""
+        pdf_metadata="{}"
+        pdf_metadata_envelope="{}"
+        if response_ok "$file_resp_detail"; then
+          file_lookup_ok="true"
+          page_count="$(jq -r '.result.pageCount // .result.pdfMetadata.pages // empty' <<<"$file_resp_detail" 2>/dev/null || true)"
+          pdf_metadata="$(jq -c '.result.pdfMetadata // {}' <<<"$file_resp_detail" 2>/dev/null || echo '{}')"
+          pdf_metadata_envelope="$(jq -c '.result.pdfMetadataEnvelope // {}' <<<"$file_resp_detail" 2>/dev/null || echo '{}')"
+        else
+          file_error_code="$(jq -r '.error.code // "command_failed"' <<<"$file_resp_detail" 2>/dev/null || true)"
+          file_error_message="$(jq -r '.error.message // "unknown_error"' <<<"$file_resp_detail" 2>/dev/null || true)"
+          page_count=""
+        fi
+
+        if [[ -n "$page_count" ]]; then
+          page_count_json="$page_count"
+          page_count_display="$page_count"
+        else
+          page_count_json="null"
+          page_count_display="n/a"
+        fi
+
+        if [[ "$OUTPUT_JSON" -eq 1 ]]; then
+          print_record_json "$folder_id" "$folder_name" "$file_id" "$file_name" "$page_count_json" "$page_count_display" "$file_mime_type" "$pdf_metadata" "$pdf_metadata_envelope" "$file_lookup_ok" "$file_error_code" "$file_error_message"
+        else
+          print_record "$folder_id" "$folder_name" "$file_id" "$file_name" "$page_count_display"
+        fi
+      done < <(jq -c '.result.files[]?' <<<"$file_resp")
 
       file_next_page="$(jq -r '.result.nextPageToken // empty' <<<"$file_resp")"
       if [[ -z "$file_next_page" ]]; then
@@ -165,7 +239,7 @@ while :; do
       fi
       file_page="$file_next_page"
     done
-  done < <(jq -r '.result.files[]? | [.id, (.name // "")] | @tsv' <<<"$folder_resp")
+  done < <(jq -c '.result.files[]?' <<<"$folder_resp")
 
   next_page="$(jq -r '.result.nextPageToken // empty' <<<"$folder_resp")"
   if [[ -z "$next_page" ]]; then
