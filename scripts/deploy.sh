@@ -93,6 +93,13 @@ ensure_system_dependencies() {
       missing+=("node")
     fi
   fi
+  if ! has_cmd pdfinfo; then
+    if [[ "$OS_NAME" == "Linux" ]]; then
+      missing+=("poppler-utils")
+    else
+      missing+=("poppler")
+    fi
+  fi
   if [[ ${#missing[@]} -gt 0 ]]; then
     log "Installing missing system dependencies: ${missing[*]}"
     apt_install "${missing[@]}"

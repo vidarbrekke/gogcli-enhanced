@@ -187,9 +187,9 @@ while :; do
     file_page=""
     while :; do
       if [[ -n "$file_page" ]]; then
-        file_args="$(jq -nc --arg parent "$folder_id" --arg query "mimeType = 'application/pdf'" --argjson maxResults "$MAX_RESULTS" --arg page "$file_page" '{parentId:$parent, query:$query, maxResults:$maxResults, page:$page}')"
+          file_args="$(jq -nc --arg parent "$folder_id" --arg query "mimeType = 'application/pdf'" --argjson maxResults "$MAX_RESULTS" --arg page "$file_page" '{parentId:$parent, query:$query, rawQuery:true, maxResults:$maxResults, page:$page}')"
       else
-        file_args="$(jq -nc --arg parent "$folder_id" --arg query "mimeType = 'application/pdf'" --argjson maxResults "$MAX_RESULTS" '{parentId:$parent, query:$query, maxResults:$maxResults}')"
+          file_args="$(jq -nc --arg parent "$folder_id" --arg query "mimeType = 'application/pdf'" --argjson maxResults "$MAX_RESULTS" '{parentId:$parent, query:$query, rawQuery:true, maxResults:$maxResults}')"
       fi
 
       file_resp="$(require_ok drive.listFiles "$file_args")"
@@ -200,6 +200,9 @@ while :; do
         if [[ -z "$file_id" ]]; then
           continue
         fi
+          if [[ "$file_mime_type" != "application/pdf" ]]; then
+            continue
+          fi
         get_file_args="$(jq -nc --arg fileId "$file_id" '{fileId:$fileId, pageCount:true}')"
         file_resp_detail="$(call_mcp drive.getFile "$get_file_args")" || true
         file_lookup_ok="false"
