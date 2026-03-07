@@ -59,6 +59,13 @@ const mcpDriveMaxCap = 100
 // driveListSearchNormalizeInput copies Drive API-style args into our names so agents can use either.
 // pageToken → page; maxResults or pageSize → max (capped by mcpDriveMaxCap).
 func driveListSearchNormalizeInput(input map[string]any) {
+	// Backward compatibility: some callers use query key `q`, while MCP schema expects `query`.
+	if _, hasQuery := input["query"]; !hasQuery || strings.TrimSpace(asString(input["query"])) == "" {
+		if qVal := strings.TrimSpace(asString(input["q"])); qVal != "" {
+			input["query"] = qVal
+		}
+	}
+
 	page := strings.TrimSpace(asString(input["page"]))
 	if page == "" || strings.EqualFold(page, "null") {
 		if pt := strings.TrimSpace(asString(input["pageToken"])); pt != "" && !strings.EqualFold(pt, "null") {

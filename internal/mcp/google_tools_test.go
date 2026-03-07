@@ -149,6 +149,33 @@ func TestGoogleTools_DriveSearchFiles_MapsArgs(t *testing.T) {
 	}
 }
 
+func TestGoogleTools_DriveSearchFiles_MapsQAliasToQuery(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"files":[]}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive_searchFiles", map[string]any{
+		"q": "budget q2",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	want := []string{
+		"--json",
+		"--max", "25",
+		"--compact",
+		"--all-drives",
+		"drive", "search",
+		"budget q2",
+	}
+	for i := range want {
+		if !slices.Contains(gotArgs, want[i]) {
+			t.Fatalf("expected %q in args, got %v", want[i], gotArgs)
+		}
+	}
+}
+
 func TestGoogleTools_DriveSearchFiles_NoPage_UsesPaginatedMode(t *testing.T) {
 	var gotArgs []string
 	s := NewGoogleServer(func(args []string) (string, string, error) {
@@ -276,6 +303,28 @@ func TestGoogleTools_DriveListFiles_FolderQueryRedirectsToSearch(t *testing.T) {
 	}
 	if !slices.Contains(gotArgs, "--raw-query") {
 		t.Fatalf("expected redirect to use raw query, got %v", gotArgs)
+	}
+}
+
+func TestGoogleTools_DriveListFiles_MapsQAliasToQuery(t *testing.T) {
+	var gotArgs []string
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		gotArgs = append([]string{}, args...)
+		return `{"files":[],"nextPageToken":""}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "drive_listFiles", map[string]any{
+		"q": "mimeType = 'application/pdf'",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if !slices.Contains(gotArgs, "--query") {
+		t.Fatalf("expected --query in args, got %v", gotArgs)
+	}
+	for i := range gotArgs {
+		if gotArgs[i] == "--query" && i+1 < len(gotArgs) && gotArgs[i+1] != "mimeType = 'application/pdf'" {
+			t.Fatalf("expected --query mimeType = 'application/pdf', got --query %s", gotArgs[i+1])
+		}
 	}
 }
 
