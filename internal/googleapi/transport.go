@@ -216,9 +216,28 @@ func ensureReplayableBody(req *http.Request) error {
 		return nil
 	}
 
-	bodyBytes, err := io.ReadAll(req.Body)
+	maxReplayBodyBytes := runtimeRetryConfig.MaxReplayBody
+	if maxReplayBodyBytes <= 0 {
+		maxReplayBodyBytes = MaxReplayBodyBytes
+	}
+
+	if req.ContentLength > maxReplayBodyBytes {
+		return fmt.Errorf("%w: %d > %d bytes", errRetryBodyTooLarge, req.ContentLength, maxReplayBodyBytes)
+	}
+
+	var bodyReader io.Reader = req.Body
+	if req.ContentLength < 0 {
+		bodyReader = io.LimitReader(req.Body, maxReplayBodyBytes+1)
+	}
+
+	bodyBytes, err := io.ReadAll(bodyReader)
 	if err != nil {
 		return fmt.Errorf("read request body: %w", err)
+	}
+
+	if int64(len(bodyBytes)) > maxReplayBodyBytes {
+		_ = req.Body.Close()
+		return fmt.Errorf("%w: %d > %d bytes", errRetryBodyTooLarge, len(bodyBytes), maxReplayBodyBytes)
 	}
 	_ = req.Body.Close()
 

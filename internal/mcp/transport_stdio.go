@@ -43,28 +43,50 @@ func ServeStdio(ctx context.Context, r io.Reader, w io.Writer, s *server.Server)
 	sem := make(chan struct{}, maxInFlight)
 	var wg sync.WaitGroup
 	done := make(chan struct{})
+	writerDone := make(chan struct{})
 	var writeErr error
 	var writeOnce sync.Once
+	var writerStopOnce sync.Once
+
+	sendResponse := func(resp rpcResponse) bool {
+		select {
+		case <-writerDone:
+			return false
+		case writeCh <- resp:
+			return true
+		}
+	}
 
 	go func() {
-		defer close(done)
+		defer func() {
+			writerStopOnce.Do(func() { close(writerDone) })
+			close(done)
+		}()
 		for resp := range writeCh {
 			if err := writeRPC(w, resp); err != nil {
 				writeOnce.Do(func() { writeErr = err })
+				writerStopOnce.Do(func() { close(writerDone) })
 				return
 			}
 		}
 	}()
 
+scanLoop:
 	for scanner.Scan() {
+		select {
+		case <-writerDone:
+			break scanLoop
+		default:
+		}
+
 		line := scanner.Bytes()
 		if len(line) == 0 {
 			continue
 		}
 		var req rpcRequest
 		if err := json.Unmarshal(line, &req); err != nil {
-			if parseWriteErr := writeRPC(w, rpcResponse{JSONRPC: "2.0", Error: &rpcError{Code: -32700, Message: "parse error"}}); parseWriteErr != nil {
-				return parseWriteErr
+			if !sendResponse(rpcResponse{JSONRPC: "2.0", Error: &rpcError{Code: -32700, Message: "parse error"}}) {
+				break
 			}
 			continue
 		}
@@ -75,7 +97,7 @@ func ServeStdio(ctx context.Context, r io.Reader, w io.Writer, s *server.Server)
 			select {
 			case sem <- struct{}{}:
 			default:
-				writeCh <- rpcResponse{
+				if !sendResponse(rpcResponse{
 					JSONRPC: "2.0",
 					ID:      req.ID,
 					Result: map[string]any{
@@ -84,6 +106,8 @@ func ServeStdio(ctx context.Context, r io.Reader, w io.Writer, s *server.Server)
 							{"type": "text", "text": "{\"ok\":false,\"error\":{\"code\":\"resource_exhausted\",\"message\":\"too many in-flight requests\"}}"},
 						},
 					},
+				}) {
+					break scanLoop
 				}
 				continue
 			}
@@ -91,11 +115,15 @@ func ServeStdio(ctx context.Context, r io.Reader, w io.Writer, s *server.Server)
 			go func(reqCopy rpcRequest) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				writeCh <- handleRPC(ctx, s, reqCopy)
+				if !sendResponse(handleRPC(ctx, s, reqCopy)) {
+					return
+				}
 			}(req)
 			continue
 		}
-		writeCh <- handleRPC(ctx, s, req)
+		if !sendResponse(handleRPC(ctx, s, req)) {
+			break
+		}
 	}
 	wg.Wait()
 	close(writeCh)

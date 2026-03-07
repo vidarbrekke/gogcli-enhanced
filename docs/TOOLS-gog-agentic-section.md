@@ -22,6 +22,8 @@
 
 **Backup (Linode → Drive):** Use `drive_uploadFile` with `localPath` set to the file path on the server where gog runs (e.g. `/var/backups/mybackup.tar.gz`), and `parentId` to the target Drive folder ID. Optional: `name` (Drive filename), `keepRevisionForever: true` for retention.
 
+**PDF / binary files (e.g. page count):** Drive metadata does not include PDF page count. Use the canonical policy in `docs/pdf-metadata-extraction.md` (download + `pdfinfo`, then `startxref/xref` fallback) and never treat non-`ok` metadata as authoritative.
+
 Use `--args '{"key":"value"}'` with the appropriate JSON for each tool. Destructive tools (`drive_deleteFile`, `drive_unshare`, `drive_deleteComment`) accept `validateOnly: true` to return a planned action without executing.
 
 ### Example commands

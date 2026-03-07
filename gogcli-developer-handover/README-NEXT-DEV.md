@@ -5,7 +5,7 @@
 **What’s done:** The parity runner is implemented (`cmd/gog-parity`, `internal/parity/*`): it compares native vs gws **fixtures** (no live API calls), normalizes gws errors, validates schemas, and reports breaking vs drift. CI runs it; 401/404 are hard-gated. **Live routing** to gws is implemented for **Gmail labels list/get** (`GOG_BACKEND=gws`); extend to more Tier A commands per the matrix.
 
 **What to do next:**
-1. Read **`handover.md`** (repo root), then **`gogcli-developer-handover/HANDOVER.md`** (current status, gotchas, key paths).
+1. Read **`handover.md`** (repo root) for the consolidated current status, gotchas, and key paths.
 2. Implement per **`docs/merge/GWS-VS-GOG-ROUTING.md`** §2: backend switch (e.g. `GOG_BACKEND=gws`), invoke gws CLI for the chosen Tier A command, normalize output with existing parity logic, add tests.
 3. Run **`make parity`** to confirm fixtures pass; after routing exists, add integration tests and manual smoke with gws on PATH.
 

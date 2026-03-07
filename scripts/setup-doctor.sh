@@ -731,6 +731,8 @@ OAuth is already set up. If the exec call fails (e.g. command not found or error
 Never invent or assume folder or file names. Only report what the API returned. If you got only N items, say so and offer to fetch more with page/pageToken; do not make up names.
 
 For "create folder then doc": run drive_ensureFolder first, then docs_create with the returned folderId as parentId.
+
+**PDF page count:** Drive metadata does not include PDF page count. Use the canonical policy in docs/pdf-metadata-extraction.md (download + `pdfinfo` then Drive range fallback). Do not treat non-`ok` results as authoritative.
 """
 existing = ""
 if os.path.isfile(tools_path):
@@ -789,6 +791,8 @@ OAuth is already set up. If the exec call fails (e.g. command not found or error
 Never invent or assume folder or file names. Only report what the API returned. If you got only N items, say so and offer to fetch more with page/pageToken; do not make up names.
 
 For "create folder then doc": run drive_ensureFolder first, then docs_create with the returned folderId as parentId.
+
+**PDF page count:** Drive metadata does not include PDF page count. Use the canonical policy in docs/pdf-metadata-extraction.md (download + `pdfinfo` then Drive range fallback). Do not treat non-`ok` results as authoritative.
 """
 existing = ""
 if os.path.isfile(tools_path):

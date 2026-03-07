@@ -58,7 +58,10 @@ func (c *GmailTrackOpensCmd) queryByTrackingID(ctx context.Context, cfg *trackin
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return fmt.Errorf("tracker returned %d and failed to read response body: %w", resp.StatusCode, readErr)
+		}
 		return fmt.Errorf("tracker returned %d: %s", resp.StatusCode, body)
 	}
 
@@ -152,7 +155,10 @@ func (c *GmailTrackOpensCmd) queryAdmin(ctx context.Context, cfg *tracking.Confi
 		return fmt.Errorf("unauthorized: admin key may be incorrect")
 	}
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return fmt.Errorf("tracker returned %d and failed to read response body: %w", resp.StatusCode, readErr)
+		}
 		return fmt.Errorf("tracker returned %d: %s", resp.StatusCode, body)
 	}
 

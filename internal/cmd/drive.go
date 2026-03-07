@@ -21,6 +21,7 @@ import (
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/parity/classify"
 	"github.com/steipete/gogcli/internal/parity/normalize"
+	"github.com/steipete/gogcli/internal/pdfmeta"
 	"github.com/steipete/gogcli/internal/ui"
 )
 
@@ -35,6 +36,8 @@ var (
 	// not just the word inside a quoted literal (e.g. "name contains 'trashed'").
 	driveTrashedPredicatePattern = regexp.MustCompile(`(?i)\btrashed\b\s*(?:=|!=)\s*(?:true|false)\b`)
 )
+
+var resolveDrivePDFMetadata = resolveDrivePDFMetadataResult
 
 const (
 	driveMimeGoogleDoc     = "application/vnd.google-apps.document"
@@ -433,7 +436,8 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 }
 
 type DriveGetCmd struct {
-	FileID string `arg:"" name:"fileId" help:"File ID"`
+	FileID    string `arg:"" name:"fileId" help:"File ID"`
+	PageCount bool   `name:"page-count" help:"Include PDF page count in output (PDF files only)"`
 }
 
 func (c *DriveGetCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -461,8 +465,31 @@ func (c *DriveGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 
+	var (
+		pdfMetadata map[string]any
+		output      = map[string]any{strFile: f}
+	)
+
+	if c.PageCount {
+		result, err := resolveDrivePDFMetadata(ctx, svc, f)
+		if err != nil {
+			return err
+		}
+		pdfMetadata = mapPDFMetadataResult(result)
+		output["pdfMetadata"] = pdfMetadata
+		if result.Status == pdfmeta.StatusOK {
+			output["pageCount"] = result.PageCount
+		}
+	}
+
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{strFile: f})
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), output)
+	}
+
+	if c.PageCount {
+		if pages, ok := pdfMetadata["pages"].(int); ok {
+			u.Out().Printf("pages\t%d", pages)
+		}
 	}
 
 	u.Out().Printf("id\t%s", f.Id)
@@ -479,6 +506,93 @@ func (c *DriveGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 		u.Out().Printf("link\t%s", f.WebViewLink)
 	}
 	return nil
+}
+
+func resolveDrivePDFMetadataResult(ctx context.Context, svc *drive.Service, file *drive.File) (pdfmeta.Result, error) {
+	if svc == nil {
+		return pdfmeta.Result{Status: pdfmeta.StatusError}, errors.New("missing drive service")
+	}
+	if file == nil || strings.TrimSpace(file.Id) == "" {
+		return pdfmeta.Result{Status: pdfmeta.StatusError}, errors.New("missing file metadata")
+	}
+	if !strings.EqualFold(strings.TrimSpace(file.MimeType), mimePDF) {
+		return pdfmeta.Result{Status: pdfmeta.StatusUnavailable, Source: pdfmeta.MethodUnavailable}, nil
+	}
+
+	tmp, err := os.CreateTemp("", "gog-pdf-meta-*.pdf")
+	if err != nil {
+		return pdfmeta.Result{}, err
+	}
+	defer os.Remove(tmp.Name())
+	if err := tmp.Close(); err != nil {
+		return pdfmeta.Result{}, err
+	}
+
+	if _, _, err := downloadDriveFile(ctx, svc, file, tmp.Name(), ""); err != nil {
+		return pdfmeta.Result{}, err
+	}
+	return pdfmeta.Resolve(ctx, pdfmeta.ResolveOptions{
+		FilePath:    tmp.Name(),
+		RangeClient: fileRangeClient{path: tmp.Name()},
+	}), nil
+}
+
+type fileRangeClient struct {
+	path string
+}
+
+func (c fileRangeClient) FetchSuffix(_ context.Context, maxBytes int64) ([]byte, error) {
+	return readFileRange(c.path, -1, maxBytes)
+}
+
+func (c fileRangeClient) FetchAt(_ context.Context, offset int64, length int64) ([]byte, error) {
+	return readFileRange(c.path, offset, length)
+}
+
+func readFileRange(path string, offset int64, length int64) ([]byte, error) {
+	// #nosec G304 -- path is derived from os.CreateTemp in resolveDrivePDFMetadataResult.
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if info.Size() <= 0 || length <= 0 {
+		return []byte{}, nil
+	}
+
+	if offset < 0 {
+		if length > info.Size() {
+			length = info.Size()
+		}
+		offset = info.Size() - length
+	}
+	if offset >= info.Size() {
+		return []byte{}, nil
+	}
+	if offset+length > info.Size() {
+		length = info.Size() - offset
+	}
+
+	section := io.NewSectionReader(f, offset, length)
+	return io.ReadAll(section)
+}
+
+func mapPDFMetadataResult(result pdfmeta.Result) map[string]any {
+	payload := map[string]any{
+		"status":     result.Status,
+		"source":     result.Source,
+		"confidence": result.Confidence,
+		"attempts":   result.Attempts,
+	}
+	if result.Status == pdfmeta.StatusOK {
+		payload["pages"] = result.PageCount
+	}
+	return payload
 }
 
 type DriveDownloadCmd struct {

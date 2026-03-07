@@ -29,3 +29,21 @@ func TestConfigureRetryPolicy_InvalidBackoff(t *testing.T) {
 		t.Fatal("expected error for non-positive backoff")
 	}
 }
+
+func TestConfigureRetryBodyBytes(t *testing.T) {
+	orig := runtimeRetryConfig
+
+	t.Cleanup(func() { runtimeRetryConfig = orig })
+
+	if err := ConfigureRetryBodyBytes(1024); err != nil {
+		t.Fatalf("ConfigureRetryBodyBytes: %v", err)
+	}
+
+	if runtimeRetryConfig.MaxReplayBody != 1024 {
+		t.Fatalf("unexpected replay cap: %d", runtimeRetryConfig.MaxReplayBody)
+	}
+
+	if err := ConfigureRetryBodyBytes(0); err == nil {
+		t.Fatal("expected error for non-positive body limit")
+	}
+}

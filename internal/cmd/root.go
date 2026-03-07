@@ -32,22 +32,23 @@ const (
 )
 
 type RootFlags struct {
-	Color          string `help:"Color output: auto|always|never" default:"${color}"`
-	Account        string `help:"Account email for API commands (gmail/calendar/chat/classroom/drive/docs/slides/contacts/tasks/people/sheets/forms/appscript)" aliases:"acct" short:"a"`
-	Client         string `help:"OAuth client name (selects stored credentials + token bucket)" default:"${client}"`
-	EnableCommands string `help:"Comma-separated list of enabled top-level commands (restricts CLI)" default:"${enabled_commands}"`
-	JSON           bool   `help:"Output JSON to stdout (best for scripting)" default:"${json}" aliases:"machine" short:"j"`
-	Plain          bool   `help:"Output stable, parseable text to stdout (TSV; no colors)" default:"${plain}" aliases:"tsv" short:"p"`
-	ResultsOnly    bool   `name:"results-only" help:"In JSON mode, emit only the primary result (drops envelope fields like nextPageToken)"`
-	Select         string `name:"select" aliases:"pick,project" help:"In JSON mode, select comma-separated fields (best-effort; supports dot paths). Desire path: use --fields for most commands."`
-	DryRun         bool   `help:"Do not make changes; print intended actions and exit successfully" aliases:"noop,preview,dryrun" short:"n"`
-	Force          bool   `help:"Skip confirmations for destructive commands" aliases:"yes,assume-yes" short:"y"`
-	NoInput        bool   `help:"Never prompt; fail instead (useful for CI)" aliases:"non-interactive,noninteractive"`
-	Verbose        bool   `help:"Enable verbose logging" short:"v"`
-	OpID           string `name:"op-id" help:"Operation ID for agent correlation (echoed in JSON success/error output)"`
-	Timeout        string `name:"request-timeout" help:"Global command timeout (e.g. 30s, 2m)"`
-	Retries        int    `name:"retries" help:"Override HTTP retry count for 429/5xx responses" default:"-1"`
-	RetryBackoff   string `name:"retry-backoff" help:"Override base backoff duration for retryable responses (e.g. 500ms, 2s)"`
+	Color            string `help:"Color output: auto|always|never" default:"${color}"`
+	Account          string `help:"Account email for API commands (gmail/calendar/chat/classroom/drive/docs/slides/contacts/tasks/people/sheets/forms/appscript)" aliases:"acct" short:"a"`
+	Client           string `help:"OAuth client name (selects stored credentials + token bucket)" default:"${client}"`
+	EnableCommands   string `help:"Comma-separated list of enabled top-level commands (restricts CLI)" default:"${enabled_commands}"`
+	JSON             bool   `help:"Output JSON to stdout (best for scripting)" default:"${json}" aliases:"machine" short:"j"`
+	Plain            bool   `help:"Output stable, parseable text to stdout (TSV; no colors)" default:"${plain}" aliases:"tsv" short:"p"`
+	ResultsOnly      bool   `name:"results-only" help:"In JSON mode, emit only the primary result (drops envelope fields like nextPageToken)"`
+	Select           string `name:"select" aliases:"pick,project" help:"In JSON mode, select comma-separated fields (best-effort; supports dot paths). Desire path: use --fields for most commands."`
+	DryRun           bool   `help:"Do not make changes; print intended actions and exit successfully" aliases:"noop,preview,dryrun" short:"n"`
+	Force            bool   `help:"Skip confirmations for destructive commands" aliases:"yes,assume-yes" short:"y"`
+	NoInput          bool   `help:"Never prompt; fail instead (useful for CI)" aliases:"non-interactive,noninteractive"`
+	Verbose          bool   `help:"Enable verbose logging" short:"v"`
+	OpID             string `name:"op-id" help:"Operation ID for agent correlation (echoed in JSON success/error output)"`
+	Timeout          string `name:"request-timeout" help:"Global command timeout (e.g. 30s, 2m)"`
+	Retries          int    `name:"retries" help:"Override HTTP retry count for 429/5xx responses" default:"-1"`
+	RetryBackoff     string `name:"retry-backoff" help:"Override base backoff duration for retryable responses (e.g. 500ms, 2s)"`
+	RetryReplayBytes int    `name:"retry-replay-bytes" help:"Override max request body bytes buffered for retry replay" default:"0"`
 }
 
 type CLI struct {
@@ -186,6 +187,11 @@ func ExecuteWithIO(args []string, stdout io.Writer, stderr io.Writer) (err error
 
 	if cfgErr := googleapi.ConfigureRetryPolicy(cli.Retries, cli.RetryBackoff); cfgErr != nil {
 		return newUsageError(fmt.Errorf("invalid retry settings: %w", cfgErr))
+	}
+	if cli.RetryReplayBytes > 0 {
+		if cfgErr := googleapi.ConfigureRetryBodyBytes(int64(cli.RetryReplayBytes)); cfgErr != nil {
+			return newUsageError(fmt.Errorf("invalid retry settings: %w", cfgErr))
+		}
 	}
 
 	ctx = outfmt.WithMode(ctx, mode)

@@ -46,9 +46,9 @@ Audit scope: **TypeScript** (tracking worker), **Go** (CLI and libraries), **cro
 | **Subject hash** | Go `hashSubject` returns first 6 chars of SHA256 hex; worker expects 6-char subject hash. Consistent. | Low |
 | **API contract** | **Query `/q/:blob`:** Go expects JSON with `tracking_id`, `recipient`, `sent_at`, `opens`, `total_opens`, `human_opens`, `first_human_open`. Worker returns exactly that. **Admin `/opens`:** Go expects `opens` array with `tracking_id`, `recipient`, etc.; worker returns same. No formal schema (OpenAPI); structure is stable and mirrored in Go structs. | Low |
 | **Error format** | Worker returns 400/401/404/500 with plain text or JSON body. Go parses success JSON; on non-200 it returns `fmt.Errorf("tracker returned %d: %s", ...)`. No shared error code enum. | Low |
-| **CI** | Main `make ci` runs `pnpm-gate` (if package.json present) and Go lint/test. Worker has its own `make worker-ci` (tsc, vitest) but **worker-ci is not part of default `ci`**. Root `package.json` has only Playwright; worker lives under `internal/tracking/worker` with its own package.json. So CI does not currently run worker lint/build/test unless `worker-ci` is invoked explicitly. | Medium |
+| **CI** | `make ci` now runs `pnpm-gate`, Go lint/test, and `worker-ci` (tsc/vitest) for `internal/tracking/worker`. | Low |
 
-**Summary:** Contracts are consistent and documented in code. CI could run worker checks by default.
+**Summary:** Contracts are consistent and documented in code. Current CI includes worker checks by default via `make worker-ci`.
 
 ---
 
@@ -104,6 +104,24 @@ Audit scope: **TypeScript** (tracking worker), **Go** (CLI and libraries), **cro
 
 **Finding:** Worker uses `parseInt(url.searchParams.get('limit') || '100', 10)`; Go never sets `limit` so it defaults to 100. If Go later adds a limit flag, it should be validated (e.g. cap at 1000) to avoid unbounded admin responses. **No code change required now** — YAGNI; document if you add a `--limit` flag later.
 
+### Fix 3: Guard large replayable request bodies in Google transport
+
+**Finding:** `ensureReplayableBody` always reads full request bodies into memory before enabling retries, which can inflate memory for large payloads.
+
+**Change:** Added a bounded replay budget and content-length check before buffering; oversized bodies now fail fast with a clear error. The cap is now configurable via `googleapi.ConfigureRetryBodyBytes`.
+
+**Implementation note:** `MaxReplayBodyBytes` defaults to `8 * 1024 * 1024` and `RetryReplayBytes` CLI flag can override it at runtime.
+
+**Rationale:** Prevents unbounded memory use in retry setup while preserving correctness for requests that can be replayed safely. This reduces risk of OOM on large uploads under retry paths.
+
+### Fix 4: Make replay cap configurable and test writer-stop behavior
+
+**Finding:** The replay cap was previously hard-coded, and MCP writer-failure behavior needed hardening.
+
+**Change:** Added `--retry-replay-bytes` to `root.go` (propagated into `googleapi.ConfigureRetryBodyBytes`) and added regression tests for writer-stop and worker error envelopes.
+
+**Rationale:** Operators can tune memory/retry tradeoffs per workload, and regressions for JSON error-shape consistency are now covered by tests.
+
 ---
 
 ## 3. Action Plan
@@ -113,6 +131,8 @@ Audit scope: **TypeScript** (tracking worker), **Go** (CLI and libraries), **cro
 | Item | Action | Impact | Risk |
 |------|--------|--------|------|
 | Fix ignored errors | Apply Fix 1 in `gmail_track_opens.go` | Correctness; avoids rare misbehavior on bad config | None |
+| Bound replay buffering | Add `maxReplayBodyBytes` limit in `internal/googleapi/transport.go` | Prevents unbounded memory growth on large API request retries | Low (large requests now fail fast unless caller retries with another transport) |
+| Make replay cap configurable | Add `--retry-replay-bytes` to root flags and `googleapi.ConfigureRetryBodyBytes` | Lets operators tune memory/retry behavior per deployment | Low |
 | Run worker in CI | Add `worker-ci` to `ci` target in Makefile (e.g. `ci: pnpm-gate fmt-check lint test worker-ci`) so TS worker is linted and tested on every run | Catches TS regressions | Low (may add ~10–30s) |
 | Format/lint | Existing `make fmt` / `make lint`; address the 73 known lint issues in a separate pass or by relaxing specific rules (e.g. wsl_v5) per AGENTS.md | Consistency | Low |
 
@@ -161,6 +181,6 @@ Audit scope: **TypeScript** (tracking worker), **Go** (CLI and libraries), **cro
 ## 5. Summary
 
 - **TypeScript:** Small, well-typed worker; no critical issues. Optional: add ESLint and include worker in main CI.
-- **Go:** One concrete fix: handle `url.Parse` and `http.NewRequestWithContext` errors in `gmail_track_opens.go`. Rest is idiomatic and consistent.
-- **Cross-language:** Payload and API contracts align; crypto and subject hash are consistent. Main gap is CI not running worker tests by default.
-- **Recommendation:** Apply Fix 1, add `worker-ci` to `ci`, then address remaining lint in a dedicated pass. No major refactors recommended; avoid over-engineering.
+- **Go:** Concrete fixes now include safe handling for malformed tracking requests and bounded request-body replay in the Google retry transport.
+- **Cross-language:** Payload and API contracts align; crypto and subject hash are consistent.
+- **Recommendation:** Apply Fix 1–4, then address remaining lint and optional cross-stack tests in a dedicated pass. No major refactors recommended; avoid over-engineering.

@@ -142,6 +142,13 @@ func TestExecute_InvalidRetryBackoff(t *testing.T) {
 	}
 }
 
+func TestExecute_ValidRetryReplayBytes(t *testing.T) {
+	err := Execute([]string{"--retry-replay-bytes", "1024", "version"})
+	if err != nil {
+		t.Fatalf("expected valid retry-replay-bytes flag, got: %v", err)
+	}
+}
+
 func TestExecuteWithIO_WritesToProvidedWriters(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer

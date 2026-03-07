@@ -4,6 +4,22 @@ This is the **single source of truth** for a new developer takeover.
 
 ## Handover: gogcli-enhanced (Hybrid Provider Parity Pivot)
 
+## 0) New Developer Brief (PDF metadata evaluation + current state)
+
+### Handover consolidation log
+
+- 2026-03-06: Consolidated `gogcli-developer-handover/HANDOVER.md` into this canonical `handover.md` and removed the duplicate file to eliminate conflicting documentation.
+
+1) **Purpose and problem:** `gogcli-enhanced` is a Go control plane for Google Workspace operations with MCP-first execution, deterministic command lifecycle, and stable machine-readable output contracts. The current phase is to evaluate and operationalize reliable ways to derive PDF metadata (especially page count) for Drive PDFs without forcing full local server-side download, while keeping the existing parity/routing architecture intact.
+
+2) **Completed work and outcomes:** The parity/runtime foundation is in place (`gog` native default for MCP + optional `GOG_BACKEND=gws` for selected Tier A read commands; parity via `cmd/gog-parity` and `internal/parity/*`). For PDF metadata, documentation was expanded in `docs/TOOLS-gog-agentic-section.md` and `scripts/setup-doctor.sh` with a multi-path decision strategy: (a) local `pdfinfo` from `drive_downloadFile` (default reliable path), (b) Drive HTTP range parse heuristics, (c) third-party URL metadata APIs, (d) browser/PDF.js `numPages`, and (e) optional Google Apps Script blob probes with explicit fallback semantics.
+
+3) **Failures, open issues, and lessons learned:** There is no Drive API field for PDF page count, so extraction is always out-of-band or heuristic. Apps Script parsing remains best-effort only because `getBlob()` is in-memory and can hit size/runtime limits; naïve token matching can still be ambiguous. `gws` error payloads can surface in `stdout`, so classification must inspect both streams. `403` parity is currently soft-gated until a real golden is captured and committed.
+
+4) **Files changed / key insights / gotchas:** The practical PDF fallback contract is now documented, not yet converted into a production parser implementation. New work is concentrated in docs (and injector) rather than CLI/business logic changes. Avoid broad scope changes: only trust `Apps Script` results with `status: "ok"`, and keep `google_reason` / freeform `message` as drift-only metadata, not contract-enforcing fields.
+
+5) **Key files and directories:** Source of truth is this `handover.md`; primary operational docs are `docs/TOOLS-gog-agentic-section.md` and `docs/merge/` (for parity policy/assets); runtime/runtime-adjacent code paths are `internal/parity/*`, `cmd/gog-parity/`, `internal/backend/gws/`, `internal/cmd/backend.go`, `internal/cmd/backend_error.go`, and `internal/cmd/gmail_labels.go`. Update `scripts/setup-doctor.sh` when tooling guidance changes.
+
 ## Developer Quickstart (First 60 Minutes)
 
 ## Repo layout pointers (from PROJECT-LAYOUT.md)
@@ -142,7 +158,7 @@ Read in this order:
 
 1. `handover.md` (this file)
 2. `AGENTS.md` (repo conventions and guardrails)
-3. `gogcli-developer-handover/HANDOVER.md` (next-phase brief: GWS integration and routing; status and next steps)
+3. `gogcli-developer-handover/README-NEXT-DEV.md` (quick first-pass brief for the next phase)
 4. `docs/merge/discovery-drift-policy.md`
 5. `docs/merge/GWS-SAMPLES.md`
 6. `docs/merge/GWS-VS-GOG-ROUTING.md` (when gws vs gog; how to implement and test routing)
@@ -171,10 +187,10 @@ Support material:
 Completed:
 - Parity runner implemented: `cmd/gog-parity`, `internal/parity/*` (io, classify, normalize, schema, diff). Fixture loading, outcome classification, gws error normalization (stdout + stderr), schema validation, breaking vs drift diff, deterministic report ordering. Hard-gate 401/404; 403 soft until real golden; runner failures and placeholders (PLACEHOLDER.txt) supported.
 - Gmail goldens under `docs/merge/goldens/` (401, 404, list success, 403 placeholder); schemas under `docs/merge/schemas/`. CI parity workflow; `make parity` runs the runner.
-- **Live gws routing (optional):** Backend switch via `GOG_BACKEND=gws`; `internal/backend/gws` runs gws CLI for `gmail labels list` and `gmail labels get`; `internal/cmd/backend.go` + `backend_error.go`; normalized errors via parity logic; Tier A Gmail labels use gws when env set, else native. See `gogcli-developer-handover/HANDOVER.md`.
+- **Live gws routing (optional):** Backend switch via `GOG_BACKEND=gws`; `internal/backend/gws` runs gws CLI for `gmail labels list` and `gmail labels get`; `internal/cmd/backend.go` + `backend_error.go`; normalized errors via parity logic; Tier A Gmail labels use gws when env set, else native. See the routing section in this handover.
 - Drift policy and routing logic documented (`docs/merge/discovery-drift-policy.md`, `docs/merge/GWS-VS-GOG-ROUTING.md`). Linode deploy and OpenClaw verification docs updated (`docs/TOOLS-gog-agentic-section.md`, `docs/LINODE-TEST-QUERIES.md`, `docs/openclaw-linode-runbook.md`).
 
-Next steps (see `gogcli-developer-handover/HANDOVER.md`): extend Tier A routing to more commands per matrix; add integration tests and manual smoke for `GOG_BACKEND=gws`; capture real 403 golden and promote to hard gate.
+Next steps: extend Tier A routing to more commands per matrix; add integration tests and manual smoke for `GOG_BACKEND=gws`; capture real 403 golden and promote to hard gate.
 
 ---
 
@@ -381,7 +397,7 @@ Reviewers must explicitly check the artifact and ensure there are **no breaking 
 
 For **parity runner and live gws routing** (current state): see §4 Current State and **When gog binary+MCP vs gws is used** there.
 
-For **next phase** (more Tier A commands, integration tests, 403 hard gate): read **`gogcli-developer-handover/HANDOVER.md`** for status, key files, and gotchas. Implement per `docs/merge/GWS-VS-GOG-ROUTING.md` and `docs/merge/command-migration-matrix.md`.
+For **next phase** (more Tier A commands, integration tests, 403 hard gate): use this handover for status, key files, and gotchas. Implement per `docs/merge/GWS-VS-GOG-ROUTING.md` and `docs/merge/command-migration-matrix.md`.
 
 ---
 

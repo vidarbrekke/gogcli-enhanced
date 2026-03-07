@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/steipete/gogcli/internal/mcp/server"
 )
@@ -130,5 +132,49 @@ func TestServeStdio_ToolsCall_ResultShape(t *testing.T) {
 	// Must NOT have structuredContent (we omit it for token efficiency).
 	if _, has := result["structuredContent"]; has {
 		t.Fatalf("result must not contain structuredContent (downstream uses content only); got %#v", result["structuredContent"])
+	}
+}
+
+type failingWriter struct {
+	writes int
+}
+
+var errSimulatedWriterFailure = errors.New("simulated writer failure")
+
+func (w *failingWriter) Write(_ []byte) (int, error) {
+	w.writes++
+	return 0, errSimulatedWriterFailure
+}
+
+func TestServeStdio_ReturnsWriterErrorAndStops(t *testing.T) {
+	s := server.New()
+	s.RegisterTool("echo", func(_ context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{
+			"service":   "test",
+			"operation": "echo",
+			"value":     input["value"],
+		}, nil
+	})
+	var inLines []string
+	for i := 1; i <= 20; i++ {
+		inLines = append(inLines, fmt.Sprintf("{\"jsonrpc\":\"2.0\",\"id\":%d,\"method\":\"tools/call\",\"params\":{\"name\":\"echo\",\"arguments\":{\"value\":%d}}}", i, i))
+	}
+
+	out := &failingWriter{}
+	done := make(chan error, 1)
+	go func() {
+		done <- ServeStdio(context.Background(), strings.NewReader(strings.Join(inLines, "\n")+"\n"), out, s)
+	}()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected write error")
+		}
+		if out.writes == 0 {
+			t.Fatal("expected at least one write attempt before failure")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("ServeStdio did not terminate; possible deadlock when writer fails")
 	}
 }

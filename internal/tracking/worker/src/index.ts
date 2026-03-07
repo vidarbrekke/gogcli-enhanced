@@ -29,13 +29,25 @@ export default {
         return new Response('ok', { status: 200 });
       }
 
-      return new Response('Not Found', { status: 404 });
+      return errorResponse(404, 'not_found', 'not_found');
     } catch (error) {
       console.error('Handler error:', error);
-      return new Response('Internal Error', { status: 500 });
+      return errorResponse(500, 'internal_error', 'internal_error');
     }
   },
 };
+
+function errorResponse(status: number, code: string, message: string): Response {
+  return Response.json(
+    {
+      error: {
+        code,
+        message,
+      },
+    },
+    { status },
+  );
+}
 
 async function handlePixel(request: Request, env: Env, path: string): Promise<Response> {
   // Extract blob from /p/:blob.gif
@@ -105,7 +117,7 @@ async function handleQuery(request: Request, env: Env, path: string): Promise<Re
   try {
     payload = await decrypt(blob, key);
   } catch {
-    return new Response('Invalid tracking ID', { status: 400 });
+    return errorResponse(400, 'invalid_tracking_id', 'invalid_tracking_id');
   }
 
   const result = await env.DB.prepare(`
@@ -149,7 +161,7 @@ async function handleAdminOpens(request: Request, env: Env, url: URL): Promise<R
   // Verify admin key
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || authHeader !== `Bearer ${env.ADMIN_KEY}`) {
-    return new Response('Unauthorized', { status: 401 });
+    return errorResponse(401, 'unauthorized', 'unauthorized');
   }
 
   const recipient = url.searchParams.get('recipient');

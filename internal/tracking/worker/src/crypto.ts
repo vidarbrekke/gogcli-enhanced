@@ -4,7 +4,9 @@ const ALGORITHM = 'AES-GCM';
 const IV_LENGTH = 12;
 
 export async function importKey(base64Key: string): Promise<CryptoKey> {
-  const keyBytes = Uint8Array.from(atob(base64Key), c => c.charCodeAt(0));
+  const normalized = base64Key.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+  const keyBytes = Uint8Array.from(atob(padded), c => c.charCodeAt(0));
   return crypto.subtle.importKey(
     'raw',
     keyBytes,

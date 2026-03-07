@@ -149,9 +149,9 @@ Commands are grouped by service; each area has many `*_test.go` files.
 
 | Path | Description |
 |------|-------------|
-| `gogcli-developer-handover/HANDOVER.md` | **Reference** implementation plan (canonical handover is repo-root `handover.md`) |
 | `gogcli-developer-handover/artifacts/` | Zips: `envelope-artifacts-v2.zip`, `gmail-error-taxonomy-lock.zip` (do not modify; treat as source) |
 | `gogcli-developer-handover/templates/` | `PARITY-RUNNER-README.md`, `gog-parity-skeleton.go`, `github-actions-parity.yml` |
+| `gogcli-developer-handover/README-NEXT-DEV.md` | One-page next phase intro and task list |
 
 ---
 
@@ -197,6 +197,6 @@ Commands are grouped by service; each area has many `*_test.go` files.
 - **CLI:** `cmd/gog` → `internal/cmd` (per-service command code). **Parity (planned):** `cmd/gog-parity` → `internal/parity`.
 - **APIs & auth:** `internal/googleapi`, `internal/googleauth`, `internal/config`, `internal/secrets`.
 - **MCP:** `internal/mcp` (server + Google provider).
-- **Handover:** `handover.md` (canonical); `gogcli-developer-handover/HANDOVER.md` (reference). PR checklist: no duplicate handover docs.
+- **Handover:** `handover.md` (canonical). PR checklist: no duplicate handover docs.
 - **Merge/parity specs:** `docs/merge/` (permanent: goldens, schemas, runbooks, drift policy); see `docs/merge/README.md`.
 - **Build/test:** `make`, `make test`, `make lint`, `make ci`; see `AGENTS.md`.

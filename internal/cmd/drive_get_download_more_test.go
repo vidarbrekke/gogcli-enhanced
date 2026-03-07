@@ -16,6 +16,7 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/pdfmeta"
 	"github.com/steipete/gogcli/internal/ui"
 )
 
@@ -84,6 +85,141 @@ func TestDriveGetCmd_TextWithDetailsAndJSON(t *testing.T) {
 	})
 	if !strings.Contains(jsonOut, "\"file\"") {
 		t.Fatalf("unexpected json: %q", jsonOut)
+	}
+}
+
+func TestDriveGetCmd_JSON_WithPageCountFlag(t *testing.T) {
+	origNew := newDriveService
+	origResolve := resolveDrivePDFMetadata
+	t.Cleanup(func() {
+		newDriveService = origNew
+		resolveDrivePDFMetadata = origResolve
+	})
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		if !strings.Contains(r.URL.Path, "/files/file1") {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":           "file1",
+			"name":         "PDF",
+			"mimeType":     "application/pdf",
+			"size":         "123",
+			"modifiedTime": "2025-12-12T14:37:47Z",
+			"createdTime":  "2025-12-11T00:00:00Z",
+			"description":  "desc",
+			"starred":      true,
+			"webViewLink":  "http://example.com/file",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	svc, err := drive.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
+
+	resolveDrivePDFMetadata = func(context.Context, *drive.Service, *drive.File) (pdfmeta.Result, error) {
+		return pdfmeta.Result{
+			PageCount:  17,
+			Status:     pdfmeta.StatusOK,
+			Source:     pdfmeta.MethodPDFInfo,
+			Confidence: 0.99,
+		}, nil
+	}
+
+	flags := &RootFlags{Account: "a@b.com"}
+	var payload struct {
+		File        map[string]any `json:"file"`
+		PageCount   int            `json:"pageCount"`
+		PDFMetadata map[string]any `json:"pdfMetadata"`
+	}
+	raw := captureStdout(t, func() {
+		ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
+		cmd := &DriveGetCmd{}
+		if execErr := runKong(t, cmd, []string{"file1", "--page-count"}, ctx, flags); execErr != nil {
+			t.Fatalf("execute: %v", execErr)
+		}
+	})
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatalf("json parse: %v", err)
+	}
+	if payload.PageCount != 17 {
+		t.Fatalf("unexpected pageCount %d", payload.PageCount)
+	}
+	if payload.PDFMetadata == nil {
+		t.Fatalf("missing pdfMetadata")
+	}
+}
+
+func TestDriveGetCmd_Text_WithPageCountFlag(t *testing.T) {
+	origNew := newDriveService
+	origResolve := resolveDrivePDFMetadata
+	t.Cleanup(func() {
+		newDriveService = origNew
+		resolveDrivePDFMetadata = origResolve
+	})
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		if !strings.Contains(r.URL.Path, "/files/file1") {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":       "file1",
+			"name":     "PDF",
+			"mimeType": "application/pdf",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	svc, err := drive.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
+
+	resolveDrivePDFMetadata = func(context.Context, *drive.Service, *drive.File) (pdfmeta.Result, error) {
+		return pdfmeta.Result{
+			PageCount: 42,
+			Status:    pdfmeta.StatusOK,
+			Source:    pdfmeta.MethodPDFInfo,
+		}, nil
+	}
+
+	flags := &RootFlags{Account: "a@b.com"}
+	var outBuf bytes.Buffer
+	u, uiErr := ui.New(ui.Options{Stdout: &outBuf})
+	if uiErr != nil {
+		t.Fatalf("ui.New: %v", uiErr)
+	}
+	ctx := ui.WithUI(context.Background(), u)
+	cmd := &DriveGetCmd{}
+	if execErr := runKong(t, cmd, []string{"file1", "--page-count"}, ctx, flags); execErr != nil {
+		t.Fatalf("execute: %v", execErr)
+	}
+	if !strings.Contains(outBuf.String(), "pages\t42") {
+		t.Fatalf("missing page output: %q", outBuf.String())
 	}
 }
 

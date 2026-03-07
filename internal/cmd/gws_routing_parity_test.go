@@ -134,4 +134,3 @@ func TestGmailLabelsGetCmd_GWS_RejectsExplicitAccountFromEnv(t *testing.T) {
 		t.Fatalf("expected explicit env-account rejection, got: %v", err)
 	}
 }
-

@@ -313,6 +313,51 @@ func TestEnsureReplayableBodyMore(t *testing.T) {
 	}
 }
 
+func TestEnsureReplayableBodyRejectsOversizedPayloadByContentLength(t *testing.T) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com", io.NopCloser(strings.NewReader("hello")))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+
+	req.ContentLength = runtimeRetryConfig.MaxReplayBody + 1
+
+	if err := ensureReplayableBody(req); err == nil {
+		t.Fatalf("expected error for oversized body")
+	}
+}
+
+func TestEnsureReplayableBodyMore_AllowsConfiguredReplayLimit(t *testing.T) {
+	orig := runtimeRetryConfig
+
+	t.Cleanup(func() { runtimeRetryConfig = orig })
+
+	runtimeRetryConfig.MaxReplayBody = 4
+
+	reqSmall, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com", io.NopCloser(strings.NewReader("hi")))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+
+	reqSmall.ContentLength = -1
+	reqSmall.GetBody = nil
+
+	if smallErr := ensureReplayableBody(reqSmall); smallErr != nil {
+		t.Fatalf("ensureReplayableBody small: %v", smallErr)
+	}
+
+	reqLarge, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com", io.NopCloser(strings.NewReader("hello world")))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+
+	reqLarge.ContentLength = -1
+	reqLarge.GetBody = nil
+
+	if largeErr := ensureReplayableBody(reqLarge); largeErr == nil {
+		t.Fatalf("expected error for payload larger than configured limit")
+	}
+}
+
 func TestDrainAndClose(t *testing.T) {
 	rc := &closeTracker{}
 	drainAndClose(rc)
