@@ -76,11 +76,6 @@ while [[ $# -gt 0 ]]; do
       MAX_RESULTS="$2"
       shift 2
       ;;
-    --max-age-days)
-      [[ $# -lt 2 ]] && usage_error "Missing value for --max-age-days"
-      CACHE_MAX_AGE_DAYS="$2"
-      shift 2
-      ;;
     --no-cache)
       USE_CACHE=0
       shift
