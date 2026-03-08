@@ -74,7 +74,7 @@ write_cache() {
      --arg name_lower "$normalized" \
      --arg id "$id_arg" \
      --arg updated "$now" \
-     '(.entries | map(select(not (.nameLower == $name_lower and .id == $id))) ) as $filtered
+     '(.entries | map(select((.nameLower != $name_lower) or (.id != $id))) ) as $filtered
       | .entries = ($filtered + [{ "name": $name, "nameLower": $name_lower, "id": $id, "updatedAt": $updated }])
       ' \
     "$cache_file" > "$tmp_file"
