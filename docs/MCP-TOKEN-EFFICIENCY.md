@@ -77,12 +77,15 @@ Confirm with the OpenClaw/MCP client which field it uses before changing.
 
 ## 3. Priority order for changes
 
+Implemented (this pass):
+- **Done:** #2, #3, and #4 from this plan were implemented by shortening descriptions and removing shared runtime params (`account`, `opId`, `timeoutMs`, `retries`, `retryBackoffMs`) from per-tool `InputSchema`.
+
 | Priority | Change | Effort | Token impact |
 |----------|--------|--------|--------------|
 | 1 | **Stop sending envelope twice** (structuredContent vs content) — keep one, drop the other after confirming client | **Done** — OpenClaw uses content; we omit structuredContent in transport_stdio.go | High (every tool call) |
-| 2 | **Shorten drive_listFiles and drive_searchFiles descriptions** to one sentence; move pagination instructions to TOOLS.md | Low | High (tools/list) |
-| 3 | **Shorten other long tool descriptions** (uploadFile, createWithBody, mergeData, etc.) to one sentence | Low | Medium |
-| 4 | **Omit common optional params from InputSchema** (or document once); keep only tool-specific params | Medium | Medium |
+| 2 | **Done** — **Shorten drive_listFiles and drive_searchFiles descriptions** to one sentence; move pagination instructions to TOOLS.md | Low | High (tools/list) |
+| 3 | **Done** — **Shorten other long tool descriptions** (uploadFile, createWithBody, mergeData, etc.) to one sentence | Low | Medium |
+| 4 | **Done** — **Omit common optional params from InputSchema** (or document once); keep only tool-specific params | Medium | Medium |
 | 5 | **Optional result cap** (GOG_MCP_RESULT_MAX_BYTES) for docs_cat / sheets_valuesGet / large result keys | Medium | High when results are large |
 | 6 | **Trim TOOLS-gog-agentic-section.md** to minimal list + 2–3 examples | Low | Medium (if injected every time) |
 
@@ -99,5 +102,5 @@ Confirm with the OpenClaw/MCP client which field it uses before changing.
 ## 5. Summary
 
 - **Highest impact:** (1) Remove duplicate envelope in tools/call response; (2) shorten Drive list/search (and a few other) tool descriptions; (3) optional result size cap for very large outputs.
-- **Medium impact:** Fewer/shortened InputSchema property descriptions; trimmed TOOLS.md.
+- **Medium impact:** Optional result cap for large outputs; further TOOLS.md trimming if needed.
 - **No change to tool behavior** — only to metadata (descriptions, schema) and response shape (no double send, optional truncation).
