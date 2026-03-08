@@ -10,6 +10,8 @@ Discover folders by folder-name term, then list PDFs in each and print page coun
 Options:
   --term TEXT            Folder-name search term (required)
   --workspace-dir PATH   OpenClaw workspace path containing config/mcporter.json
+  --cache-file PATH      Optional custom cache file for local folder ID lookups
+  --no-cache             Disable cache lookup/write for folder IDs
   --max-results N        Max results per MCP page (default: 25)
   --json                 Emit newline-delimited JSON records
   -h, --help             Show this help
@@ -38,6 +40,10 @@ TERM=""
 MAX_RESULTS=25
 OUTPUT_JSON=0
 WORKSPACE_DIR_OVERRIDE=""
+USE_CACHE=1
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+CACHE_SCRIPT="${SCRIPT_DIR}/drive-folder-cache.sh"
+CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/gogcli/drive-folder-cache.json"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,6 +58,14 @@ while [[ $# -gt 0 ]]; do
     --max-results)
       MAX_RESULTS="$2"
       shift 2
+      ;;
+    --cache-file)
+      CACHE_FILE="$2"
+      shift 2
+      ;;
+    --no-cache)
+      USE_CACHE=0
+      shift
       ;;
     --json)
       OUTPUT_JSON=1
@@ -82,6 +96,133 @@ fi
 if [[ "$PDFINFO_AVAILABLE" -eq 0 ]]; then
   echo "Warning: pdfinfo is not installed. Drive getFile page counts may use fallback extraction and be slower or incomplete." >&2
 fi
+
+cache_lookup_folders() {
+  if [[ "$USE_CACHE" -ne 1 ]]; then
+    return 1
+  fi
+  if [[ ! -x "$CACHE_SCRIPT" ]]; then
+    return 1
+  fi
+
+  local cached_json
+  if ! cached_json="$("$CACHE_SCRIPT" lookup --name "$TERM" --contains --json --cache-file "$CACHE_FILE" 2>/dev/null)"; then
+    return 1
+  fi
+  if [[ -z "$cached_json" || "$cached_json" == "[]" ]]; then
+    return 1
+  fi
+  if ! jq -e 'type == "array"' <<<"$cached_json" >/dev/null 2>&1; then
+    return 1
+  fi
+  jq -c '.[]' <<<"$cached_json"
+}
+
+cache_store_folder() {
+  local folder_id="$1"
+  local folder_name="$2"
+  if [[ "$USE_CACHE" -ne 1 ]]; then
+    return 0
+  fi
+  if [[ ! -x "$CACHE_SCRIPT" ]]; then
+    return 0
+  fi
+
+  "$CACHE_SCRIPT" set --name "$folder_name" --id "$folder_id" --cache-file "$CACHE_FILE" >/dev/null || true
+}
+
+declare -A seen_folder_ids
+
+process_folder() {
+  local folder_id="$1"
+  local folder_name="$2"
+  if [[ -z "$folder_id" ]]; then
+    return 0
+  fi
+  if [[ -n "${seen_folder_ids[$folder_id]:-}" ]]; then
+    return 0
+  fi
+  seen_folder_ids["$folder_id"]=1
+
+  cache_store_folder "$folder_id" "$folder_name"
+
+  local file_page=""
+  local file_resp=""
+  local file_obj=""
+  local file_id=""
+  local file_name=""
+  local file_mime_type=""
+  local get_file_args=""
+  local file_args=""
+  local file_resp_detail=""
+  local file_lookup_ok="false"
+  local file_error_code=""
+  local file_error_message=""
+  local pdf_metadata="{}"
+  local pdf_metadata_envelope="{}"
+  local page_count=""
+  local page_count_json="null"
+  local page_count_display="n/a"
+  local file_next_page=""
+
+  while :; do
+    if [[ -n "$file_page" ]]; then
+      file_args="$(jq -nc --arg parent "$folder_id" --arg query "mimeType = 'application/pdf'" --argjson maxResults "$MAX_RESULTS" --arg page "$file_page" '{parentId:$parent, query:$query, rawQuery:true, maxResults:$maxResults, page:$page}')"
+    else
+      file_args="$(jq -nc --arg parent "$folder_id" --arg query "mimeType = 'application/pdf'" --argjson maxResults "$MAX_RESULTS" '{parentId:$parent, query:$query, rawQuery:true, maxResults:$maxResults}')"
+    fi
+
+    file_resp="$(require_ok drive.listFiles "$file_args")"
+    while IFS= read -r file_obj; do
+      file_id="$(jq -r '.id // ""' <<<"$file_obj")"
+      file_name="$(jq -r '.name // ""' <<<"$file_obj")"
+      file_mime_type="$(jq -r '.mimeType // ""' <<<"$file_obj")"
+      if [[ -z "$file_id" ]]; then
+        continue
+      fi
+      if [[ "$file_mime_type" != "application/pdf" ]]; then
+        continue
+      fi
+      get_file_args="$(jq -nc --arg fileId "$file_id" '{fileId:$fileId, pageCount:true}')"
+      file_resp_detail="$(call_mcp drive.getFile "$get_file_args")" || true
+      file_lookup_ok="false"
+      file_error_code=""
+      file_error_message=""
+      pdf_metadata="{}"
+      pdf_metadata_envelope="{}"
+      page_count=""
+      if response_ok "$file_resp_detail"; then
+        file_lookup_ok="true"
+        page_count="$(jq -r '.result.pageCount // .result.pdfMetadata.pages // empty' <<<"$file_resp_detail" 2>/dev/null || true)"
+        pdf_metadata="$(jq -c '.result.pdfMetadata // {}' <<<"$file_resp_detail" 2>/dev/null || echo '{}')"
+        pdf_metadata_envelope="$(jq -c '.result.pdfMetadataEnvelope // {}' <<<"$file_resp_detail" 2>/dev/null || echo '{}')"
+      else
+        file_error_code="$(jq -r '.error.code // "command_failed"' <<<"$file_resp_detail" 2>/dev/null || true)"
+        file_error_message="$(jq -r '.error.message // "unknown_error"' <<<"$file_resp_detail" 2>/dev/null || true)"
+      fi
+
+      if [[ -n "$page_count" ]]; then
+        page_count_json="$page_count"
+        page_count_display="$page_count"
+      else
+        page_count_json="null"
+        page_count_display="n/a"
+      fi
+
+      if [[ "$OUTPUT_JSON" -eq 1 ]]; then
+        print_record_json "$folder_id" "$folder_name" "$file_id" "$file_name" "$page_count_json" "$page_count_display" "$file_mime_type" "$pdf_metadata" "$pdf_metadata_envelope" "$file_lookup_ok" "$file_error_code" "$file_error_message"
+      else
+        print_record "$folder_id" "$folder_name" "$file_id" "$file_name" "$page_count_display"
+      fi
+    done < <(jq -c '.result.files[]?' <<<"$file_resp")
+
+    file_next_page="$(jq -r '.result.nextPageToken // empty' <<<"$file_resp")"
+    if [[ -z "$file_next_page" ]]; then
+      break
+    fi
+    file_page="$file_next_page"
+  done
+}
 
 if [[ "$OUTPUT_JSON" -eq 1 ]]; then
   print_record() {
@@ -176,6 +317,15 @@ escape_drive_literal() {
 
 escaped_term="$(escape_drive_literal "$TERM")"
 folder_query="mimeType = 'application/vnd.google-apps.folder' and name contains \"$escaped_term\""
+cache_hits="$(cache_lookup_folders || true)"
+
+if [[ -n "$cache_hits" ]]; then
+  while IFS= read -r folder_json; do
+    folder_id="$(jq -r '.id // ""' <<<"$folder_json")"
+    folder_name="$(jq -r '.name // ""' <<<"$folder_json")"
+    process_folder "$folder_id" "$folder_name"
+  done <<<"$cache_hits"
+fi
 
 page=""
 while :; do
@@ -189,68 +339,7 @@ while :; do
   while IFS= read -r folder_json; do
     folder_id="$(jq -r '.id // ""' <<<"$folder_json")"
     folder_name="$(jq -r '.name // ""' <<<"$folder_json")"
-    if [[ -z "$folder_id" ]]; then
-      continue
-    fi
-
-    file_page=""
-    while :; do
-      if [[ -n "$file_page" ]]; then
-          file_args="$(jq -nc --arg parent "$folder_id" --arg query "mimeType = 'application/pdf'" --argjson maxResults "$MAX_RESULTS" --arg page "$file_page" '{parentId:$parent, query:$query, rawQuery:true, maxResults:$maxResults, page:$page}')"
-      else
-          file_args="$(jq -nc --arg parent "$folder_id" --arg query "mimeType = 'application/pdf'" --argjson maxResults "$MAX_RESULTS" '{parentId:$parent, query:$query, rawQuery:true, maxResults:$maxResults}')"
-      fi
-
-      file_resp="$(require_ok drive.listFiles "$file_args")"
-      while IFS= read -r file_obj; do
-        file_id="$(jq -r '.id // ""' <<<"$file_obj")"
-        file_name="$(jq -r '.name // ""' <<<"$file_obj")"
-        file_mime_type="$(jq -r '.mimeType // ""' <<<"$file_obj")"
-        if [[ -z "$file_id" ]]; then
-          continue
-        fi
-          if [[ "$file_mime_type" != "application/pdf" ]]; then
-            continue
-          fi
-        get_file_args="$(jq -nc --arg fileId "$file_id" '{fileId:$fileId, pageCount:true}')"
-        file_resp_detail="$(call_mcp drive.getFile "$get_file_args")" || true
-        file_lookup_ok="false"
-        file_error_code=""
-        file_error_message=""
-        pdf_metadata="{}"
-        pdf_metadata_envelope="{}"
-        if response_ok "$file_resp_detail"; then
-          file_lookup_ok="true"
-          page_count="$(jq -r '.result.pageCount // .result.pdfMetadata.pages // empty' <<<"$file_resp_detail" 2>/dev/null || true)"
-          pdf_metadata="$(jq -c '.result.pdfMetadata // {}' <<<"$file_resp_detail" 2>/dev/null || echo '{}')"
-          pdf_metadata_envelope="$(jq -c '.result.pdfMetadataEnvelope // {}' <<<"$file_resp_detail" 2>/dev/null || echo '{}')"
-        else
-          file_error_code="$(jq -r '.error.code // "command_failed"' <<<"$file_resp_detail" 2>/dev/null || true)"
-          file_error_message="$(jq -r '.error.message // "unknown_error"' <<<"$file_resp_detail" 2>/dev/null || true)"
-          page_count=""
-        fi
-
-        if [[ -n "$page_count" ]]; then
-          page_count_json="$page_count"
-          page_count_display="$page_count"
-        else
-          page_count_json="null"
-          page_count_display="n/a"
-        fi
-
-        if [[ "$OUTPUT_JSON" -eq 1 ]]; then
-          print_record_json "$folder_id" "$folder_name" "$file_id" "$file_name" "$page_count_json" "$page_count_display" "$file_mime_type" "$pdf_metadata" "$pdf_metadata_envelope" "$file_lookup_ok" "$file_error_code" "$file_error_message"
-        else
-          print_record "$folder_id" "$folder_name" "$file_id" "$file_name" "$page_count_display"
-        fi
-      done < <(jq -c '.result.files[]?' <<<"$file_resp")
-
-      file_next_page="$(jq -r '.result.nextPageToken // empty' <<<"$file_resp")"
-      if [[ -z "$file_next_page" ]]; then
-        break
-      fi
-      file_page="$file_next_page"
-    done
+    process_folder "$folder_id" "$folder_name"
   done < <(jq -c '.result.files[]?' <<<"$folder_resp")
 
   next_page="$(jq -r '.result.nextPageToken // empty' <<<"$folder_resp")"
