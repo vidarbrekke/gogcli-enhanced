@@ -36,7 +36,7 @@ For Google Drive or Docs requests, call tools directly. Prefer `gog-agentic-call
 
 - Find folder: `gog-agentic-call drive.searchFiles '{"query":"name = \"Appraisal home valuation\"","rawQuery":true,"maxResults":10}'`
 - List folder contents: `gog-agentic-call drive.listFiles '{"parentId":"<folderId>","maxResults":50}'`
-- Query PDFs in a folder directly: `gog-agentic-call drive.searchFiles '{"query":"\"<folderId>\" in parents AND mimeType = ''application/pdf''","rawQuery":true,"maxResults":50}'`
+- Query PDFs in a folder directly: `gog-agentic-call drive.searchFiles '{"query":"\"<folderId>\" in parents AND mimeType = \'application/pdf\'","rawQuery":true,"maxResults":50}'`
 - Page through more results with `page:"<nextPageToken>"`.
 - Use `name =` first, then fall back to `contains` when needed. Avoid `fields` unless the tool schema explicitly supports it.
 
