@@ -101,6 +101,9 @@ cache_lookup_folders() {
   if [[ "$USE_CACHE" -ne 1 ]]; then
     return 1
   fi
+  if ! cache_prepare; then
+    return 1
+  fi
   if [[ ! -x "$CACHE_SCRIPT" ]]; then
     return 1
   fi
@@ -124,11 +127,36 @@ cache_store_folder() {
   if [[ "$USE_CACHE" -ne 1 ]]; then
     return 0
   fi
+  if ! cache_prepare; then
+    return 0
+  fi
   if [[ ! -x "$CACHE_SCRIPT" ]]; then
     return 0
   fi
 
   "$CACHE_SCRIPT" set --name "$folder_name" --id "$folder_id" --cache-file "$CACHE_FILE" >/dev/null || true
+}
+
+cache_prepare() {
+  local cache_dir
+  cache_dir="$(dirname "$CACHE_FILE")"
+  if [[ "$cache_dir" == "." ]]; then
+    return 0
+  fi
+  local cache_err
+  cache_err="$(mktemp)"
+  if mkdir -p "$cache_dir" 2>"$cache_err"; then
+    rm -f "$cache_err"
+    return 0
+  fi
+  if [[ -s "$cache_err" ]]; then
+    echo "Warning: unable to prepare cache directory '$cache_dir' ($(cat "$cache_err")); disabling cache." >&2
+  else
+    echo "Warning: unable to prepare cache directory '$cache_dir'; disabling cache." >&2
+  fi
+  rm -f "$cache_err"
+  USE_CACHE=0
+  return 1
 }
 
 declare -A seen_folder_ids
