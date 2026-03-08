@@ -30,6 +30,7 @@ Rules
 - For folder searches, use exact-match first: `query:"name = \"<folder name>\""` and fallback to contains only if needed.
 - For frequently reused folders, check local cache first with `./scripts/drive-folder-cache.sh lookup --name "<folder>" --id-only`.
 - For cache maintenance, use `DRIVE_FOLDER_CACHE_MAX_AGE_DAYS` (default 30) or `--max-age-days`.
+- Example cache refresh workflow: `./scripts/find-drive-pdfs-by-term.sh --term "tax" --cache-file /tmp/drive-folder-cache.json --max-age-days 7`.
 
 Preferred commands
 
