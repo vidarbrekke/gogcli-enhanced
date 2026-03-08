@@ -11,6 +11,7 @@ Options:
   --term TEXT            Folder-name search term (required)
   --workspace-dir PATH   OpenClaw workspace path containing config/mcporter.json
   --cache-file PATH      Optional custom cache file for local folder ID lookups
+  --max-age-days N       Cache TTL in days (default: from DRIVE_FOLDER_CACHE_MAX_AGE_DAYS, 30)
   --no-cache             Disable cache lookup/write for folder IDs
   --max-results N        Max results per MCP page (default: 25)
   --json                 Emit newline-delimited JSON records
@@ -44,6 +45,7 @@ USE_CACHE=1
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 CACHE_SCRIPT="${SCRIPT_DIR}/drive-folder-cache.sh"
 CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/gogcli/drive-folder-cache.json"
+CACHE_MAX_AGE_DAYS="${DRIVE_FOLDER_CACHE_MAX_AGE_DAYS:-30}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -61,6 +63,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --cache-file)
       CACHE_FILE="$2"
+      shift 2
+      ;;
+    --max-age-days)
+      CACHE_MAX_AGE_DAYS="$2"
       shift 2
       ;;
     --no-cache)
@@ -109,7 +115,7 @@ cache_lookup_folders() {
   fi
 
   local cached_json
-  if ! cached_json="$("$CACHE_SCRIPT" lookup --name "$TERM" --contains --json --cache-file "$CACHE_FILE" 2>/dev/null)"; then
+  if ! cached_json="$("$CACHE_SCRIPT" lookup --name "$TERM" --contains --json --cache-file "$CACHE_FILE" --max-age-days "$CACHE_MAX_AGE_DAYS" 2>/dev/null)"; then
     return 1
   fi
   if [[ -z "$cached_json" || "$cached_json" == "[]" ]]; then
@@ -134,7 +140,7 @@ cache_store_folder() {
     return 0
   fi
 
-  "$CACHE_SCRIPT" set --name "$folder_name" --id "$folder_id" --cache-file "$CACHE_FILE" >/dev/null || true
+  "$CACHE_SCRIPT" set --name "$folder_name" --id "$folder_id" --cache-file "$CACHE_FILE" --max-age-days "$CACHE_MAX_AGE_DAYS" >/dev/null || true
 }
 
 cache_prepare() {
