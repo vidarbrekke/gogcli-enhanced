@@ -27,11 +27,14 @@ Rules
 - Prefer terse summaries: `Found X matches in [scope].` then a concrete next step.
 - Only expand when user asks for more detail, or when there is a validation/error condition.
 - For follow-up prompts, offer small-choice options in one sentence (e.g. "Search subfolders, full Drive, or both?").
+- For folder searches, use exact-match first: `query:"name = \"<folder name>\""` and fallback to contains only if needed.
 
 Preferred commands
 
 - Drive root files and folders: `gog-agentic-call drive.listFiles '{}'`
 - Drive search: `gog-agentic-call drive.searchFiles '{"query":"name or text"}'`
+- Drive folder contents: `gog-agentic-call drive.listFiles '{"parentId":"<folderId>"}'`
+- Folder PDFs: `gog-agentic-call drive.searchFiles '{"query":"\"<folderId>\" in parents AND mimeType = ''application/pdf''","rawQuery":true}'`
 - Create folder: `gog-agentic-call drive.ensureFolder '{"path":"FolderName"}'`
 - Create doc: `gog-agentic-call docs.create '{"title":"Doc Title"}'`
 

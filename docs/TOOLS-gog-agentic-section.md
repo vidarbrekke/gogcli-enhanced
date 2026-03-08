@@ -32,6 +32,16 @@ For Google Drive or Docs requests, call tools directly. Prefer `gog-agentic-call
 - `gog-agentic-call sheets_valuesGet '{"spreadsheetId":"<id>","range":"Sheet1!A1:D20"}'`
 - `mcporter call --server gog-agentic --tool gmail_send --args '{"to":"user@example.com","subject":"Subject","body":"done"}' --output json`
 
+### Reliable Drive folder + file lookup pattern
+
+- Find folder: `gog-agentic-call drive.searchFiles '{"query":"name = \"Appraisal home valuation\"","rawQuery":true,"maxResults":10}'`
+- List folder contents: `gog-agentic-call drive.listFiles '{"parentId":"<folderId>","maxResults":50}'`
+- Query PDFs in a folder directly: `gog-agentic-call drive.searchFiles '{"query":"\"<folderId>\" in parents AND mimeType = ''application/pdf''","rawQuery":true,"maxResults":50}'`
+- Page through more results with `page:"<nextPageToken>"`.
+- Use `name =` first, then fall back to `contains` when needed. Avoid `fields` unless the tool schema explicitly supports it.
+
+If a folder is frequently accessed, keep IDs in a local cache file instead of injecting large lookup tables into prompt-visible memory.
+
 ### Auth policy
 
 OAuth is already configured. If calls fail with auth issues:
