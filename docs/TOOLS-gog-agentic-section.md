@@ -34,7 +34,8 @@ For Google Drive or Docs requests, call tools directly. Prefer `gog-agentic-call
 
 ### Reliable Drive folder + file lookup pattern
 
-- Find folder: `gog-agentic-call drive.searchFiles '{"query":"name = \"Appraisal home valuation\"","rawQuery":true,"maxResults":10}'`
+- Prefer cache first: `./scripts/drive-folder-cache.sh lookup --name "Appraisal home valuation" --id-only`.
+- If cache miss, find folder: `gog-agentic-call drive.searchFiles '{"query":"name = \"Appraisal home valuation\"","rawQuery":true,"maxResults":10}'` and optionally cache it with `./scripts/drive-folder-cache.sh set --name "Appraisal home valuation" --id "<folderId>"`.
 - List folder contents: `gog-agentic-call drive.listFiles '{"parentId":"<folderId>","maxResults":50}'`
 - Query PDFs in a folder directly: `gog-agentic-call drive.searchFiles '{"query":"\"<folderId>\" in parents AND mimeType = \'application/pdf\'","rawQuery":true,"maxResults":50}'`
 - Page through more results with `page:"<nextPageToken>"`.

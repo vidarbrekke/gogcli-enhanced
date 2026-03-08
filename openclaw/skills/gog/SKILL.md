@@ -28,6 +28,7 @@ Rules
 - Only expand when user asks for more detail, or when there is a validation/error condition.
 - For follow-up prompts, offer small-choice options in one sentence (e.g. "Search subfolders, full Drive, or both?").
 - For folder searches, use exact-match first: `query:"name = \"<folder name>\""` and fallback to contains only if needed.
+- For frequently reused folders, check local cache first with `./scripts/drive-folder-cache.sh lookup --name "<folder>" --id-only`.
 
 Preferred commands
 
@@ -35,6 +36,7 @@ Preferred commands
 - Drive search: `gog-agentic-call drive.searchFiles '{"query":"name or text"}'`
 - Drive folder contents: `gog-agentic-call drive.listFiles '{"parentId":"<folderId>"}'`
 - Folder PDFs: `gog-agentic-call drive.searchFiles '{"query":"\"<folderId>\" in parents AND mimeType = \'application/pdf\'","rawQuery":true}'`
+- Cache folder ID: `./scripts/drive-folder-cache.sh set --name "<folder>" --id "<folderId>"`
 - Create folder: `gog-agentic-call drive.ensureFolder '{"path":"FolderName"}'`
 - Create doc: `gog-agentic-call docs.create '{"title":"Doc Title"}'`
 
