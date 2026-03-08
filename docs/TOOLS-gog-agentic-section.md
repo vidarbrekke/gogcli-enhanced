@@ -43,6 +43,7 @@ For Google Drive or Docs requests, call tools directly. Prefer `gog-agentic-call
 
 If a folder is frequently accessed, keep IDs in a local cache file instead of injecting large lookup tables into prompt-visible memory.
 Control cache TTL with `DRIVE_FOLDER_CACHE_MAX_AGE_DAYS` (default: 30) or `--max-age-days`.
+- Example cache refresh: `./scripts/find-drive-pdfs-by-term.sh --term "tax" --cache-file /tmp/drive-folder-cache.json --max-age-days 7`.
 
 ### Auth policy
 
