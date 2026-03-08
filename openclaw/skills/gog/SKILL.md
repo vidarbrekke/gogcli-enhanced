@@ -29,6 +29,7 @@ Rules
 - For follow-up prompts, offer small-choice options in one sentence (e.g. "Search subfolders, full Drive, or both?").
 - For folder searches, use exact-match first: `query:"name = \"<folder name>\""` and fallback to contains only if needed.
 - For frequently reused folders, check local cache first with `./scripts/drive-folder-cache.sh lookup --name "<folder>" --id-only`.
+- If the user asks for page counts or PDF metadata, switch from list/search to per-file `drive.getFile` calls with `pageCount:true` before reporting a final answer.
 - For cache maintenance, use `DRIVE_FOLDER_CACHE_MAX_AGE_DAYS` (default 30) or `--max-age-days`.
 - Example cache refresh workflow: `./scripts/find-drive-pdfs-by-term.sh --term "tax" --cache-file /tmp/drive-folder-cache.json --max-age-days 7`.
 
@@ -39,6 +40,7 @@ Preferred commands
 - Drive folder contents: `gog-agentic-call drive.listFiles '{"parentId":"<folderId>"}'`
 - Folder PDFs: `gog-agentic-call drive.searchFiles '{"query":"\"<folderId>\" in parents AND mimeType = \'application/pdf\'","rawQuery":true}'`
 - Fast one-shot: `./scripts/find-drive-folder-files.sh --folder-name "<folder name>" --workspace-dir PATH`
+- Escalation rule: if user asks for PDF pages/metadata, call `gog-agentic-call drive.getFile '{"fileId":"<fileId>","pageCount":true}'` on each matching file.
 - Cache folder ID: `./scripts/drive-folder-cache.sh set --name "<folder>" --id "<folderId>"`
 - Shell helper (optional): `dff() { ./scripts/find-drive-folder-files.sh --folder-name "$1" --workspace-dir "${OPENCLAW_WORKSPACE_DIR:-$HOME/openclaw-stock-home/.openclaw/workspace}" --cache-file "${DRIVE_FOLDER_CACHE_FILE:-${XDG_CACHE_HOME:-$HOME/.cache}/gogcli/drive-folder-cache.json}" --max-age-days "${GOG_FOLDER_CACHE_MAX_AGE_DAYS:-30}" "${@:2}"; }`
 - Create folder: `gog-agentic-call drive.ensureFolder '{"path":"FolderName"}'`

@@ -38,6 +38,7 @@ For Google Drive or Docs requests, call tools directly. Prefer `gog-agentic-call
 - If cache miss, find folder: `gog-agentic-call drive.searchFiles '{"query":"name = \"Appraisal home valuation\"","rawQuery":true,"maxResults":10}'` and optionally cache it with `./scripts/drive-folder-cache.sh set --name "Appraisal home valuation" --id "<folderId>"`.
 - List folder contents: `gog-agentic-call drive.listFiles '{"parentId":"<folderId>","maxResults":50}'`
 - Query PDFs in a folder directly: `gog-agentic-call drive.searchFiles '{"query":"\"<folderId>\" in parents AND mimeType = \'application/pdf\'","rawQuery":true,"maxResults":50}'`
+- For PDF page counts, call: `gog-agentic-call drive.getFile '{"fileId":"<id>","pageCount":true}'` and return `pageCount` + `pdfMetadata` to user.
 - Page through more results with `page:"<nextPageToken>"`.
 - Use `name =` first, then fall back to `contains` when needed. Avoid `fields` unless the tool schema explicitly supports it.
 - One-shot fast path: `./scripts/find-drive-folder-files.sh --folder-name "Appraisal home valuation" --workspace-dir /path/to/workspace`.
