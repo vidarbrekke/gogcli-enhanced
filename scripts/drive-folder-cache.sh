@@ -4,9 +4,12 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  drive-folder-cache.sh lookup --name "<folder name>" [--contains] [--id-only] [--json] [--cache-file PATH]
-  drive-folder-cache.sh set --name "<folder name>" --id "<folder id>" [--cache-file PATH]
+  drive-folder-cache.sh lookup --name "<folder name>" [--contains] [--id-only] [--json] [--max-age-days N] [--cache-file PATH]
+  drive-folder-cache.sh set --name "<folder name>" --id "<folder id>" [--max-age-days N] [--cache-file PATH]
   drive-folder-cache.sh --help
+Defaults:
+  --max-age-days from DRIVE_FOLDER_CACHE_MAX_AGE_DAYS (default: 30)
+
 
 Description:
   Lightweight local cache for Google Drive folder IDs.
@@ -28,6 +31,7 @@ command_name=""
 name=""
 folder_id=""
 cache_file="${XDG_CACHE_HOME:-$HOME/.cache}/gogcli/drive-folder-cache.json"
+max_age_days="${DRIVE_FOLDER_CACHE_MAX_AGE_DAYS:-30}"
 contains=0
 id_only=0
 json_output=0
@@ -45,18 +49,55 @@ ensure_cache() {
 {"entries":[]}
 JSON
   fi
+  prune_cache || true
+}
+
+prune_cache() {
+  local age="$max_age_days"
+  if [[ ! "$age" =~ ^[0-9]+$ ]] || [[ "$age" -eq 0 ]]; then
+    return 0
+  fi
+
+  local now
+  local cutoff
+  local tmp_file
+  now="$(date -u +%s)"
+  cutoff="$((now - (age * 86400)))"
+  tmp_file="$(mktemp)"
+
+  if jq --argjson cutoff "$cutoff" -c '
+    .entries as $entries
+    | .entries = (
+      $entries
+      | map(
+          select(
+            (.updatedAt // "")
+            as $updated
+            | if $updated == "" then
+                true
+              else
+                ((try ($updated | fromdateiso8601) catch 0) >= $cutoff)
+              end
+          )
+        )
+    )' "$cache_file" > "$tmp_file"; then
+    mv "$tmp_file" "$cache_file"
+  else
+    rm -f "$tmp_file"
+    return 1
+  fi
 }
 
 lookup_cache() {
   local query_lower="$1"
-  local filter_expr
   if [[ "$contains" -eq 1 ]]; then
-    filter_expr='map(select((.nameLower | contains($query_lower) or .name | ascii_downcase | contains($query_lower)) ) )'
-  else
-    filter_expr='map(select(.nameLower == $query_lower))'
+    jq -c --arg query_lower "$query_lower" \
+      '[.entries[] | select((.nameLower | contains($query_lower)) or ((.name // "") | ascii_downcase | contains($query_lower)))] | sort_by(.updatedAt) | reverse' \
+      "$cache_file"
+    return
   fi
   jq -c --arg query_lower "$query_lower" \
-    "(.entries | $filter_expr | sort_by(.updatedAt) | reverse)" \
+    '[.entries[] | select(.nameLower == $query_lower)] | sort_by(.updatedAt) | reverse' \
     "$cache_file"
 }
 
@@ -108,6 +149,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --cache-file)
       cache_file="$2"
+      shift 2
+      ;;
+    --max-age-days)
+      max_age_days="$2"
       shift 2
       ;;
     --contains)
