@@ -87,7 +87,7 @@ Implemented (this pass):
 | 3 | **Done** — **Shorten other long tool descriptions** (uploadFile, createWithBody, mergeData, etc.) to one sentence | Low | Medium |
 | 4 | **Done** — **Omit common optional params from InputSchema** (or document once); keep only tool-specific params | Medium | Medium |
 | 5 | **Done** — **Add optional result cap** (`GOG_MCP_RESULT_MAX_BYTES`) for docs_cat / sheets_valuesGet / large result keys | Medium | High when results are large |
-| 6 | **Trim TOOLS-gog-agentic-section.md** to minimal list + 2–3 examples | Low | Medium (if injected every time) |
+| 6 | **Done** — **Trim TOOLS-gog-agentic-section.md** to minimal list + 2–3 examples | Low | Medium (if injected every time) |
 
 ---
 
