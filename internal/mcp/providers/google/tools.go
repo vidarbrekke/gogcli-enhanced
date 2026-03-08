@@ -56,6 +56,9 @@ const mcpDrivePageSize = 25
 // mcpDriveMaxCap caps maxResults/pageSize so response still fits gateway.
 const mcpDriveMaxCap = 100
 
+// mcpResultMaxBytesEnv defines the optional max byte cap for MCP tool call results.
+const mcpResultMaxBytesEnv = "GOG_MCP_RESULT_MAX_BYTES"
+
 // driveListSearchNormalizeInput copies Drive API-style args into our names so agents can use either.
 // pageToken → page; maxResults or pageSize → max (capped by mcpDriveMaxCap).
 func driveListSearchNormalizeInput(input map[string]any) {
@@ -1936,5 +1939,159 @@ func (p *provider) runCLI(args []string, service, operation string) (map[string]
 	}
 	parsed["service"] = service
 	parsed["operation"] = operation
-	return parsed, nil
+	return applyMCPResultCap(parsed), nil
+}
+
+func applyMCPResultCap(result map[string]any) map[string]any {
+	if len(result) == 0 {
+		return result
+	}
+
+	maxBytes := mcpResultMaxBytes()
+	if maxBytes <= 0 {
+		return result
+	}
+
+	raw, err := json.Marshal(result)
+	if err != nil {
+		return result
+	}
+
+	if len(raw) <= maxBytes {
+		return result
+	}
+
+	base := map[string]any{
+		"service":        result["service"],
+		"operation":      result["operation"],
+		"truncated":      true,
+		"truncatedBytes": len(raw),
+		"maxBytes":       maxBytes,
+	}
+
+	if totalCount, ok := result["totalCount"]; ok {
+		base["totalCount"] = totalCount
+	}
+	if nextPageToken, ok := result["nextPageToken"]; ok {
+		base["nextPageToken"] = nextPageToken
+	}
+
+	// Try to keep a small portion of common high-value fields.
+	const priorityBudgetFraction = 3
+	if maxBytes >= 120 {
+		fieldBudget := maxBytes / priorityBudgetFraction
+		if v, ok := result["text"]; ok {
+			base["text"] = truncateResultValue(v, fieldBudget)
+		}
+		if v, ok := result["values"]; ok {
+			base["values"] = truncateResultValue(v, fieldBudget)
+		}
+		if v, ok := result["files"]; ok {
+			base["files"] = truncateResultValue(v, fieldBudget)
+		}
+	}
+
+	if jsonFits(base, maxBytes) {
+		return base
+	}
+
+	delete(base, "text")
+	delete(base, "values")
+	delete(base, "files")
+
+	baseRaw, err := json.Marshal(base)
+	if err != nil {
+		return base
+	}
+	remaining := maxBytes - len(baseRaw)
+	if remaining > 0 {
+		base["resultPreview"] = truncateStringByBytes(string(raw), remaining)
+		if jsonFits(base, maxBytes) {
+			return base
+		}
+		delete(base, "resultPreview")
+	}
+
+	return map[string]any{
+		"service":        result["service"],
+		"operation":      result["operation"],
+		"truncated":      true,
+		"truncatedBytes": len(raw),
+		"maxBytes":       maxBytes,
+	}
+}
+
+func jsonFits(v any, maxBytes int) bool {
+	b, err := json.Marshal(v)
+	return err == nil && len(b) <= maxBytes
+}
+
+func mcpResultMaxBytes() int {
+	raw := strings.TrimSpace(os.Getenv(mcpResultMaxBytesEnv))
+	if raw == "" {
+		return 0
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil || v <= 0 {
+		return 0
+	}
+	return v
+}
+
+func truncateStringByBytes(value string, maxBytes int) string {
+	if maxBytes <= 0 {
+		return ""
+	}
+	if len(value) <= maxBytes {
+		return value
+	}
+	const ellipsis = "..."
+	if maxBytes <= len(ellipsis) {
+		return strings.Repeat(".", maxBytes)
+	}
+
+	// Use rune-aware truncation for predictable boundary handling.
+	allowedRunes := maxBytes - len(ellipsis)
+	runes := []rune(value)
+	if allowedRunes <= 0 {
+		allowedRunes = 1
+	}
+	if len(runes) <= allowedRunes {
+		return value
+	}
+	return string(runes[:allowedRunes]) + ellipsis
+}
+
+func truncateResultValue(value any, maxBytes int) any {
+	if maxBytes <= 0 {
+		return nil
+	}
+	switch v := value.(type) {
+	case string:
+		return truncateStringByBytes(v, maxBytes)
+	case []any:
+		if len(v) == 0 {
+			return []any{}
+		}
+		out := make([]any, 0, len(v))
+		used := 2 // JSON overhead for brackets
+		for _, item := range v {
+			itemJSON, err := json.Marshal(item)
+			if err != nil {
+				continue
+			}
+			entryBytes := len(itemJSON)
+			if len(out) > 0 {
+				entryBytes++ // comma
+			}
+			if used+entryBytes > maxBytes {
+				break
+			}
+			out = append(out, item)
+			used += entryBytes
+		}
+		return out
+	default:
+		return value
+	}
 }

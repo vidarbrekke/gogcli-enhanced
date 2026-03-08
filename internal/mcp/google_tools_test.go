@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"strings"
 	"testing"
@@ -472,6 +473,60 @@ func TestGoogleTools_DriveGetFile_WithPageCount_DefaultsMetadataEnvelope_OnMissi
 	}
 	if _, has := envelopedPDF["pages"]; !has {
 		t.Fatalf("expected enveloped pdf pages, got %#v", envelopedPDF)
+	}
+}
+
+func TestGoogleTools_ResultCap_TruncatesLargeToolOutput(t *testing.T) {
+	t.Setenv("GOG_MCP_RESULT_MAX_BYTES", "600")
+
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		return `{"text":"` + strings.Repeat("x", 4000) + `"}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs_cat", map[string]any{
+		"docId": "doc-cap-1",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Result == nil {
+		t.Fatal("expected result")
+	}
+	if env.Result["truncated"] != true {
+		t.Fatalf("expected result to be truncated: %#v", env.Result)
+	}
+	payload, err := json.Marshal(env.Result)
+	if err != nil {
+		t.Fatalf("failed to marshal result: %v", err)
+	}
+	if len(payload) > 600 {
+		t.Fatalf("expected truncated payload <= 600, got %d", len(payload))
+	}
+}
+
+func TestGoogleTools_ResultCap_DefaultOff(t *testing.T) {
+	t.Setenv("GOG_MCP_RESULT_MAX_BYTES", "0")
+
+	s := NewGoogleServer(func(args []string) (string, string, error) {
+		return `{"text":"` + strings.Repeat("x", 4000) + `"}`, "", nil
+	})
+	env := s.ExecuteTool(context.Background(), "docs_cat", map[string]any{
+		"docId": "doc-cap-2",
+	})
+	if !env.OK {
+		t.Fatalf("expected success, got error: %#v", env.Error)
+	}
+	if env.Result == nil {
+		t.Fatal("expected result")
+	}
+	if _, ok := env.Result["truncated"]; ok {
+		t.Fatalf("did not expect truncated result when cap is disabled: %#v", env.Result)
+	}
+	payload, err := json.Marshal(env.Result)
+	if err != nil {
+		t.Fatalf("failed to marshal result: %v", err)
+	}
+	if len(payload) <= 600 {
+		t.Fatalf("expected untruncated payload > 600, got %d", len(payload))
 	}
 }
 

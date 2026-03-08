@@ -20,6 +20,8 @@
 
 **Drive pagination pattern:** for `drive_listFiles` and `drive_searchFiles`, use `max` or `maxResults` for page size, `page` or `pageToken` for next page, and `fetchAllPages: true` for count-all workflows.
 
+**Result size cap:** set `GOG_MCP_RESULT_MAX_BYTES` to cap tool results in MCP. Use `0` or unset for full results.
+
 **Sheets — full data:** To read full spreadsheet cell contents (not just hyperlinks), use **`sheets_valuesGet`**. It is available on the server. If your tool list only shows `sheets_links`, `sheets_valuesUpdate`, `sheets_valuesAppend`, call `sheets_valuesGet` anyway via exec (see example below); the gateway may be showing a cached list.
 
 **Sheets — tool names and range:** Use **underscores** in tool names: `sheets_valuesGet`, `sheets_sortRange`, `sheets_dedupeRows` (not dots like `sheets.valuesGet`). For **sort, dedupe, filter-copy, upsert, move-rows, apply-formula, summarize**, the `range` parameter **must include the sheet name** (e.g. `"range":"Sheet1!A2:J200"`). Using only `"range":"A2:J200"` will fail. **Sort by column:** Use `sheets_sortRange` with `sortByColumn` as 0-based index (0 = column A, 1 = column B; e.g. Due_Date in column B → `"sortByColumn":1`). **Duplicates:** Use `sheets_dedupeRows` to remove duplicate rows by key columns (keeps first). **valuesUpdate** requires a `values` parameter (2D array of cell data).
