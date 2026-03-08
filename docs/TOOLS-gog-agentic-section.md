@@ -39,6 +39,9 @@ Use `--args '{"key":"value"}'` with the appropriate JSON for each tool. Destruct
     - `pageCount` (top-level)
     - `pdfMetadata` (`status`, `source`, `confidence`, `attempts`, `pages`)
     - `pdfMetadataEnvelope.pdf` (same payload under a dedicated metadata namespace)
+- **PDF content analysis (OpenClaw native tool):** if your OpenClaw instance has `pdf` enabled, you can analyze Drive PDFs directly with `pdf.analyze` (for text, tables, metadata):
+  - `pdf.analyze` payload: `{"fileId":"<GOOGLE_DRIVE_ID>"}`
+  - This is complementary to `drive_getFile`: use `drive_getFile` for fast page-count metadata, then `pdf.analyze` when you need content extraction.
 - **Search files:** `mcporter call gog-agentic.drive_searchFiles --args '{"query":"name or text"}' --output json`
 - **Generic folder+file lookup pattern (for any term):**
 1. Find folders: `gog-agentic-call drive.searchFiles '{"query":"mimeType = 'application/vnd.google-apps.folder' and (name contains \'<TERM>\')","rawQuery":true}'`
