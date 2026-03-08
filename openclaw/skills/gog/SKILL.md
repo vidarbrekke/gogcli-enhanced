@@ -38,6 +38,7 @@ Preferred commands
 - Drive search: `gog-agentic-call drive.searchFiles '{"query":"name or text"}'`
 - Drive folder contents: `gog-agentic-call drive.listFiles '{"parentId":"<folderId>"}'`
 - Folder PDFs: `gog-agentic-call drive.searchFiles '{"query":"\"<folderId>\" in parents AND mimeType = \'application/pdf\'","rawQuery":true}'`
+- Fast one-shot: `./scripts/find-drive-folder-files.sh --folder-name "<folder name>" --workspace-dir PATH`
 - Cache folder ID: `./scripts/drive-folder-cache.sh set --name "<folder>" --id "<folderId>"`
 - Create folder: `gog-agentic-call drive.ensureFolder '{"path":"FolderName"}'`
 - Create doc: `gog-agentic-call docs.create '{"title":"Doc Title"}'`

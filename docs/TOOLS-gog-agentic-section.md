@@ -40,6 +40,7 @@ For Google Drive or Docs requests, call tools directly. Prefer `gog-agentic-call
 - Query PDFs in a folder directly: `gog-agentic-call drive.searchFiles '{"query":"\"<folderId>\" in parents AND mimeType = \'application/pdf\'","rawQuery":true,"maxResults":50}'`
 - Page through more results with `page:"<nextPageToken>"`.
 - Use `name =` first, then fall back to `contains` when needed. Avoid `fields` unless the tool schema explicitly supports it.
+- One-shot fast path: `./scripts/find-drive-folder-files.sh --folder-name "Appraisal home valuation" --workspace-dir /path/to/workspace`.
 
 If a folder is frequently accessed, keep IDs in a local cache file instead of injecting large lookup tables into prompt-visible memory.
 Control cache TTL with `DRIVE_FOLDER_CACHE_MAX_AGE_DAYS` (default: 30) or `--max-age-days`.
