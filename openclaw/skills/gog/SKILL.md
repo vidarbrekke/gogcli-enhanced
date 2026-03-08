@@ -29,6 +29,7 @@ Rules
 - For follow-up prompts, offer small-choice options in one sentence (e.g. "Search subfolders, full Drive, or both?").
 - For folder searches, use exact-match first: `query:"name = \"<folder name>\""` and fallback to contains only if needed.
 - For frequently reused folders, check local cache first with `./scripts/drive-folder-cache.sh lookup --name "<folder>" --id-only`.
+- For cache maintenance, use `DRIVE_FOLDER_CACHE_MAX_AGE_DAYS` (default 30) or `--max-age-days`.
 
 Preferred commands
 
