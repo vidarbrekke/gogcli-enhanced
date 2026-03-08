@@ -40,6 +40,7 @@ Preferred commands
 - Folder PDFs: `gog-agentic-call drive.searchFiles '{"query":"\"<folderId>\" in parents AND mimeType = \'application/pdf\'","rawQuery":true}'`
 - Fast one-shot: `./scripts/find-drive-folder-files.sh --folder-name "<folder name>" --workspace-dir PATH`
 - Cache folder ID: `./scripts/drive-folder-cache.sh set --name "<folder>" --id "<folderId>"`
+- Shell helper (optional): `dff() { ./scripts/find-drive-folder-files.sh --folder-name "$1" --workspace-dir "${OPENCLAW_WORKSPACE_DIR:-$HOME/openclaw-stock-home/.openclaw/workspace}" --cache-file "${DRIVE_FOLDER_CACHE_FILE:-${XDG_CACHE_HOME:-$HOME/.cache}/gogcli/drive-folder-cache.json}" --max-age-days "${GOG_FOLDER_CACHE_MAX_AGE_DAYS:-30}" "${@:2}"; }`
 - Create folder: `gog-agentic-call drive.ensureFolder '{"path":"FolderName"}'`
 - Create doc: `gog-agentic-call docs.create '{"title":"Doc Title"}'`
 

@@ -41,6 +41,10 @@ For Google Drive or Docs requests, call tools directly. Prefer `gog-agentic-call
 - Page through more results with `page:"<nextPageToken>"`.
 - Use `name =` first, then fall back to `contains` when needed. Avoid `fields` unless the tool schema explicitly supports it.
 - One-shot fast path: `./scripts/find-drive-folder-files.sh --folder-name "Appraisal home valuation" --workspace-dir /path/to/workspace`.
+- Shell helper (source in shell profile):
+  ```bash
+  dff() { ./scripts/find-drive-folder-files.sh --folder-name "$1" --workspace-dir "${OPENCLAW_WORKSPACE_DIR:-$HOME/openclaw-stock-home/.openclaw/workspace}" --cache-file "${DRIVE_FOLDER_CACHE_FILE:-${XDG_CACHE_HOME:-$HOME/.cache}/gogcli/drive-folder-cache.json}" --max-age-days "${GOG_FOLDER_CACHE_MAX_AGE_DAYS:-30}" "${@:2}"; }
+  ```
 
 If a folder is frequently accessed, keep IDs in a local cache file instead of injecting large lookup tables into prompt-visible memory.
 Control cache TTL with `DRIVE_FOLDER_CACHE_MAX_AGE_DAYS` (default: 30) or `--max-age-days`.
