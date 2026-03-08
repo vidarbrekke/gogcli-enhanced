@@ -108,7 +108,23 @@ This reduces ambiguity and keeps behavior consistent with the headless setup (ke
 
 To reduce latency and token usage use: `docs_createWithBody` when creating a doc with initial content (one tool call); `docs.executeBatch` to insert text and apply styling in one batch; `drive_searchFiles` with `query` to get folder ID when the folder may already exist. Setup injects this into `TOOLS.md` (§6.1).
 
-### 6.3 Agent says a folder “does not exist” but you see it in Drive
+### 6.3 PDF workflows (metadata vs analysis)
+
+Use the right tool for the right purpose:
+
+- For quick metadata and page count, use `gog-agentic.drive_getFile` with `{"fileId":"<GOOGLE_DRIVE_ID>","pageCount":true}`.
+- For content extraction (text, tables, structured metadata) and analysis, use OpenClaw-native `pdf.analyze` with `{"fileId":"<GOOGLE_DRIVE_ID>"}`.
+
+Recommended flow:
+
+1. Discover PDFs with `drive_searchFiles`, e.g. `mimeType = 'application/pdf'`.
+2. For each ID:
+   - If you only need counts: call `drive_getFile` with `pageCount`.
+   - If you need text/table analysis: call `pdf.analyze`.
+
+OpenClaw-side config note: enable the tool in OpenClaw (`tools.pdf.enabled: true`) and set `maxBytesMb` to your desired limit.
+
+### 6.4 Agent says a folder “does not exist” but you see it in Drive
 
 Tools use the default account in the keyring. If the folder exists under a **different Google account** than the one on the server, the agent will not see it—add that account on the server or pass `account` to the tool. Use `drive_searchFiles` with the folder name as `query`; search includes My Drive and shared drives by default.
 
