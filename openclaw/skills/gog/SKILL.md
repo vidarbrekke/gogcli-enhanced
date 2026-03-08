@@ -28,6 +28,8 @@ Rules
 - Only expand when user asks for more detail, or when there is a validation/error condition.
 - For follow-up prompts, offer small-choice options in one sentence (e.g. "Search subfolders, full Drive, or both?").
 - For folder searches, use exact-match first: `query:"name = \"<folder name>\""` and fallback to contains only if needed.
+- Do not use `title` in Drive queries; Drive v3 uses `name` for searchable file/folder names.
+- Canonical syntax is `name`, but `gog-agentic-call` normalizes legacy `title =` Drive search predicates to `name =` before calling mcporter.
 - For frequently reused folders, check local cache first with `./scripts/drive-folder-cache.sh lookup --name "<folder>" --id-only`.
 - If the user asks for page counts or PDF metadata, switch from list/search to per-file `drive.getFile` calls with `pageCount:true` before reporting a final answer.
 - For cache maintenance, use `DRIVE_FOLDER_CACHE_MAX_AGE_DAYS` (default 30) or `--max-age-days`.
