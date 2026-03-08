@@ -90,4 +90,11 @@ OAuth is already set up. If the exec call fails (e.g. command not found or error
 
 **Never invent or assume folder or file names.** Only report what the API returned. If you got only N items, say "here are the first N" and offer to fetch more with `page`/`pageToken`; do not make up names for items 11–15 or any other position.
 
+### Response style (token-efficient)
+
+- For yes/no or discovery questions, start with one sentence answer: *"No PDFs in Drive root."* or *"Found 3 PDFs in your current folder."*
+- Report only requested scope and the key result first; keep caveats/errors in short second line.
+- For follow-up asks, offer at most two options in one sentence (e.g., *"Search subfolders or full Drive?"*).
+- When useful, compress repeated output by group/count and examples only where it adds value.
+
 For "create folder then doc": run drive_ensureFolder first, then docs_create with the returned folderId as parentId.

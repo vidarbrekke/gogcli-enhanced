@@ -23,6 +23,11 @@ Rules
 - Do not fall back to raw `gog drive search` for simple Drive listing requests when `gog-agentic-call` is available.
 - Do not run interactive OAuth in chat. Never use `mcporter auth gog-agentic`. On auth failures, run `gog auth status --json` and tell the user to run `./scripts/setup.sh` in a real terminal.
 
+- For status and discovery queries, answer in a concise one-sentence result + one optional next action.
+- Prefer terse summaries: `Found X matches in [scope].` then a concrete next step.
+- Only expand when user asks for more detail, or when there is a validation/error condition.
+- For follow-up prompts, offer small-choice options in one sentence (e.g. "Search subfolders, full Drive, or both?").
+
 Preferred commands
 
 - Drive root files and folders: `gog-agentic-call drive.listFiles '{}'`
