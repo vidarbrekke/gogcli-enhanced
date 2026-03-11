@@ -331,3 +331,57 @@ func TestDriveLsCmd_GOG_BACKEND_gws_uses_gws_path(t *testing.T) {
 		t.Logf("expected gws-related or exec error when gws unavailable, got: %v", err)
 	}
 }
+
+// TestDriveGetCmd_GOG_BACKEND_gws_uses_gws_path verifies that when GOG_BACKEND=gws and no --page-count,
+// drive get uses the gws backend and does not call the native drive service.
+func TestDriveGetCmd_GOG_BACKEND_gws_uses_gws_path(t *testing.T) {
+	os.Setenv("GOG_BACKEND", "gws")
+	defer os.Unsetenv("GOG_BACKEND")
+
+	nativeCalled := false
+	origNew := newDriveService
+	newDriveService = func(ctx context.Context, account string) (*drive.Service, error) {
+		nativeCalled = true
+		return origNew(ctx, account)
+	}
+	t.Cleanup(func() { newDriveService = origNew })
+
+	flags := &RootFlags{Account: "a@b.com"}
+	u, _ := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+	ctx := ui.WithUI(outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true}), u)
+	err := runKong(t, &DriveGetCmd{}, []string{"fileId123"}, ctx, flags)
+
+	if nativeCalled {
+		t.Error("GOG_BACKEND=gws should use gws path; native newDriveService must not be called")
+	}
+	if err != nil && !strings.Contains(err.Error(), "gws") && !strings.Contains(err.Error(), "exec") && !strings.Contains(err.Error(), "drive get") {
+		t.Logf("expected gws-related or exec error when gws unavailable, got: %v", err)
+	}
+}
+
+// TestDriveSearchCmd_GOG_BACKEND_gws_uses_gws_path verifies that when GOG_BACKEND=gws and no --all,
+// drive search uses the gws backend and does not call the native drive service.
+func TestDriveSearchCmd_GOG_BACKEND_gws_uses_gws_path(t *testing.T) {
+	os.Setenv("GOG_BACKEND", "gws")
+	defer os.Unsetenv("GOG_BACKEND")
+
+	nativeCalled := false
+	origNew := newDriveService
+	newDriveService = func(ctx context.Context, account string) (*drive.Service, error) {
+		nativeCalled = true
+		return origNew(ctx, account)
+	}
+	t.Cleanup(func() { newDriveService = origNew })
+
+	flags := &RootFlags{Account: "a@b.com"}
+	u, _ := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+	ctx := ui.WithUI(outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true}), u)
+	err := runKong(t, &DriveSearchCmd{}, []string{"foo"}, ctx, flags)
+
+	if nativeCalled {
+		t.Error("GOG_BACKEND=gws should use gws path; native newDriveService must not be called")
+	}
+	if err != nil && !strings.Contains(err.Error(), "gws") && !strings.Contains(err.Error(), "exec") && !strings.Contains(err.Error(), "drive search") {
+		t.Logf("expected gws-related or exec error when gws unavailable, got: %v", err)
+	}
+}

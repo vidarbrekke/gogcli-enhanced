@@ -227,22 +227,79 @@ func (c *DriveLsCmd) runGWSLs(ctx context.Context, folderID string) error {
 	if err != nil {
 		return err
 	}
+	return handleGWSResult(ctx, "drive", "ls", "", res, func(ctx context.Context, stdout []byte) error {
+		if outfmt.IsJSON(ctx) {
+			var payload map[string]any
+			if json.Unmarshal(stdout, &payload) != nil {
+				return fmt.Errorf("gws output is not valid JSON")
+			}
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
+		}
+		return writeGWSDriveLsTable(ctx, stdout)
+	})
+}
+
+// handleGWSResult classifies gws result; on error normalizes and returns BackendError; on success calls onSuccess(stdout).
+func handleGWSResult(ctx context.Context, service, operation, resourceID string, res gws.Result, onSuccess func(context.Context, []byte) error) error {
 	if classify.Classify(gwsFixture{res.Stdout, res.Stderr, res.ExitCode}) == classify.OutcomeERROR {
-		ctxNorm := normalize.InvocationCtx{Service: "drive", Operation: "ls"}
+		ctxNorm := normalize.InvocationCtx{Service: service, Operation: operation, ResourceID: resourceID}
 		env, ok := normalize.NormalizeError(res.Stdout, res.Stderr, ctxNorm)
 		if !ok {
-			return fmt.Errorf("gws drive ls failed (exit %d)", res.ExitCode)
+			return fmt.Errorf("gws %s %s failed (exit %d)", service, operation, res.ExitCode)
 		}
 		return &BackendError{Env: env}
 	}
-	if outfmt.IsJSON(ctx) {
-		var payload map[string]any
-		if json.Unmarshal(res.Stdout, &payload) != nil {
-			return fmt.Errorf("gws output is not valid JSON")
-		}
-		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
+	return onSuccess(ctx, res.Stdout)
+}
+
+// runGWSGet runs drive get via gws when GOG_BACKEND=gws (no --page-count).
+func (c *DriveGetCmd) runGWSGet(ctx context.Context, fileID string) error {
+	res, err := gws.RunDriveGet(ctx, fileID)
+	if err != nil {
+		return err
 	}
-	return writeGWSDriveLsTable(ctx, res.Stdout)
+	return handleGWSResult(ctx, "drive", "get", fileID, res, func(ctx context.Context, stdout []byte) error {
+		if outfmt.IsJSON(ctx) {
+			var m map[string]any
+			if json.Unmarshal(stdout, &m) != nil {
+				return fmt.Errorf("gws output is not valid JSON")
+			}
+			if m[strFile] == nil && (m["id"] != nil || m["name"] != nil) {
+				m = map[string]any{strFile: m}
+			}
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), m)
+		}
+		return writeGWSDriveGetTable(ctx, stdout)
+	})
+}
+
+// writeGWSDriveGetTable parses gws drive get JSON and prints id/name/type/size/created/modified/etc.
+func writeGWSDriveGetTable(ctx context.Context, stdout []byte) error {
+	var m map[string]any
+	if json.Unmarshal(stdout, &m) != nil {
+		return fmt.Errorf("gws output is not valid JSON")
+	}
+	file, _ := m[strFile].(map[string]any)
+	if file == nil {
+		file = m
+	}
+	u := ui.FromContext(ctx)
+	u.Out().Printf("id\t%s", stringValue(file["id"]))
+	u.Out().Printf("name\t%s", stringValue(file["name"]))
+	u.Out().Printf("type\t%s", stringValue(file["mimeType"]))
+	u.Out().Printf("size\t%s", formatDriveSize(int64Value(file["size"])))
+	u.Out().Printf("created\t%s", stringValue(file["createdTime"]))
+	u.Out().Printf("modified\t%s", stringValue(file["modifiedTime"]))
+	if desc := stringValue(file["description"]); desc != "" {
+		u.Out().Printf("description\t%s", desc)
+	}
+	if star, ok := file["starred"].(bool); ok {
+		u.Out().Printf("starred\t%t", star)
+	}
+	if link := stringValue(file["webViewLink"]); link != "" {
+		u.Out().Printf("link\t%s", link)
+	}
+	return nil
 }
 
 // writeGWSDriveLsTable parses gws drive list JSON and prints ID/NAME/TYPE/SIZE/MODIFIED table.
@@ -324,6 +381,14 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	query := strings.TrimSpace(strings.Join(c.Query, " "))
 	if query == "" {
 		return usage("missing query")
+	}
+
+	// GOG_BACKEND=gws: single-page search only; --all stays native.
+	if Backend() == BackendGWS && !c.All {
+		if errV := validateGWSExplicitAccountSelection(flags); errV != nil {
+			return errV
+		}
+		return c.runGWSSearch(ctx, query)
 	}
 
 	svc, err := newDriveService(ctx, account)
@@ -435,6 +500,25 @@ func (c *DriveSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	return nil
 }
 
+// runGWSSearch runs drive search via gws when GOG_BACKEND=gws (single-page only).
+func (c *DriveSearchCmd) runGWSSearch(ctx context.Context, query string) error {
+	q := buildDriveSearchQuery(query, c.RawQuery)
+	res, err := gws.RunDriveSearch(ctx, q, c.Page, c.Max)
+	if err != nil {
+		return err
+	}
+	return handleGWSResult(ctx, "drive", "search", "", res, func(ctx context.Context, stdout []byte) error {
+		if outfmt.IsJSON(ctx) {
+			var payload map[string]any
+			if json.Unmarshal(stdout, &payload) != nil {
+				return fmt.Errorf("gws output is not valid JSON")
+			}
+			return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
+		}
+		return writeGWSDriveLsTable(ctx, stdout)
+	})
+}
+
 type DriveGetCmd struct {
 	FileID    string `arg:"" name:"fileId" help:"File ID"`
 	PageCount bool   `name:"page-count" help:"Include PDF page count in output (PDF files only)"`
@@ -449,6 +533,14 @@ func (c *DriveGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	fileID := strings.TrimSpace(c.FileID)
 	if fileID == "" {
 		return usage("empty fileId")
+	}
+
+	// GOG_BACKEND=gws: single file get only; --page-count stays native.
+	if Backend() == BackendGWS && !c.PageCount {
+		if errV := validateGWSExplicitAccountSelection(flags); errV != nil {
+			return errV
+		}
+		return c.runGWSGet(ctx, fileID)
 	}
 
 	svc, err := newDriveService(ctx, account)

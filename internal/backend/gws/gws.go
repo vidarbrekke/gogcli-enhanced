@@ -57,6 +57,26 @@ func RunDriveLs(ctx context.Context, parentID, pageToken string, pageSize int64)
 	return run(ctx, []string{"drive", "files", "list", "--params", params})
 }
 
+// RunDriveGet runs: gws drive files get --params '{"fileId":"<id>"}'.
+func RunDriveGet(ctx context.Context, fileID string) (Result, error) {
+	if fileID == "" {
+		return Result{ExitCode: 1}, nil
+	}
+	params := fmt.Sprintf(`{"fileId":%q}`, fileID)
+
+	return run(ctx, []string{"drive", "files", "get", "--params", params})
+}
+
+// RunDriveSearch runs: gws drive files list --params '{"q":"<query>","pageSize":N,"pageToken":"..."}'.
+func RunDriveSearch(ctx context.Context, query, pageToken string, pageSize int64) (Result, error) {
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	params := fmt.Sprintf(`{"q":%q,"pageSize":%d,"pageToken":%q}`, query, pageSize, pageToken)
+
+	return run(ctx, []string{"drive", "files", "list", "--params", params})
+}
+
 func run(ctx context.Context, args []string) (Result, error) {
 	bin := Path()
 	// #nosec G204 -- bin is from GOG_GWS_PATH env or literal "gws", not user input

@@ -6,6 +6,8 @@ Use this when running OpenClaw on a Linode server and want the agent to create/e
 
 **Optional — gws on Linode:** If you also want the Google Workspace CLI (`gws`) on this server (e.g. for parity goldens or merge-plan work), see **[gws-on-linode.md](gws-on-linode.md)**. The recommended setup is **gcloud + `gws auth setup`** on your laptop so you skip manual GCP project and OAuth client creation; the doc has the full flow.
 
+**gcloud not installed?** For OpenClaw environments where the `gcloud` CLI is not installed, see **[openclaw-gcloud-vs-gog.md](openclaw-gcloud-vs-gog.md)** for how to proceed: use gog without gcloud (recommended for Drive/Docs/Sheets), install gcloud, or integrate gcloud with OpenClaw.
+
 ## 1. Automatic MCP registration during setup
 
 **No manual config is required** if you run the repo’s OpenClaw-aware setup script where OpenClaw can see the config:

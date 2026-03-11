@@ -60,7 +60,9 @@ DRY: Reuse the parity normalizer and error taxonomy so live gws responses are no
 - **Success:** Exit 0; `parity-report.json` has no breaking diffs for hard-gated cases (401, 404); drift is allowed.
 - **CI:** Parity workflow runs on fixtures and uploads the report; reviewers confirm no breaking diffs.
 
-### 3.2 Live gws routing (implemented for Gmail labels list/get and drive ls)
+### 3.2 Live gws routing (implemented for Gmail labels list/get, drive ls, drive get, drive search)
+
+- **Implemented:** Gmail labels list/get; drive ls (single-page, non-global); **drive get** (no `--page-count`); **drive search** (single-page, no `--all`).
 
 - **Unit / integration:**  
   - Tests set `GOG_BACKEND=gws` and assert the gws path is used (e.g. native drive service not called when backend is gws). See `TestDriveLsCmd_GOG_BACKEND_gws_uses_gws_path` in `internal/cmd/drive_ls_cmd_test.go`.  
@@ -86,10 +88,18 @@ DRY: Reuse the parity normalizer and error taxonomy so live gws responses are no
    `GOG_BACKEND=gws gog drive ls -a you@gmail.com --json`  
    Expect: exit 0; stdout has `files` and optionally `nextPageToken`. For `--global` or `--all`, gog uses native (no gws path).
 
+4. **Drive get** (no `--page-count`):  
+   `GOG_BACKEND=gws gog drive get <fileId> -a you@gmail.com --json`  
+   Expect: exit 0; JSON has file metadata. With `--page-count`, gog uses native.
+
+5. **Drive search** (single-page, no `--all`):  
+   `GOG_BACKEND=gws gog drive search "query" -a you@gmail.com --json`  
+   Expect: exit 0; stdout has `files` and optionally `nextPageToken`. With `--all`, gog uses native.
+
 **Rollback:**
 
 - Unset or set `GOG_BACKEND=native`, then run the same command. Behavior must be unchanged (native API used; same JSON shape per contract).  
-  Example: `GOG_BACKEND=native gog gmail labels list -a you@gmail.com --json` uses native Gmail API.
+  Example: `GOG_BACKEND=native gog gmail labels list -a you@gmail.com --json` uses native Gmail API. Same for `gog drive ls`, `gog drive get`, `gog drive search`.
 
 ---
 
@@ -97,6 +107,6 @@ DRY: Reuse the parity normalizer and error taxonomy so live gws responses are no
 
 | Question | Answer |
 |----------|--------|
-| When do we use gws vs gog in the agent path? | **Default:** always gog. **When GOG_BACKEND=gws:** gog invokes gws for Tier A commands that support it (gmail labels list/get, drive ls single-page), normalizes, returns. gws is also used in parity (fixtures only). |
+| When do we use gws vs gog in the agent path? | **Default:** always gog. **When GOG_BACKEND=gws:** gog invokes gws for Tier A commands that support it (gmail labels list/get, drive ls single-page, **drive get**, **drive search** single-page), normalizes, returns. gws is also used in parity (fixtures only). |
 | How is routing implemented? | Backend switch in gog (`GOG_BACKEND` env); `internal/backend/gws` invokes gws CLI; `internal/parity/normalize` normalizes; single MCP (gog-agentic). |
 | How do we test? | **Parity:** `make parity` on fixtures. **Live gws:** unit tests; manual smoke with gws on PATH and `GOG_BACKEND=gws`; rollback check with default env. |
