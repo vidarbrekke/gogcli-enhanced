@@ -35,7 +35,7 @@ Generated snapshot of the repository structure. Excludes: `.git`, `node_modules`
 |------|-------------|
 | `cmd/gog/main.go` | CLI entrypoint |
 | `cmd/gog/main_test.go` | Entrypoint tests |
-| `cmd/gog-parity/` | **(Planned)** Parity runner CLI (fixture load, classify, diff); not yet implemented |
+| `cmd/gog-parity/` | Parity runner CLI (fixture load, classify, normalize, schema, diff) |
 
 ---
 
@@ -58,7 +58,7 @@ Implementation lives under `internal/` with tests colocated (`*_test.go`).
 | `internal/timeparse/` | Time parsing |
 | `internal/integration/` | Opt-in integration tests (build-tagged) |
 | `internal/mcp/` | MCP server, transport, Google tools provider |
-| `internal/parity/` | **(Planned)** Parity runner internals (io, classify, normalize, schema, diff); no dedicated providers package until second provider |
+| `internal/parity/` | Parity runner internals (io, classify, normalize, schema, diff); no dedicated providers package until second provider |
 | `internal/tracking/` | Email tracking (worker, config, pixel, deploy) |
 | `internal/authclient/` | Auth client helpers |
 
@@ -194,7 +194,7 @@ Commands are grouped by service; each area has many `*_test.go` files.
 
 ## Summary
 
-- **CLI:** `cmd/gog` → `internal/cmd` (per-service command code). **Parity (planned):** `cmd/gog-parity` → `internal/parity`.
+- **CLI:** `cmd/gog` → `internal/cmd` (per-service command code). **Parity:** `cmd/gog-parity` → `internal/parity`.
 - **APIs & auth:** `internal/googleapi`, `internal/googleauth`, `internal/config`, `internal/secrets`.
 - **MCP:** `internal/mcp` (server + Google provider).
 - **Handover:** `handover.md` (canonical). PR checklist: no duplicate handover docs.

@@ -1,6 +1,10 @@
 # Development / Refactoring Plan
 
-This plan outlines the next stages of development and refactoring for gogcli-enhanced, based on a codebase sanity check. It prioritizes maintainability and correctness without changing behavior unnecessarily, and defers speculative work (YAGNI).
+**Status:** Historical refactor plan. Current phase and priorities live in repo-root `handover.md`.
+
+Phase 1 (MCP provider split into domain files) is already reflected in the tree: `docs_tools.go`, `drive_tools.go`, `sheets_tools.go`, `slides_tools.go`, and related providers exist under `internal/mcp/providers/google/`. Treat unchecked boxes below as archive notes, not current work.
+
+This plan outlines earlier refactor stages based on a codebase sanity check. It prioritizes maintainability and correctness without changing behavior unnecessarily, and defers speculative work (YAGNI).
 
 **High-level approach:** Phase 1 modularizes the MCP provider (single 3k-LOC file) and extracts shared schema/arg helpers to reduce cognitive load and duplication. Phase 2 adds targeted input validation where silent coercion is risky. Phase 3 is optional (Drive listing performance). Each phase is independently shippable; tests and `make ci` gate every change.
 

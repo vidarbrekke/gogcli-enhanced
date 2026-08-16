@@ -1,20 +1,25 @@
 # Planning Documentation Index
 
+**Status:** Historical planning index. Current developer takeover and next-phase priorities are in repo-root `handover.md`.
+
 This repository contains planning documentation for edit capability work in `gogcli-enhanced`.
 
-Current focus:
+Historical focus (archived):
 
-- ✅ Google Docs edit capability is implemented.
-- 🎯 Next priority is extending agent-safe edit capability to **Google Sheets**.
+- Google Docs edit capability is implemented.
+- Sheets agentic edit work later landed in-tree; do not treat Sheets editing as the active phase.
 
 ---
 
 ## 📚 Document Overview
 
-### 🎯 **PROJECT_PLAN.md** - **START HERE**
-**Current implementation guide for the active edit-capability phase**
+### **handover.md** - **START HERE**
+**Current developer takeover and next-phase priorities**
 
-**Contents:**
+### **PROJECT_PLAN.md** - Historical archive
+**Archived edit-capability planning (Docs/Sheets era)**
+
+**Contents (archive):**
 - Executive summary and goals
 - Architecture analysis
 - 5-phase implementation plan with code examples
@@ -25,9 +30,9 @@ Current focus:
 - Contributing guidelines
 - Complete code examples
 
-**Who should read:** All developers working on this feature
+**Who should read:** Only if reconstructing historical Sheets/Docs planning decisions
 
-**When to read:** Before starting any development work
+**When to read:** After `handover.md`, and only when you need the old plan detail
 
 ---
 

@@ -1,5 +1,7 @@
 # Analysis of remaining origin branches (post–merge cleanup)
 
+**Status:** Historical branch inventory. Current branch state and next-phase work are in repo-root `handover.md`.
+
 After merging `feature/upstream-sedmat-import` into `main` and deleting the six branches that were fully contained in main, eight branches remain. This document summarizes what makes each unique and whether it is **mergeable** (unique value, should be merged or cherry-picked) or **obsolete** (already in main or superseded).
 
 ---

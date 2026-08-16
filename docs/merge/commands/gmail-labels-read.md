@@ -5,9 +5,10 @@ Scope:
 - `gog gmail labels list`
 - `gog gmail labels get`
 
-Tier: A (low risk)  
-Target: `candidate-gws`  
+Tier: A (low risk)
+Target: `hybrid` (`GOG_BACKEND=gws` live for list/get)
 DRI: TBD
+Status: opt-in gws routing implemented; authenticated smoke and real 403 golden remain open (see `handover.md`)
 
 ---
 

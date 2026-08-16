@@ -1,10 +1,12 @@
 # Google Docs Editing Feature - Complete Project Plan (Archived) / Google Sheets Editing - Next Plan
 
-**Repository:** `gogcli-enhanced` (fork of steipete/gogcli)  
-**Feature:** Docs edit completed; next implementation target is inline edit capabilities for Google Sheets  
-**Version:** 1.0  
-**Last Updated:** 2026-02-11  
-**Status:** ✅ Docs Complete → 🎯 Next Active Phase: Sheets Editing
+**Status:** Historical planning archive. Current developer takeover and next-phase priorities are in repo-root `handover.md`.
+
+**Repository:** `gogcli-enhanced` (fork of `openclaw/gogcli` / formerly `steipete/gogcli`)
+**Feature:** Docs edit completed; Sheets agentic edit commands later landed in-tree
+**Version:** 1.0
+**Last Updated:** 2026-02-11
+**Archive note:** Do not treat “Next Active Phase: Sheets Editing” as current work.
 
 ---
 

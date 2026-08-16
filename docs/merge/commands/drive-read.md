@@ -7,9 +7,10 @@ Scope:
 - `gog drive get`
 - `gog drive url`
 
-Tier: A (low risk)  
-Target: `candidate-gws`  
+Tier: A (low risk)
+Target: `hybrid` (`GOG_BACKEND=gws` live for `ls`/`search`/`get` with bounded flags)
 DRI: TBD
+Status: opt-in gws routing implemented for single-page `ls`/`search` and `get` without `--page-count`. `--global`, `--all`, search `--all`, and `url` remain native. Authenticated smoke remains open (see `handover.md`).
 
 ---
 

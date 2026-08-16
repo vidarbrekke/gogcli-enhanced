@@ -2,7 +2,7 @@
 
 ## What was wrong
 
-After deploying the new branch (`merge-upstream-2026-03`), `gog auth status` showed no config and no credentials. **Root cause:** not a new repo or different app name — this codebase has always used `gogcli` and `/root/.config/gogcli/`. The problem was:
+After deploying the then-current development branch (`merge-upstream-2026-03`, later merged and deleted), `gog auth status` showed no config and no credentials. **Root cause:** not a new repo or different app name — this codebase has always used `gogcli` and `/root/.config/gogcli/`. The problem was:
 
 1. **`config.json` was missing** — so the CLI reported `config.exists: false` and never showed account/credentials even when `-a` was used.
 2. **Keyring directory was empty** — no token files, so no refresh tokens for any account. Credentials.json was present but tokens live in the keyring.
