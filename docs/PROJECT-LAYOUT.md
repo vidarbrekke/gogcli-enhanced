@@ -2,7 +2,7 @@
 
 Generated snapshot of the repository structure. Excludes: `.git`, `node_modules`, `.tools`, `bin`, and heavy build artifacts.
 
-**Canonical handover:** `handover.md` (repo root). **Parity runner (planned):** `cmd/gog-parity/`. **Parity assets:** `docs/merge/` (permanent). See handover §12 for full checklist and outcome.
+**Canonical handover:** `handover.md` (repo root). **Parity runner:** `cmd/gog-parity/`. **Parity assets:** `docs/merge/` (permanent).
 
 ---
 
@@ -11,7 +11,7 @@ Generated snapshot of the repository structure. Excludes: `.git`, `node_modules`
 | Path | Description |
 |------|-------------|
 | `AGENTS.md` | Repository guidelines, build/test, coding style, PR workflow |
-| `handover.md` | **Single source of truth** for developer takeover (parity pivot, quickstart, PR plan) |
+| `handover.md` | **Single source of truth** for developer takeover and next phase |
 | `README.md` | Project intro and usage |
 | `INSTALL.md` | Install and upgrade instructions |
 | `CHANGELOG.md` | Release history |
@@ -21,10 +21,10 @@ Generated snapshot of the repository structure. Excludes: `.git`, `node_modules`
 | `.goreleaser.yaml` | Release build config |
 | `.lefthook.yml` | Git hooks (pre-commit/pre-push) |
 | `.gitignore` | Ignored paths |
-| `gogcli-developer-handover/` | Parity handover bundle (HANDOVER = reference; canonical handover is `handover.md`) |
+| `gogcli-developer-handover/` | Supporting parity templates and artifacts; canonical handover is `handover.md` |
 | `docs/` | Specs, runbooks, merge/parity assets, TOOLS reference |
-| `cmd/` | CLI entrypoints: `gog`, (planned) `gog-parity` |
-| `internal/` | All implementation; (planned) `internal/parity/` for parity runner |
+| `cmd/` | CLI entrypoints: `gog`, `gog-parity` |
+| `internal/` | Implementation, including MCP, gws backend, and parity packages |
 | `scripts/` | Deploy, live tests, release, auth diagnostics |
 
 ---

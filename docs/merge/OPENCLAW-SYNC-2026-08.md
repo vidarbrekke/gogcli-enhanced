@@ -1,7 +1,11 @@
 # OpenClaw upstream sync — 2026-08 (surgical)
 
-Branch: `sync/openclaw-2026-08-security`  
-Upstream: `openclaw/gogcli` (`openclaw/main`, tip `eb85a993` at assessment)  
+Status: landed on `main` in August 2026
+
+Development branch: `sync/openclaw-2026-08-security`
+
+Upstream: `openclaw/gogcli` (`openclaw/main`, tip `eb85a993` at assessment)
+
 Merge-base with our `main`: `0ed89978`
 
 ## Ported (this branch)

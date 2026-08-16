@@ -56,6 +56,6 @@ Do not fall back to raw `gog drive search` (or similar) when MCP tools are avail
 By default, **all live requests** go through **gog** and its **native Google APIs**. The optional **gws** CLI is not in the agent path unless you enable backend routing:
 
 - **Default:** gog uses native Go/API clients for every command. Single MCP (gog-agentic); agent talks only to gog.
-- **With `GOG_BACKEND=gws`:** gog can invoke the **gws** CLI for selected Tier A read commands (e.g. Gmail labels list/get, drive ls single-page), normalizes the output, and returns it. Tier C (writes, safety-critical) stays on native gog.
+- **With `GOG_BACKEND=gws`:** gog can invoke the **gws** CLI for Gmail labels list/get and Drive list/get/search. Drive list/search are single-page routes; global/all-pages and PDF page-count paths remain native. Tier C (writes, safety-critical) stays on native gog.
 
 So: **gog vs gws** is a backend choice inside gog (env `GOG_BACKEND`), not a choice between two CLIs in the agent. For full routing logic, implementation, and tests, see [merge/GWS-VS-GOG-ROUTING.md](merge/GWS-VS-GOG-ROUTING.md).
