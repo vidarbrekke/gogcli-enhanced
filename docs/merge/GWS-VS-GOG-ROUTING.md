@@ -65,8 +65,9 @@ DRY: Reuse the parity normalizer and error taxonomy so live gws responses are no
 - **Implemented:** Gmail labels list/get; drive ls (single-page, non-global); **drive get** (no `--page-count`); **drive search** (single-page, no `--all`).
 
 - **Unit / integration:**  
-  - Tests set `GOG_BACKEND=gws` and assert the gws path is used (e.g. native drive service not called when backend is gws). See `TestDriveLsCmd_GOG_BACKEND_gws_uses_gws_path` in `internal/cmd/drive_ls_cmd_test.go`.  
-  - With mocked gws stdout/stderr/exit_code, assert normalized output matches expected schema and error_code. Reuse parity schemas and normalizer.
+  - Tests set `GOG_BACKEND=gws`, point `GOG_GWS_PATH` at a fake `gws` binary, use the default imported account (no explicit `--account`), and assert native Drive is not called. See `TestDriveLsCmd_GOG_BACKEND_gws_uses_gws_path`, `TestDriveGetCmd_GOG_BACKEND_gws_uses_gws_path`, and `TestDriveSearchCmd_GOG_BACKEND_gws_uses_gws_path` in `internal/cmd/gws_routing_parity_test.go`.  
+  - Those tests also assert gws argv (`drive files list` / `get`) and JSON shape (`files` / wrapped `file`).  
+  - Explicit `--account` / `GOG_ACCOUNT` under gws is covered by rejection tests in the same file.
 
 - **Manual smoke:** See §3.3 below.
 
@@ -74,32 +75,34 @@ DRY: Reuse the parity normalizer and error taxonomy so live gws responses are no
 
 ### 3.3 Manual smoke and rollback (concrete steps)
 
-**Manual smoke** (on a host with gws on PATH and authenticated):
+**Manual smoke** (on a host with gws on PATH and authenticated to the default imported account):
+
+Do **not** pass `--account` / `-a` or set `GOG_ACCOUNT` when `GOG_BACKEND=gws` — explicit account selection is rejected. Use the default imported account.
 
 1. **Gmail labels (list):**  
-   `GOG_BACKEND=gws gog gmail labels list -a you@gmail.com --json`  
+   `GOG_BACKEND=gws gog gmail labels list --json`  
    Expect: exit 0; stdout is JSON with `labels` array; schema matches `docs/merge/schemas/gmail-labels-list.json` or only drift differences.
 
 2. **Gmail labels (get):**  
-   `GOG_BACKEND=gws gog gmail labels get -a you@gmail.com INBOX --json`  
+   `GOG_BACKEND=gws gog gmail labels get INBOX --json`  
    Expect: exit 0; JSON has label details.
 
 3. **Drive ls** (single-page, non-global):  
-   `GOG_BACKEND=gws gog drive ls -a you@gmail.com --json`  
+   `GOG_BACKEND=gws gog drive ls --json`  
    Expect: exit 0; stdout has `files` and optionally `nextPageToken`. For `--global` or `--all`, gog uses native (no gws path).
 
 4. **Drive get** (no `--page-count`):  
-   `GOG_BACKEND=gws gog drive get <fileId> -a you@gmail.com --json`  
+   `GOG_BACKEND=gws gog drive get <fileId> --json`  
    Expect: exit 0; JSON has file metadata. With `--page-count`, gog uses native.
 
 5. **Drive search** (single-page, no `--all`):  
-   `GOG_BACKEND=gws gog drive search "query" -a you@gmail.com --json`  
+   `GOG_BACKEND=gws gog drive search "query" --json`  
    Expect: exit 0; stdout has `files` and optionally `nextPageToken`. With `--all`, gog uses native.
 
 **Rollback:**
 
 - Unset or set `GOG_BACKEND=native`, then run the same command. Behavior must be unchanged (native API used; same JSON shape per contract).  
-  Example: `GOG_BACKEND=native gog gmail labels list -a you@gmail.com --json` uses native Gmail API. Same for `gog drive ls`, `gog drive get`, `gog drive search`.
+  Example: `GOG_BACKEND=native gog gmail labels list -a you@gmail.com --json` uses native Gmail API (`-a` is fine on native). Same for `gog drive ls`, `gog drive get`, `gog drive search`.
 
 ---
 
