@@ -20,7 +20,10 @@ import (
 	"github.com/steipete/gogcli/internal/secrets"
 )
 
-const defaultHTTPTimeout = 30 * time.Second
+const (
+	defaultHTTPTimeout    = 30 * time.Second
+	responseHeaderTimeout = 30 * time.Second
+)
 
 var (
 	readClientCredentials = config.ReadClientCredentialsFor
@@ -142,7 +145,8 @@ func newBaseTransport() *http.Transport {
 	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
 	if !ok || defaultTransport == nil {
 		return &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
+			Proxy:                 http.ProxyFromEnvironment,
+			ResponseHeaderTimeout: responseHeaderTimeout,
 			TLSClientConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
 			},
@@ -151,6 +155,8 @@ func newBaseTransport() *http.Transport {
 
 	// Clone() deep-copies TLSClientConfig, so no additional clone needed.
 	transport := defaultTransport.Clone()
+
+	transport.ResponseHeaderTimeout = responseHeaderTimeout
 	if transport.TLSClientConfig == nil {
 		transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12}
 		return transport
@@ -161,4 +167,11 @@ func newBaseTransport() *http.Transport {
 	}
 
 	return transport
+}
+
+// NewBoundedHTTPClient returns an unauthenticated client with the same
+// response-header timeout used by authenticated Google clients. It does not
+// set Client.Timeout so large downloads are not cut short after headers arrive.
+func NewBoundedHTTPClient() *http.Client {
+	return &http.Client{Transport: newBaseTransport()}
 }

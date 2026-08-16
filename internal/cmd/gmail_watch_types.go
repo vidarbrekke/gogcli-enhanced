@@ -14,6 +14,7 @@ const (
 	defaultHistoryResyncMax      = 10
 	defaultPushBodyLimitBytes    = 1024 * 1024
 	defaultHookRequestTimeoutSec = 10
+	defaultGmailWatchReadTimeout = 10 * time.Second
 )
 
 type gmailWatchHook struct {
