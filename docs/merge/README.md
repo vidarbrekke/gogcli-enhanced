@@ -16,6 +16,7 @@ This directory is the **permanent home** for the parity/merge workstream (not a 
 | `CAPTURE-403-RUNBOOK.md` | Maintainer-only 403 golden capture. |
 | `command-migration-matrix.md` | Per-command migration and risk. |
 | `GWS-VS-GOG-ROUTING.md` | When gws vs gog; how to implement live routing; how to test. |
+| `OPENCLAW-SYNC-2026-08.md` | Latest upstream assessment, ported HTTP hardening, and deferred auth work. |
 | `HANDOFF-FOR-REVIEWER.md` | Paste-ready samples for reviewers. |
 | `NATIVE-ENVELOPE-SAMPLES.md` | Native envelope examples. |
 

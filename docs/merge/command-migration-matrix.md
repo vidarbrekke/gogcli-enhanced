@@ -54,12 +54,12 @@ Notes:
 
 | Command Group | Tier | Current Backend | Recommended Target | Decision | Why | Required Work | Rollout Stage |
 |---|---|---|---|---|---|---|---|
-| `gog drive ls/search/get/url` | A | native | gws | candidate-gws | Commodity read APIs, good fit for breadth leverage | adapter mapping + output normalization + error mapping | not-started |
+| `gog drive ls/search/get/url` | A | hybrid | gws | hybrid | `ls`, `search`, and `get` have bounded gws routes; global/all-pages/page-count and URL behavior remain native | authenticated smoke + parity fixtures for routed paths | canary |
 | `gog drive permissions` (read/list) | A | native | gws | candidate-gws | Low side-effect surface | contract parity + auth behavior tests | not-started |
 | `gog docs info/cat/list-tabs` | A | native | gws | candidate-gws | Mostly read operations with manageable normalization | response normalization + tab behavior parity tests | not-started |
 | `gog slides info/list-slides` | A | native | gws | candidate-gws | Read path, low risk | adapter + golden outputs | not-started |
 | `gog sheets metadata/get/notes/links` | A | native | gws | candidate-gws | Read operations, good migration starter set | range parsing parity + output schema parity | not-started |
-| `gog gmail labels list/get` | A | native | gws | candidate-gws | Low risk and high volume; suitable for early confidence | label field normalization + error mapping | not-started |
+| `gog gmail labels list/get` | A | hybrid | gws | hybrid | Live gws routing and normalized errors are implemented behind `GOG_BACKEND=gws` | authenticated smoke + real 403 fixture | canary |
 | `gog calendar calendars/events/get/search` (read-only paths) | A | native | hybrid | hybrid | Read paths are migratable, but date/time UX semantics are sensitive | strict timezone/day-of-week parity test suite | not-started |
 | `gog people me/get/search` | A | native | gws | candidate-gws | Commodity endpoints, low blast radius | identity field parity + permission edge case tests | not-started |
 | `gog tasks lists/list/get` | A | native | gws | candidate-gws | Low-risk reads | standard parity set | not-started |

@@ -51,7 +51,7 @@ func (c *GmailTrackOpensCmd) queryByTrackingID(ctx context.Context, cfg *trackin
 		return fmt.Errorf("build request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req) //nolint:gosec // endpoint is user-configured tracking worker URL
+	resp, err := outboundHTTPClient.Do(req) //nolint:gosec // endpoint is user-configured tracking worker URL
 	if err != nil {
 		return fmt.Errorf("query tracker: %w", err)
 	}
@@ -145,7 +145,7 @@ func (c *GmailTrackOpensCmd) queryAdmin(ctx context.Context, cfg *tracking.Confi
 	}
 	req.Header.Set("Authorization", "Bearer "+cfg.AdminKey)
 
-	resp, err := http.DefaultClient.Do(req) //nolint:gosec // endpoint is user-configured tracking worker URL
+	resp, err := outboundHTTPClient.Do(req) //nolint:gosec // endpoint is user-configured tracking worker URL
 	if err != nil {
 		return fmt.Errorf("query tracker: %w", err)
 	}

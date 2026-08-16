@@ -296,3 +296,20 @@ func TestNewBaseTransport_RespectsProxyAndTLSMinimum(t *testing.T) {
 		t.Fatalf("expected HTTPS proxy to be honored, got: %v", proxyURL)
 	}
 }
+
+func TestNewBoundedHTTPClient_UsesResponseHeaderTimeout(t *testing.T) {
+	client := NewBoundedHTTPClient()
+
+	transport, ok := client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("expected *http.Transport, got %T", client.Transport)
+	}
+
+	if transport.ResponseHeaderTimeout != responseHeaderTimeout {
+		t.Fatalf("ResponseHeaderTimeout = %v, want %v", transport.ResponseHeaderTimeout, responseHeaderTimeout)
+	}
+
+	if client.Timeout != 0 {
+		t.Fatalf("Timeout = %v, want 0", client.Timeout)
+	}
+}

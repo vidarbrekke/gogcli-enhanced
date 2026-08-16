@@ -63,8 +63,8 @@ Use `./scripts/setup-doctor.sh` instead when you need the full OpenClaw/MCP boot
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/steipete/gogcli.git
-   cd gogcli
+   git clone https://github.com/vidarbrekke/gogcli-enhanced.git
+   cd gogcli-enhanced
    ```
 
    For the enhanced fork (MCP, agentic features):

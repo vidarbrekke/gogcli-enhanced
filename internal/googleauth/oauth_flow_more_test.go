@@ -1,12 +1,23 @@
 package googleauth
 
 import (
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 
 	"golang.org/x/oauth2"
 )
+
+func TestNewOAuthCallbackServer_UsesBoundedTimeouts(t *testing.T) {
+	srv := newOAuthCallbackServer(http.NotFoundHandler())
+	if srv.ReadTimeout != defaultOAuthCallbackReadTimeout {
+		t.Fatalf("ReadTimeout = %v, want %v", srv.ReadTimeout, defaultOAuthCallbackReadTimeout)
+	}
+	if srv.ReadHeaderTimeout == 0 || srv.IdleTimeout == 0 || srv.MaxHeaderBytes == 0 {
+		t.Fatalf("expected bounded callback server, got %#v", srv)
+	}
+}
 
 func TestAuthURLParams(t *testing.T) {
 	t.Parallel()

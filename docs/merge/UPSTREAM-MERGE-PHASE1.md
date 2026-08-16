@@ -1,6 +1,7 @@
 # Upstream merge – Phase 1 (low-risk)
 
-Branch: `merge-upstream-2026-03`  
+Historical development branch: `merge-upstream-2026-03` (merged and deleted)
+
 Upstream: `steipete/gogcli` (main)  
 Strategy: **Keep our behavior for all conflicted files**; take upstream’s new files and non-conflicting changes.
 

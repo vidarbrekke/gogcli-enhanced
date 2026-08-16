@@ -68,6 +68,43 @@ func TestGmailWatchServeCmd_UsesStoredHook(t *testing.T) {
 	}
 }
 
+func TestGmailWatchServeCmd_UsesBoundedHTTPServer(t *testing.T) {
+	origListen := listenAndServe
+	t.Cleanup(func() { listenAndServe = origListen })
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	store, err := newGmailWatchStore("a@b.com")
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	if updateErr := store.Update(func(s *gmailWatchState) error {
+		s.Account = "a@b.com"
+		return nil
+	}); updateErr != nil {
+		t.Fatalf("seed: %v", updateErr)
+	}
+
+	var got *http.Server
+	listenAndServe = func(srv *http.Server) error {
+		got = srv
+		return nil
+	}
+	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+	if err != nil {
+		t.Fatalf("ui.New: %v", err)
+	}
+	if err := runKong(t, &GmailWatchServeCmd{}, nil, ui.WithUI(context.Background(), u), &RootFlags{Account: "a@b.com"}); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected server")
+	}
+	if got.ReadTimeout != defaultGmailWatchReadTimeout || got.ReadHeaderTimeout == 0 || got.IdleTimeout == 0 || got.MaxHeaderBytes == 0 {
+		t.Fatalf("expected bounded server, got %#v", got)
+	}
+}
+
 func TestGmailWatchServeCmd_DefaultMaxBytes(t *testing.T) {
 	origListen := listenAndServe
 	t.Cleanup(func() { listenAndServe = origListen })
