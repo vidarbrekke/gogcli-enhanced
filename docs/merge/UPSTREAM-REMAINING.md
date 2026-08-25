@@ -34,6 +34,6 @@ Handle each item in a separate PR with tests and `make ci`:
 ## Provider follow-up
 
 - Add authenticated smoke: `make smoke-gws` / `scripts/smoke-gws-routing.sh` for every `GOG_BACKEND=gws` route and native rollback.
-- Capture a real Gmail 403 fixture and promote it to hard parity gating.
+- Capture a real Gmail 403 fixture via `scripts/capture-403-golden.sh` (removes PLACEHOLDER); hard-gate is already wired in `cmd/gog-parity`.
 - Preserve `google_reason` and free-form messages as drift-only data.
 - Keep Tier B/C writes native until parity and safety gates are explicitly approved.

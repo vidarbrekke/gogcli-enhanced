@@ -10,7 +10,7 @@ Live agent requests use `gog-agentic` and native APIs by default. `GOG_BACKEND=g
 
 ## 2. Completed work and outcomes
 
-The parity foundation is complete: `cmd/gog-parity` and `internal/parity/` load fixtures, classify errors from stdout/stderr/exit status, normalize provider errors, validate schemas, and distinguish breaking changes from drift. `google_reason`, free-form messages, and unordered list output are non-contractual unless explicitly documented. The 401 and 404 cases are hard-gated; the 403 case remains soft until a real fixture replaces its placeholder.
+The parity foundation is complete: `cmd/gog-parity` and `internal/parity/` load fixtures, classify errors from stdout/stderr/exit status, normalize provider errors, validate schemas, and distinguish breaking changes from drift. `google_reason`, free-form messages, and unordered list output are non-contractual unless explicitly documented. The 401 and 404 cases are hard-gated. The 403 case is wired as hard-gated in the runner but remains soft-skipped until `PLACEHOLDER.txt` is removed after a real capture (`scripts/capture-403-golden.sh`).
 
 Optional live gws routing is implemented for Gmail labels list/get and Drive list/get/search. Drive gws routing is intentionally limited: list/search are single-page paths, `drive ls --global`, `--all`, search `--all`, and get `--page-count` remain native. The routing implementation is in `internal/backend/gws/`, `internal/cmd/backend.go`, `internal/cmd/backend_error.go`, `internal/cmd/gmail_labels.go`, and `internal/cmd/drive.go`.
 
@@ -54,6 +54,6 @@ The native/gws switch is command-specific, not automatic capability discovery. N
 ## Next phase
 
 1. Run authenticated smoke: `make smoke-gws` (or `scripts/smoke-gws-routing.sh`) for Gmail labels and Drive list/get/search under both `GOG_BACKEND=gws` and `GOG_BACKEND=native`. Requires OAuth; gws half needs authenticated `gws` on PATH.
-2. Capture and hard-gate the real Gmail 403 parity fixture.
+2. Capture the real Gmail 403 golden: `scripts/capture-403-golden.sh` (browser drive-only login), then `make parity` and commit. Hard-gate wiring is already in `cmd/gog-parity`; removing `PLACEHOLDER.txt` activates it.
 3. Continue upstream ports as separate PRs. Prioritize Gmail reply/draft/attachment workflows, Drive conditional replacement/sync, and Calendar date-window/timezone fixes. Keep Docs/Slides rewrites, module rename, Go 1.26 migration, and revoked-token recovery as separate design decisions.
 4. For every PR, run `make parity` when provider contracts change and `make ci` before merge.

@@ -36,7 +36,7 @@ The parity runner (`cmd/gog-parity`) discovers cases by scanning for immediate s
 | `gmail-labels-get` | native | Single label with counts (e.g. INBOX). |
 | `gmail-labels-get-not-found` | gws | 404 not_found (authenticated, non-existent label ID). |
 | `gmail-labels-401-unauthenticated` | gws | 401 authError (no credentials). |
-| `gmail-labels-403-forbidden` | gws | 403 — placeholder until real capture (see `../CAPTURE-403-RUNBOOK.md`). |
+| `gmail-labels-403-forbidden` | gws | 403 — PLACEHOLDER until `scripts/capture-403-golden.sh`; hard-gated once placeholder removed. |
 | `drive-ls` | native | One page of files (test fixture). |
 
 ## How to capture native output (for reviewers)

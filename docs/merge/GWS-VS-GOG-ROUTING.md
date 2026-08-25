@@ -57,7 +57,7 @@ DRY: Reuse the parity normalizer and error taxonomy so live gws responses are no
   # or
   go run ./cmd/gog-parity --fixtures docs/merge/goldens --schemas docs/merge/schemas --provider gws
   ```
-- **Success:** Exit 0; `parity-report.json` has no breaking diffs for hard-gated cases (401, 404); drift is allowed.
+- **Success:** Exit 0; `parity-report.json` has no breaking diffs for hard-gated cases (401, 403, 404). 403 stays skipped while `PLACEHOLDER.txt` exists. Drift is allowed.
 - **CI:** Parity workflow runs on fixtures and uploads the report; reviewers confirm no breaking diffs.
 
 ### 3.2 Live gws routing (implemented for Gmail labels list/get, drive ls, drive get, drive search)

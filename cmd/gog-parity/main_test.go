@@ -79,6 +79,82 @@ func TestReportPath(t *testing.T) {
 	})
 }
 
+// TestHardGatedError_403Mismatch: real 403 fixture with wrong normalized code → breaking, exit 1.
+func TestHardGatedError_403Mismatch(t *testing.T) {
+	fixtures := t.TempDir()
+	schemas := t.TempDir()
+	caseDir := filepath.Join(fixtures, "gmail-labels-403-forbidden", "gws")
+	if err := os.MkdirAll(caseDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(caseDir, "exit_code.txt"), []byte("1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// 401 payload under 403 case name → ErrorCode mismatch vs permission_denied
+	if err := os.WriteFile(filepath.Join(caseDir, "stdout.json"), []byte(`{"error":{"code":401,"message":"x","reason":"authError"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(caseDir, "stderr.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, exitCode := runParity(t, fixtures, schemas)
+	if exitCode == 0 {
+		t.Fatalf("expected non-zero exit for hard-gated 403 mismatch, got 0")
+	}
+	cases := parseReportCases(t, stdout)
+	var found *CaseResult
+	for i := range cases {
+		if cases[i].Case == "gmail-labels-403-forbidden" {
+			found = &cases[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("report missing case gmail-labels-403-forbidden")
+	}
+	if len(found.Breaking) == 0 {
+		t.Fatalf("expected breaking diffs for ErrorCode mismatch, got none (outcome=%s)", found.Outcome)
+	}
+}
+
+// TestHardGatedError_403PlaceholderStillSkipped: PLACEHOLDER.txt keeps 403 soft until real capture.
+func TestHardGatedError_403PlaceholderStillSkipped(t *testing.T) {
+	fixtures := t.TempDir()
+	schemas := t.TempDir()
+	caseDir := filepath.Join(fixtures, "gmail-labels-403-forbidden", "gws")
+	if err := os.MkdirAll(caseDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"stdout.json", "stderr.json"} {
+		if err := os.WriteFile(filepath.Join(caseDir, name), []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(caseDir, "exit_code.txt"), []byte("0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(caseDir, "PLACEHOLDER.txt"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, exitCode := runParity(t, fixtures, schemas)
+	if exitCode != 0 {
+		t.Fatalf("expected exit 0 while 403 is PLACEHOLDER, got %d", exitCode)
+	}
+	cases := parseReportCases(t, stdout)
+	var found *CaseResult
+	for i := range cases {
+		if cases[i].Case == "gmail-labels-403-forbidden" {
+			found = &cases[i]
+			break
+		}
+	}
+	if found == nil || found.Outcome != "SKIPPED_PLACEHOLDER" {
+		t.Fatalf("expected SKIPPED_PLACEHOLDER, got %#v", found)
+	}
+}
+
 // TestHardGatedError_UnnormalizablePayload: hard-gated ERROR case with payload that cannot be normalized → FAIL_RUNNER, exit 1.
 func TestHardGatedError_UnnormalizablePayload(t *testing.T) {
 	fixtures := t.TempDir()

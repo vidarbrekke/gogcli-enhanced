@@ -217,6 +217,7 @@ func main() {
 	hardGated := map[string]bool{
 		"gmail-labels-401-unauthenticated": true,
 		"gmail-labels-get-not-found":       true,
+		"gmail-labels-403-forbidden":       true,
 	}
 	for _, c := range report.Cases {
 		if len(c.RunnerFailures) > 0 {
@@ -269,6 +270,8 @@ func expectedErrorForCase(caseName string) caseErrorPolicy {
 	switch caseName {
 	case "gmail-labels-401-unauthenticated":
 		return caseErrorPolicy{hardGated: true, HTTPStatus: 401, ErrorCode: "unauthenticated"}
+	case "gmail-labels-403-forbidden":
+		return caseErrorPolicy{hardGated: true, HTTPStatus: 403, ErrorCode: "permission_denied"}
 	case "gmail-labels-get-not-found":
 		return caseErrorPolicy{hardGated: true, HTTPStatus: 404, ErrorCode: "not_found"}
 	default:
