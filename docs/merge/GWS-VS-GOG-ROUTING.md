@@ -70,15 +70,25 @@ DRY: Reuse the parity normalizer and error taxonomy so live gws responses are no
   - `TestGWS_KeepsNativeForBoundedFlags`: `--global` / `--all` / `--page-count` stay native (gws not invoked).
   - `TestGWS_NormalizesProviderError`: gws 401 → `BackendError` with stable `error_code`.
 
-- **Manual smoke:** See §3.3 below.
+- **Manual smoke:** `scripts/smoke-gws-routing.sh` (or `make smoke-gws`). See §3.3.
 
-- **Rollback:** See §3.3 below.
+- **Rollback:** included in the same script (`GOG_BACKEND=native` half). See §3.3.
 
 ### 3.3 Manual smoke and rollback (concrete steps)
 
-**Manual smoke** (on a host with gws on PATH and authenticated to the default imported account):
+**Preferred:** run the smoke script on a host with OAuth credentials and (for the gws half) authenticated `gws`:
 
-Do **not** pass `--account` / `-a` or set `GOG_ACCOUNT` when `GOG_BACKEND=gws` — explicit account selection is rejected. Use the default imported account.
+```bash
+make smoke-gws
+# or
+scripts/smoke-gws-routing.sh
+scripts/smoke-gws-routing.sh --native-only --account you@gmail.com
+scripts/smoke-gws-routing.sh --gws-only
+```
+
+The script checks Gmail labels list/get and Drive ls/get/search under both backends and asserts JSON shapes (`labels`, wrapped `label`/`file`, `files`).
+
+**Manual equivalent** (default imported account for gws — do **not** pass `--account` / `-a` or set `GOG_ACCOUNT` when `GOG_BACKEND=gws`):
 
 1. **Gmail labels (list):**  
    `GOG_BACKEND=gws gog gmail labels list --json`  
@@ -97,7 +107,7 @@ Do **not** pass `--account` / `-a` or set `GOG_ACCOUNT` when `GOG_BACKEND=gws` �
    Expect: exit 0; JSON has file metadata. With `--page-count`, gog uses native.
 
 5. **Drive search** (single-page, no `--all`):  
-   `GOG_BACKEND=gws gog drive search "query" --json`  
+   `GOG_BACKEND=gws gog drive search --raw 'trashed = false' --json`  
    Expect: exit 0; stdout has `files` and optionally `nextPageToken`. With `--all`, gog uses native.
 
 **Rollback:**
@@ -113,4 +123,4 @@ Do **not** pass `--account` / `-a` or set `GOG_ACCOUNT` when `GOG_BACKEND=gws` �
 |----------|--------|
 | When do we use gws vs gog in the agent path? | **Default:** always gog. **When GOG_BACKEND=gws:** gog invokes gws for Tier A commands that support it (gmail labels list/get, drive ls single-page, **drive get**, **drive search** single-page), normalizes, returns. gws is also used in parity (fixtures only). |
 | How is routing implemented? | Backend switch in gog (`GOG_BACKEND` env); `internal/backend/gws` invokes gws CLI; `internal/parity/normalize` normalizes; single MCP (gog-agentic). |
-| How do we test? | **Parity:** `make parity` on fixtures. **Live gws:** unit tests; manual smoke with gws on PATH and `GOG_BACKEND=gws`; rollback check with default env. |
+| How do we test? | **Parity:** `make parity` on fixtures. **Unit:** `TestGWS_*` fake-gws harness. **Live:** `make smoke-gws` / `scripts/smoke-gws-routing.sh` (authenticated native + gws). |

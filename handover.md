@@ -53,7 +53,7 @@ The native/gws switch is command-specific, not automatic capability discovery. N
 
 ## Next phase
 
-1. Add authenticated smoke tests for Gmail labels and Drive list/get/search under both `GOG_BACKEND=gws` and `GOG_BACKEND=native`.
+1. Run authenticated smoke: `make smoke-gws` (or `scripts/smoke-gws-routing.sh`) for Gmail labels and Drive list/get/search under both `GOG_BACKEND=gws` and `GOG_BACKEND=native`. Requires OAuth; gws half needs authenticated `gws` on PATH.
 2. Capture and hard-gate the real Gmail 403 parity fixture.
 3. Continue upstream ports as separate PRs. Prioritize Gmail reply/draft/attachment workflows, Drive conditional replacement/sync, and Calendar date-window/timezone fixes. Keep Docs/Slides rewrites, module rename, Go 1.26 migration, and revoked-token recovery as separate design decisions.
 4. For every PR, run `make parity` when provider contracts change and `make ci` before merge.
