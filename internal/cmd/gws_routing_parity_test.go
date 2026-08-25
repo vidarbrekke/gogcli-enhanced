@@ -3,17 +3,22 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"google.golang.org/api/drive/v3"
+	"google.golang.org/api/gmail/v1"
 
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/secrets"
 	"github.com/steipete/gogcli/internal/ui"
 )
+
+// Fake gws harness for live GOG_BACKEND=gws routing.
+// Env: GOG_GWS_PATH (binary), GOG_GWS_ARGS_FILE (argv log), GOG_GWS_FAKE_MODE=error (401 JSON).
 
 func writeFakeGWSBinary(t *testing.T) string {
 	t.Helper()
@@ -25,6 +30,13 @@ set -euo pipefail
 
 if [[ -n "${GOG_GWS_ARGS_FILE:-}" ]]; then
   printf '%s\n' "$*" >> "$GOG_GWS_ARGS_FILE"
+fi
+
+if [[ "${GOG_GWS_FAKE_MODE:-}" == "error" ]]; then
+  cat <<'EOF'
+{"error":{"code":401,"message":"Request had invalid authentication credentials.","reason":"authError"}}
+EOF
+  exit 1
 fi
 
 if [[ "$1" == "gmail" && "$2" == "users" && "$3" == "labels" && "$4" == "list" ]]; then
@@ -64,6 +76,26 @@ exit 1
 	return path
 }
 
+func withDefaultAccount(t *testing.T, email string) {
+	t.Helper()
+	prev := openSecretsStoreForAccount
+	t.Cleanup(func() { openSecretsStoreForAccount = prev })
+	openSecretsStoreForAccount = func() (secrets.Store, error) {
+		return &fakeSecretsStore{defaultAccount: email}, nil
+	}
+}
+
+func setupGWS(t *testing.T) (argsFile string) {
+	t.Helper()
+	t.Setenv("GOG_BACKEND", "gws")
+	t.Setenv("GOG_ACCOUNT", "")
+	argsFile = filepath.Join(t.TempDir(), "gws-args.txt")
+	t.Setenv("GOG_GWS_ARGS_FILE", argsFile)
+	t.Setenv("GOG_GWS_PATH", writeFakeGWSBinary(t))
+	withDefaultAccount(t, "default@example.com")
+	return argsFile
+}
+
 func trackNativeDriveService(t *testing.T) *bool {
 	t.Helper()
 	nativeCalled := false
@@ -76,61 +108,41 @@ func trackNativeDriveService(t *testing.T) *bool {
 	return &nativeCalled
 }
 
-func withDefaultAccount(t *testing.T, email string) {
+func trackNativeGmailService(t *testing.T) *bool {
 	t.Helper()
+	nativeCalled := false
+	origNew := newGmailService
+	newGmailService = func(ctx context.Context, account string) (*gmail.Service, error) {
+		nativeCalled = true
+		return origNew(ctx, account)
+	}
+	t.Cleanup(func() { newGmailService = origNew })
+	return &nativeCalled
+}
 
-	prev := openSecretsStoreForAccount
-	t.Cleanup(func() { openSecretsStoreForAccount = prev })
-	openSecretsStoreForAccount = func() (secrets.Store, error) {
-		return &fakeSecretsStore{defaultAccount: email}, nil
+func readGWSArgs(t *testing.T, argsFile string) string {
+	t.Helper()
+	raw, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatalf("args log: %v", err)
+	}
+	return strings.TrimSpace(string(raw))
+}
+
+func assertArgvContains(t *testing.T, argsLine string, needles ...string) {
+	t.Helper()
+	for _, n := range needles {
+		if !strings.Contains(argsLine, n) {
+			t.Fatalf("argv missing %q; got %q", n, argsLine)
+		}
 	}
 }
 
-func TestGmailLabelsGetCmd_GWS_TextParity(t *testing.T) {
+// --- Account policy (once; shared by all gws-routed commands) ---
+
+func TestGWS_RejectsExplicitAccountFlag(t *testing.T) {
 	t.Setenv("GOG_BACKEND", "gws")
-	t.Setenv("GOG_GWS_PATH", writeFakeGWSBinary(t))
-	withDefaultAccount(t, "default@example.com")
-
-	out := captureStdout(t, func() {
-		ctx := newTestUIContext(t, outfmt.Mode{})
-		if err := runKong(t, &GmailLabelsGetCmd{}, []string{"INBOX"}, ctx, &RootFlags{}); err != nil {
-			t.Fatalf("execute: %v", err)
-		}
-	})
-
-	if !strings.Contains(out, "id\tINBOX") || !strings.Contains(out, "messages_total\t1") || !strings.Contains(out, "threads_unread\t4") {
-		t.Fatalf("unexpected GWS text output: %q", out)
-	}
-}
-
-func TestDriveLsCmd_GWS_TextParity(t *testing.T) {
-	t.Setenv("GOG_BACKEND", "gws")
-	t.Setenv("GOG_GWS_PATH", writeFakeGWSBinary(t))
-	withDefaultAccount(t, "default@example.com")
-
-	var errBuf strings.Builder
-	out := captureStdout(t, func() {
-		u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: &errBuf, Color: "never"})
-		if err != nil {
-			t.Fatalf("ui.New: %v", err)
-		}
-		ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{})
-		if err := runKong(t, &DriveLsCmd{}, []string{}, ctx, &RootFlags{}); err != nil {
-			t.Fatalf("execute: %v", err)
-		}
-	})
-
-	if !strings.Contains(out, "1.0 KB") || !strings.Contains(out, "2025-12-12 14:37") {
-		t.Fatalf("unexpected GWS drive ls text output: %q", out)
-	}
-	if strings.Contains(errBuf.String(), "--page") {
-		t.Fatalf("unexpected next-page hint on GWS path: %q", errBuf.String())
-	}
-}
-
-func TestDriveLsCmd_GWS_RejectsExplicitAccount(t *testing.T) {
-	t.Setenv("GOG_BACKEND", "gws")
-
+	t.Setenv("GOG_ACCOUNT", "")
 	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 	err := runKong(t, &DriveLsCmd{}, []string{}, ctx, &RootFlags{Account: "other@example.com"})
 	if err == nil || !strings.Contains(err.Error(), "explicit --account is not supported with GOG_BACKEND=gws") {
@@ -138,22 +150,9 @@ func TestDriveLsCmd_GWS_RejectsExplicitAccount(t *testing.T) {
 	}
 }
 
-func TestDriveLsCmd_GWS_AllowsAutoAccount(t *testing.T) {
-	t.Setenv("GOG_BACKEND", "gws")
-	t.Setenv("GOG_GWS_PATH", writeFakeGWSBinary(t))
-	withDefaultAccount(t, "default@example.com")
-
-	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
-	err := runKong(t, &DriveLsCmd{}, []string{}, ctx, &RootFlags{Account: "default"})
-	if err != nil {
-		t.Fatalf("expected auto/default account to be accepted, got: %v", err)
-	}
-}
-
-func TestGmailLabelsGetCmd_GWS_RejectsExplicitAccountFromEnv(t *testing.T) {
+func TestGWS_RejectsExplicitAccountEnv(t *testing.T) {
 	t.Setenv("GOG_BACKEND", "gws")
 	t.Setenv("GOG_ACCOUNT", "other@example.com")
-
 	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 	err := runKong(t, &GmailLabelsGetCmd{}, []string{"INBOX"}, ctx, &RootFlags{})
 	if err == nil || !strings.Contains(err.Error(), "explicit GOG_ACCOUNT is not supported with GOG_BACKEND=gws") {
@@ -161,110 +160,226 @@ func TestGmailLabelsGetCmd_GWS_RejectsExplicitAccountFromEnv(t *testing.T) {
 	}
 }
 
-func TestDriveGetCmd_GOG_BACKEND_gws_uses_gws_path(t *testing.T) {
-	t.Setenv("GOG_BACKEND", "gws")
-	argsFile := filepath.Join(t.TempDir(), "gws-args.txt")
-	t.Setenv("GOG_GWS_ARGS_FILE", argsFile)
-	t.Setenv("GOG_GWS_PATH", writeFakeGWSBinary(t))
-	withDefaultAccount(t, "default@example.com")
+func TestGWS_AllowsAutoAccount(t *testing.T) {
+	argsFile := setupGWS(t)
 	nativeCalled := trackNativeDriveService(t)
-
-	out := captureStdout(t, func() {
+	_ = captureStdout(t, func() {
 		ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
-		if err := runKong(t, &DriveGetCmd{}, []string{"fileId123"}, ctx, &RootFlags{}); err != nil {
-			t.Fatalf("execute: %v", err)
+		if err := runKong(t, &DriveLsCmd{}, []string{}, ctx, &RootFlags{Account: "default"}); err != nil {
+			t.Fatalf("expected auto/default account to be accepted, got: %v", err)
 		}
 	})
-
 	if *nativeCalled {
-		t.Fatal("GOG_BACKEND=gws must not call native newDriveService")
+		t.Fatal("auto account must still use gws path")
 	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(out), &payload); err != nil {
-		t.Fatalf("json: %v (out=%q)", err, out)
+	assertArgvContains(t, readGWSArgs(t, argsFile), "drive files list")
+}
+
+// --- Routed command success (JSON + argv + native not called; text where format is unique) ---
+
+func TestGWS_RoutedCommands(t *testing.T) {
+	tests := []struct {
+		name           string
+		cmd            any
+		args           []string
+		track          string // "drive" | "gmail"
+		wantArgv       []string
+		checkJSON      func(t *testing.T, payload map[string]any)
+		checkText      func(t *testing.T, out, errOut string)
+		wantTextArgvOK bool // text mode still invokes gws (labels get does list+get)
+	}{
+		{
+			name:     "gmail labels list",
+			cmd:      &GmailLabelsListCmd{},
+			args:     nil,
+			track:    "gmail",
+			wantArgv: []string{"gmail users labels list"},
+			checkJSON: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				labels, _ := payload["labels"].([]any)
+				if len(labels) != 1 {
+					t.Fatalf("expected labels[1], got %#v", payload)
+				}
+			},
+		},
+		{
+			name:     "gmail labels get",
+			cmd:      &GmailLabelsGetCmd{},
+			args:     []string{"INBOX"},
+			track:    "gmail",
+			wantArgv: []string{"gmail users labels get", "INBOX"},
+			checkJSON: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				label, _ := payload["label"].(map[string]any)
+				if label == nil || label["id"] != "INBOX" {
+					t.Fatalf("expected wrapped label.id=INBOX, got %#v", payload)
+				}
+			},
+			checkText: func(t *testing.T, out, _ string) {
+				t.Helper()
+				if !strings.Contains(out, "id\tINBOX") || !strings.Contains(out, "messages_total\t1") || !strings.Contains(out, "threads_unread\t4") {
+					t.Fatalf("unexpected labels get text: %q", out)
+				}
+			},
+			wantTextArgvOK: true,
+		},
+		{
+			name:     "drive ls",
+			cmd:      &DriveLsCmd{},
+			args:     nil,
+			track:    "drive",
+			wantArgv: []string{"drive files list", "'root' in parents"},
+			checkJSON: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				files, _ := payload["files"].([]any)
+				if len(files) != 1 {
+					t.Fatalf("expected files[1], got %#v", payload)
+				}
+			},
+			checkText: func(t *testing.T, out, errOut string) {
+				t.Helper()
+				if !strings.Contains(out, "1.0 KB") || !strings.Contains(out, "2025-12-12 14:37") {
+					t.Fatalf("unexpected drive ls text: %q", out)
+				}
+				if strings.Contains(errOut, "--page") {
+					t.Fatalf("unexpected next-page hint on gws path: %q", errOut)
+				}
+			},
+			wantTextArgvOK: true,
+		},
+		{
+			name:     "drive get",
+			cmd:      &DriveGetCmd{},
+			args:     []string{"fileId123"},
+			track:    "drive",
+			wantArgv: []string{"drive files get", "fileId123"},
+			checkJSON: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				file, _ := payload["file"].(map[string]any)
+				if file == nil || file["id"] != "fileId123" {
+					t.Fatalf("expected wrapped file.id=fileId123, got %#v", payload)
+				}
+			},
+		},
+		{
+			name:     "drive search",
+			cmd:      &DriveSearchCmd{},
+			args:     []string{"foo"},
+			track:    "drive",
+			wantArgv: []string{"drive files list", "fullText contains 'foo'"},
+			checkJSON: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				files, _ := payload["files"].([]any)
+				if len(files) != 1 {
+					t.Fatalf("expected files[1], got %#v", payload)
+				}
+			},
+		},
 	}
-	file, _ := payload["file"].(map[string]any)
-	if file == nil || file["id"] != "fileId123" {
-		t.Fatalf("expected wrapped file.id=fileId123, got %#v", payload)
-	}
-	argsRaw, err := os.ReadFile(argsFile)
-	if err != nil {
-		t.Fatalf("args log: %v", err)
-	}
-	argsLine := strings.TrimSpace(string(argsRaw))
-	if !strings.Contains(argsLine, "drive files get") || !strings.Contains(argsLine, "fileId123") {
-		t.Fatalf("expected gws drive files get with fileId123, got %q", argsLine)
+
+	for _, tt := range tests {
+		t.Run(tt.name+"/json", func(t *testing.T) {
+			argsFile := setupGWS(t)
+			var native *bool
+			switch tt.track {
+			case "drive":
+				native = trackNativeDriveService(t)
+			case "gmail":
+				native = trackNativeGmailService(t)
+			default:
+				t.Fatalf("unknown track %q", tt.track)
+			}
+
+			out := captureStdout(t, func() {
+				ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
+				if err := runKong(t, tt.cmd, tt.args, ctx, &RootFlags{}); err != nil {
+					t.Fatalf("execute: %v", err)
+				}
+			})
+			if *native {
+				t.Fatal("gws route must not call native service constructor")
+			}
+			var payload map[string]any
+			if err := json.Unmarshal([]byte(out), &payload); err != nil {
+				t.Fatalf("json: %v (out=%q)", err, out)
+			}
+			tt.checkJSON(t, payload)
+			assertArgvContains(t, readGWSArgs(t, argsFile), tt.wantArgv...)
+		})
+
+		if tt.checkText == nil {
+			continue
+		}
+		t.Run(tt.name+"/text", func(t *testing.T) {
+			argsFile := setupGWS(t)
+			var errBuf strings.Builder
+			out := captureStdout(t, func() {
+				u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: &errBuf, Color: "never"})
+				if err != nil {
+					t.Fatalf("ui.New: %v", err)
+				}
+				ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{})
+				if err := runKong(t, tt.cmd, tt.args, ctx, &RootFlags{}); err != nil {
+					t.Fatalf("execute: %v", err)
+				}
+			})
+			tt.checkText(t, out, errBuf.String())
+			if tt.wantTextArgvOK {
+				assertArgvContains(t, readGWSArgs(t, argsFile), tt.wantArgv...)
+			}
+		})
 	}
 }
 
-func TestDriveSearchCmd_GOG_BACKEND_gws_uses_gws_path(t *testing.T) {
-	t.Setenv("GOG_BACKEND", "gws")
-	argsFile := filepath.Join(t.TempDir(), "gws-args.txt")
-	t.Setenv("GOG_GWS_ARGS_FILE", argsFile)
-	t.Setenv("GOG_GWS_PATH", writeFakeGWSBinary(t))
-	withDefaultAccount(t, "default@example.com")
-	nativeCalled := trackNativeDriveService(t)
+// --- Flags that must stay native under GOG_BACKEND=gws ---
 
-	out := captureStdout(t, func() {
-		ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
-		if err := runKong(t, &DriveSearchCmd{}, []string{"foo"}, ctx, &RootFlags{}); err != nil {
-			t.Fatalf("execute: %v", err)
-		}
-	})
+func TestGWS_KeepsNativeForBoundedFlags(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  any
+		args []string
+	}{
+		{name: "drive ls --global", cmd: &DriveLsCmd{}, args: []string{"--global"}},
+		{name: "drive ls --all", cmd: &DriveLsCmd{}, args: []string{"--all"}},
+		{name: "drive search --all", cmd: &DriveSearchCmd{}, args: []string{"foo", "--all"}},
+		{name: "drive get --page-count", cmd: &DriveGetCmd{}, args: []string{"fileId123", "--page-count"}},
+	}
 
-	if *nativeCalled {
-		t.Fatal("GOG_BACKEND=gws must not call native newDriveService")
-	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(out), &payload); err != nil {
-		t.Fatalf("json: %v (out=%q)", err, out)
-	}
-	files, _ := payload["files"].([]any)
-	if len(files) != 1 {
-		t.Fatalf("expected files[1], got %#v", payload)
-	}
-	argsRaw, err := os.ReadFile(argsFile)
-	if err != nil {
-		t.Fatalf("args log: %v", err)
-	}
-	argsLine := strings.TrimSpace(string(argsRaw))
-	if !strings.Contains(argsLine, "drive files list") || !strings.Contains(argsLine, "fullText contains 'foo'") {
-		t.Fatalf("expected gws drive files list with search q, got %q", argsLine)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			argsFile := setupGWS(t)
+			nativeCalled := trackNativeDriveService(t)
+			ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
+			_ = runKong(t, tt.cmd, tt.args, ctx, &RootFlags{})
+			if !*nativeCalled {
+				t.Fatal("expected native drive service for bounded flag")
+			}
+			if _, err := os.Stat(argsFile); err == nil {
+				if raw := readGWSArgs(t, argsFile); raw != "" {
+					t.Fatalf("gws must not be invoked for native fallback; argv=%q", raw)
+				}
+			}
+		})
 	}
 }
 
-func TestDriveLsCmd_GOG_BACKEND_gws_uses_gws_path(t *testing.T) {
-	t.Setenv("GOG_BACKEND", "gws")
-	argsFile := filepath.Join(t.TempDir(), "gws-args.txt")
-	t.Setenv("GOG_GWS_ARGS_FILE", argsFile)
-	t.Setenv("GOG_GWS_PATH", writeFakeGWSBinary(t))
-	withDefaultAccount(t, "default@example.com")
-	nativeCalled := trackNativeDriveService(t)
+// --- Error normalization on gws path ---
 
-	out := captureStdout(t, func() {
-		ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
-		if err := runKong(t, &DriveLsCmd{}, []string{}, ctx, &RootFlags{}); err != nil {
-			t.Fatalf("execute: %v", err)
-		}
-	})
+func TestGWS_NormalizesProviderError(t *testing.T) {
+	setupGWS(t)
+	t.Setenv("GOG_GWS_FAKE_MODE", "error")
+	trackNativeDriveService(t)
 
-	if *nativeCalled {
-		t.Fatal("GOG_BACKEND=gws must not call native newDriveService")
+	ctx := newTestUIContext(t, outfmt.Mode{JSON: true})
+	err := runKong(t, &DriveGetCmd{}, []string{"fileId123"}, ctx, &RootFlags{})
+	var be *BackendError
+	if !errors.As(err, &be) || be.Env == nil {
+		t.Fatalf("expected BackendError, got: %v", err)
 	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(out), &payload); err != nil {
-		t.Fatalf("json: %v (out=%q)", err, out)
+	if be.Env.ErrorCode != "unauthenticated" {
+		t.Fatalf("error_code=%q, want unauthenticated", be.Env.ErrorCode)
 	}
-	files, _ := payload["files"].([]any)
-	if len(files) != 1 {
-		t.Fatalf("expected files[1], got %#v", payload)
-	}
-	argsRaw, err := os.ReadFile(argsFile)
-	if err != nil {
-		t.Fatalf("args log: %v", err)
-	}
-	argsLine := strings.TrimSpace(string(argsRaw))
-	if !strings.Contains(argsLine, "drive files list") || !strings.Contains(argsLine, "'root' in parents") {
-		t.Fatalf("expected gws drive files list for root folder, got %q", argsLine)
+	if be.Env.Service != "drive" || be.Env.Operation != "get" {
+		t.Fatalf("service/operation = %q/%q", be.Env.Service, be.Env.Operation)
 	}
 }

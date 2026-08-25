@@ -64,10 +64,11 @@ DRY: Reuse the parity normalizer and error taxonomy so live gws responses are no
 
 - **Implemented:** Gmail labels list/get; drive ls (single-page, non-global); **drive get** (no `--page-count`); **drive search** (single-page, no `--all`).
 
-- **Unit / integration:**  
-  - Tests set `GOG_BACKEND=gws`, point `GOG_GWS_PATH` at a fake `gws` binary, use the default imported account (no explicit `--account`), and assert native Drive is not called. See `TestDriveLsCmd_GOG_BACKEND_gws_uses_gws_path`, `TestDriveGetCmd_GOG_BACKEND_gws_uses_gws_path`, and `TestDriveSearchCmd_GOG_BACKEND_gws_uses_gws_path` in `internal/cmd/gws_routing_parity_test.go`.  
-  - Those tests also assert gws argv (`drive files list` / `get`) and JSON shape (`files` / wrapped `file`).  
-  - Explicit `--account` / `GOG_ACCOUNT` under gws is covered by rejection tests in the same file.
+- **Unit / integration:** harness in `internal/cmd/gws_routing_parity_test.go` (fake `gws` via `GOG_GWS_PATH`):
+  - Account policy: reject explicit `--account` / `GOG_ACCOUNT`; allow `auto`/`default`.
+  - `TestGWS_RoutedCommands`: every live route (gmail labels list/get, drive ls/get/search) — JSON shape, argv, native constructor not called; text format checks where unique.
+  - `TestGWS_KeepsNativeForBoundedFlags`: `--global` / `--all` / `--page-count` stay native (gws not invoked).
+  - `TestGWS_NormalizesProviderError`: gws 401 → `BackendError` with stable `error_code`.
 
 - **Manual smoke:** See §3.3 below.
 
