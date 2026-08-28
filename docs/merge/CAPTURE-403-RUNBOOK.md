@@ -5,7 +5,9 @@ The **403 (permission denied)** golden must be a real gws stdout capture (creden
 **Preferred one-shot:** from repo root, run:
 
 ```bash
-scripts/capture-403-golden.sh
+scripts/capture-403-golden.sh --check   # preflight existing no-gmail creds
+scripts/capture-403-golden.sh             # reuse creds if they return 403, else browser
+scripts/capture-403-golden.sh --force-browser
 ```
 
 That backs up your current gws export, opens a **drive-only** OAuth browser flow (`gws auth login -s drive --readonly`), writes the golden under `docs/merge/goldens/gmail-labels-403-forbidden/gws/`, removes `PLACEHOLDER.txt`, then runs full `gws auth login` to restore normal scopes. Then `make parity` and commit.
